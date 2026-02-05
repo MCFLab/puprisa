@@ -28,9 +28,7 @@ def adjust_roi(row):
     return result
 
 
-def get_elpis(
-    path_elpis, path_georgia, os_type="win", wavelength="770-730", melanoma_only=True
-):
+def get_elpis(path_elpis, path_georgia, wavelength="770-730", melanoma_only=True):
     if wavelength == "770-730":
         df_elpis = pd.read_excel(path_elpis, sheet_name="propper run 2")
     else:
@@ -44,22 +42,21 @@ def get_elpis(
     # rename recurrence column
     df_georgia = df_georgia.rename(columns={"1=yes recu": "recurrence"})
 
-    # adjust paths and drop useless columns based on operating system
-    if sys.platform == os_type:
-        df_elpis["folder_eva"] = df_elpis["folder"] + "_evaluation"
-        df_elpis = df_elpis.drop(
-            columns=["stitched", "surgical ink", "pixel / scan ampli"]
-        )
+    # create evaluation folder column
+    df_elpis["folder_eva"] = df_elpis["folder"] + "_evaluation"
+
+    # adjust paths  based on operating system
+    if sys.platform.startswith("linux"):
         df_elpis["folder"] = df_elpis["folder"].apply(convert_windows_to_linux_path)
         df_elpis["folder_eva"] = df_elpis["folder_eva"].apply(
             convert_windows_to_linux_path
         )
-
-    elif sys.platform == "win32":
-        df_elpis["folder_eva"] = df_elpis["folder"] + "_evaluation"
-        df_elpis = df_elpis.drop(
-            columns=["stitched", "surgical ink", "pixel / scan ampli"]
+        df_elpis["pre-imaging folder"] = df_elpis["pre-imaging folder"].apply(
+            convert_windows_to_linux_path
         )
+
+    # drop useless columns
+    df_elpis = df_elpis.drop(columns=["stitched", "surgical ink", "pixel / scan ampli"])
 
     # adjust ROI to contain slide number
     df_elpis["continent/ROI"] = df_elpis.apply(adjust_roi, axis=1)
