@@ -160,6 +160,27 @@ Main module containing the `PPS` class for pump-probe stack analysis and visuali
 - `select_delays()`: Select or interpolate specific time delays
 - `linear_combination()`: Static method for arithmetic operations on stacks
 
+### `melanoma.py`
+Utilities for loading and managing melanoma patient sample data from pump-probe imaging experiments.
+
+**Key Functions:**
+- `get_elpis(path_elpis, path_georgia, wavelength, melanoma_only)`: Load and merge imaging metadata with patient clinical data (recurrence, SLNB)
+- `convert_windows_to_linux_path(win_path, linux_mnt)`: Convert Windows file paths to Linux mount paths for cross-platform compatibility
+- `adjust_roi(row)`: Adjust ROI identifiers to include slide numbers
+- `manual_positions_from_file(row, filename, ds)`: Extract manually annotated surgical ink mask positions from CSV files
+- `row_to_coordinates(row, ds)`: Convert mask position data from center/size format to numpy slice objects
+
+**Data Sources:**
+- **Elpis File**: Excel file with imaging experiment metadata (folders, identifiers, ROI information)
+- **Georgia File**: Excel file with patient clinical data (recurrence status, sentinel lymph node biopsy results)
+
+**Features:**
+- Automatic path conversion for Linux/Windows compatibility
+- Extraction of patient IDs from sample identifiers using regex patterns
+- Loading of surgical ink mask positions from Mathematica-generated CSV files
+- Merging of imaging and clinical datasets
+- Optional filtering for melanoma samples only
+
 ### `ta.py`
 Transient absorption model functions for fitting decay dynamics.
 
