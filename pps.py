@@ -1338,10 +1338,11 @@ class PPS:
         projection = filters.gaussian(
             self.project(maskOn=projection_use_mask), sigma=sigma
         )
+        mask_zero = projection != 0 
 
         # compute mask
         if threshold == "Li":
-            cutoff = filters.threshold_li(projection)
+            cutoff = filters.threshold_li(projection[mask_zero])
             mask = self.mask & np.where(projection > cutoff, True, False)
 
         elif isinstance(threshold, (int, float)):
