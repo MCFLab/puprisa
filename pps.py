@@ -1492,7 +1492,7 @@ class PPS:
         if np.allclose(stack1.times, stack2.times):
             images = coeff1 * stack1.images + coeff2 * stack2.images
             mask = stack1.mask & stack2.mask
-            return PPS([images, stack1.times], mask=mask)
+            return PPS([images, stack1.times], mask=mask, dataType="data")
         else:
             print("time delays of stack1 and stack2 differ")
             return None
