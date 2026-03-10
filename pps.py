@@ -720,7 +720,7 @@ class PPS:
 
         ax.plot(self.times, self.avg(maskOn=maskOn, norm=norm))
         ax.set_xlabel("Time")
-        ax.set_ylabel("$\Delta A$")
+        ax.set_ylabel(r"$\Delta A$")
         ax.grid(True)
 
         if show_plot:
