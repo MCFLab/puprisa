@@ -627,7 +627,9 @@ class PPS:
             self.images = self.images / extremum
             return self
         else:
-            return PPS([self.images / extremum, self.times], mask=self.mask)
+            return PPS(
+                [self.images / extremum, self.times], mask=self.mask, dataType="data"
+            )
 
     def avg(self, maskOn=True, norm=None):
         """
@@ -1338,7 +1340,7 @@ class PPS:
         projection = filters.gaussian(
             self.project(maskOn=projection_use_mask), sigma=sigma
         )
-        mask_zero = projection != 0 
+        mask_zero = projection != 0
 
         # compute mask
         if threshold == "Li":
