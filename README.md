@@ -21,27 +21,154 @@ This package provides end-to-end analysis tools for pump-probe spectroscopy expe
 
 ### Prerequisites
 
-- Python 3.10 or higher
-- pip package manager
+- **Python 3.10 or newer** (see `requires-python` in `pyproject.toml`)
+- **Git** (to clone the repository) or a copy of the `pump_probe_analysis` source tree
+- **pip** (bundled with recent Python installers)
 
-### Editable install (development)
+All steps below assume your shell’s working directory is the **repository root** — the folder that contains `pyproject.toml` and `src/` (i.e. `pump_probe_analysis/` after you clone or unpack the project).
 
-From the repository root (`pump_probe_analysis/`):
+---
 
-```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[gui]"
-```
+### Tutorial: install with `venv` (standard library)
 
-- Omit `[gui]` if you only need the analysis library (no Qt / PySide6).
-- With `[gui]`, you can run **`pump-probe-gui`** or **`python -m pump_probe_analysis`**.
+`venv` creates an isolated Python environment next to your project. No extra tools are required beyond Python itself.
+
+1. **Create the virtual environment** (the name `.venv` is conventional; you can pick another directory name):
+
+   ```bash
+   python3 -m venv .venv
+   ```
+
+   On Windows, if `python3` is not on your PATH, use:
+
+   ```bat
+   py -3.10 -m venv .venv
+   ```
+
+2. **Activate** the environment so `python` and `pip` point inside `.venv`:
+
+   - **macOS / Linux:**
+
+     ```bash
+     source .venv/bin/activate
+     ```
+
+   - **Windows (Command Prompt):**
+
+     ```bat
+     .venv\Scripts\activate.bat
+     ```
+
+   - **Windows (PowerShell):**
+
+     ```powershell
+     .venv\Scripts\Activate.ps1
+     ```
+
+   Your prompt will usually show `(.venv)` when activation succeeded.
+
+3. **Upgrade pip** (recommended before installing the package):
+
+   ```bash
+   python -m pip install -U pip setuptools wheel
+   ```
+
+4. **Install this package in editable mode** from the repo root:
+
+   ```bash
+   pip install -e ".[gui]"
+   ```
+
+   - **`.[gui]`** includes **PySide6** and console scripts for the GUI. Omit the extra to install only the analysis library:
+
+     ```bash
+     pip install -e .
+     ```
+
+5. **Verify** (optional):
+
+   ```bash
+   python -c "import pump_probe_analysis; print('OK')"
+   ```
+
+   With `[gui]` installed:
+
+   ```bash
+   pump-probe-gui --help
+   ```
+
+6. **Deactivate** when you are done (optional):
+
+   ```bash
+   deactivate
+   ```
+
+---
+
+### Tutorial: install with Conda (Anaconda, Miniconda, or Mambaforge)
+
+Conda manages a separate Python and packages per environment. This package is installed **from your local checkout with pip** inside that environment (editable install is not published on conda-forge by default).
+
+1. **Install** [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/download) if you do not already have `conda`. Initialize your shell so `conda activate` works (the installer usually offers to do this).
+
+2. **Create** an environment with a compatible Python version:
+
+   ```bash
+   conda create -n pump-probe python=3.10 -y
+   ```
+
+   You can use `3.11` or `3.12` instead, as long as it satisfies `>=3.10`.
+
+3. **Activate** the environment:
+
+   ```bash
+   conda activate pump-probe
+   ```
+
+4. **Go to the repository root** (where `pyproject.toml` lives):
+
+   ```bash
+   cd /path/to/pump_probe_analysis
+   ```
+
+5. **Install the package with pip** (still inside the activated conda env):
+
+   ```bash
+   python -m pip install -U pip setuptools wheel
+   pip install -e ".[gui]"
+   ```
+
+   Use `pip install -e .` if you do not need the GUI.
+
+6. **Verify** as in the `venv` section above.
+
+7. **Leave** the environment when finished:
+
+   ```bash
+   conda deactivate
+   ```
+
+**Note:** Mixing `conda install` for scientific stacks and `pip install -e` for this repo in the *same* env is normal. Prefer installing **this** project with `pip` from the local tree so the editable install tracks your edits to `src/`.
+
+---
+
+### After installation: GUI (PUPRISA)
+
+The launcher opens the **channel view** directly (single stack at a time). Use **File → Open Stack…** to load one file:
+
+- **DukeScan**: any single-channel TIFF (e.g. `*_DS_CH1.tif` … `*_DS_CH4.tif`, `.tif` or `.TIF`)
+- **Pickle**: a stack saved with `PPS.save` (`.pkl` / `.pickle`)
+- **Mathematica**: binary stack path (choose format when the extension is ambiguous)
+
+**File → Open Stack…** auto-detects format from the extension; if it cannot, you are prompted. You can pass a path on the command line: `pump-probe-gui /path/to/stack.tif`. Opening a new file resets the session (ROIs, masks, plots, phasor window).
+
+With `[gui]` installed you can run **`pump-probe-gui`** or **`python -m pump_probe_analysis`**.
 
 Example data paths in notebooks assume the repo layout: `data/` at the repository root (see `examples/example.ipynb`).
 
 ### Legacy `requirements.txt`
 
-You can still `pip install -r requirements.txt` for a loose dependency list, but **`pip install -e ".[gui]"`** is the supported way to install this package.
+You can still `pip install -r requirements.txt` for a loose dependency list, but **`pip install -e ".[gui]"`** (from the repo root, inside your chosen environment) is the supported way to install this package.
 
 ## Quick Start
 
@@ -268,7 +395,8 @@ Please ensure your code follows Python best practices and includes appropriate d
 
 ## Authors
 
-**David** (@david)
+**David Grass**
+**Ryan Su** 
 
 Created: May 11, 2023  
 Last Updated: January 2026

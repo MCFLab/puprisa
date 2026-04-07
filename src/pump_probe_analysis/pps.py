@@ -661,8 +661,12 @@ class PPS:
         delays_from_tiff : Extract delays from TIFF tag 285
         delays_from_log : Extract delays from DukeScan .log file
         """
-        # check if (older) x-axis file still exists
-        fn_new = fn.replace(".tif", "_xaxis.txt")
+        # check if (older) x-axis file still exists (case-insensitive .tif)
+        p = Path(fn)
+        if p.suffix.lower() == ".tif":
+            fn_new = str(p.with_name(p.stem + "_xaxis.txt"))
+        else:
+            fn_new = str(p) + "_xaxis.txt"
         if os.path.isfile(fn_new):
 
             times = pd.read_table(fn_new, header=None).iloc[:, 0].to_numpy()
@@ -707,17 +711,12 @@ class PPS:
         The function searches for the pattern "delayArr_ps = <values>" in the
         log file and extracts comma-separated numeric values.
         """
-        # import conventional log file
-        if filename.endswith("_DS_CH1.tif"):
-            fn_new = filename.replace("_DS_CH1.tif", ".log")
-        elif filename.endswith("_DS_CH2.tif"):
-            fn_new = filename.replace("_DS_CH2.tif", ".log")
-        elif filename.endswith("_DS_CH3.tif"):
-            fn_new = filename.replace("_DS_CH3.tif", ".log")
-        elif filename.endswith("_DS_CH4.tif"):
-            fn_new = filename.replace("_DS_CH4.tif", ".log")
+        # Companion .log next to the TIFF (any _DS_CH#; case-insensitive .tif/.TIF)
+        p = Path(filename)
+        if p.suffix.lower() == ".tif":
+            fn_new = str(p.with_suffix(".log"))
         else:
-            fn_new = filename.replace(".tif", ".log")
+            fn_new = str(p) + ".log"
         try:
             with open(fn_new, "r", encoding="utf-8") as f:
                 log = f.read()

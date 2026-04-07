@@ -8,9 +8,8 @@ A window for viewing a single channel with slice navigation via slider.
 Shows one image at a time from the stack and allows navigation through time points.
 Includes draggable/resizable ROI and plot showing ROI signal vs time delay.
 
-Stacks are assumed DukeScan TIFF layout; the GUI always applies np.flipud to 2D
-slice/mask arrays before building the on-screen pixmap so display matches the
-intended vertical orientation.
+2D slices and masks use the same row order as ``PPS`` storage and as the main
+PUPRISA window projections (matplotlib ``origin='upper'``: row 0 at the top).
 
 Created: 2025
 """
@@ -26,7 +25,7 @@ from PySide6.QtWidgets import (
     QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsEllipseItem,
     QSplitter, QPushButton, QListWidget, QListWidgetItem, QInputDialog, QDialog,
     QDialogButtonBox, QLineEdit, QMenuBar, QMenu, QDoubleSpinBox, QSpinBox,
-    QFormLayout, QCheckBox, QComboBox, QFileDialog, QMessageBox
+    QFormLayout, QCheckBox, QComboBox, QFileDialog, QMessageBox, QApplication,
 )
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
 from PySide6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QPainter, QWheelEvent, QIcon
@@ -37,6 +36,7 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
 from pump_probe_analysis.phasor_analysis_window import PhasorAnalysisWindow
+from pump_probe_analysis.pps import PPS
 
 # Import ROI utilities from shared pump_probe_analysis PPS module
 try:
@@ -50,6 +50,17 @@ except ImportError:
 
 # Default matplotlib color palette for ROI color-matching
 ROI_COLOR_PALETTE = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+
+def _guess_pps_data_type(path: Path):
+    """Infer ``PPS`` ``dataType`` from file extension. Return None if user must choose."""
+    suf = path.suffix.lower()
+    if suf in (".pkl", ".pickle"):
+        return "pickle"
+    if suf in (".tif", ".tiff"):
+        return "DukeScan"
+    return None
+
 
 # Mask NPZ: one file per mask; keys: mask, shape, label, comment, date (strings as 0-d arrays)
 def _mask_npz_save(path, mask, image_dimensions, label="", comment="", date=""):
@@ -451,18 +462,23 @@ class PuprisaChannelViewWindow(QMainWindow):
     Includes draggable/resizable ROI and plot showing ROI signal vs time delay.
     """
     
-    def __init__(self, pps_obj, channel_num=1, fileName=None, header=None):
+    def __init__(self, pps_obj=None, channel_num=1, fileName=None, header=None):
         super().__init__()
         
-        # Store PPS object and metadata
+        # Single-channel window; ``pps`` may be None until File → Open Stack…
         self.pps = pps_obj
-        self.channelNum = channel_num
-        self.fileName = fileName or pps_obj.filename
+        self.channelNum = 1
+        if pps_obj is not None:
+            self.fileName = fileName or getattr(pps_obj, "filename", None)
+            self.nSlices = len(pps_obj.images)
+        else:
+            self.fileName = fileName
+            self.nSlices = 0
         self.header = header or {}
+        self._phasorWindow = None
         
         # Current slice (0-based for indexing)
         self.currentSlice = 0
-        self.nSlices = len(pps_obj.images)
         
         # Flag to prevent concurrent updates
         self._updating = False
@@ -492,14 +508,19 @@ class PuprisaChannelViewWindow(QMainWindow):
         self.custom_vmax = None  # Custom max value
         
         # Set window properties
-        title = Path(self.fileName).name if self.fileName else 'Channel'
-        self.setWindowTitle(f'{title} - Channel {channel_num}')
+        if self.pps is not None:
+            title = Path(str(self.fileName)).name if self.fileName else "Channel"
+            self.setWindowTitle(f"{title} — puprisa")
+        else:
+            self.setWindowTitle("puprisa — File → Open Stack…")
         self.setMinimumSize(1000, 600)
         
         # Set window flags to ensure it's a top-level window
         self.setWindowFlags(Qt.Window)
         
-        print(f"PuprisaChannelViewWindow: Initializing window for channel {channel_num}, {self.nSlices} slices")
+        print(
+            f"PuprisaChannelViewWindow: init (stack loaded={self.pps is not None}, n_slices={self.nSlices})"
+        )
         
         # Initialize UI
         self.initUI()
@@ -507,11 +528,15 @@ class PuprisaChannelViewWindow(QMainWindow):
         # Create menu bar
         self.createMenuBar()
 
-        # Populate mask list and run autoload once
-        self.refreshMaskList()
-        self._mask_autoload_done = False
+        if self.pps is not None:
+            self.refreshMaskList()
+            self._mask_autoload_done = False
+        else:
+            self._mask_autoload_done = True
+
+        self._set_stack_menus_enabled(self.pps is not None)
         
-        print(f"PuprisaChannelViewWindow: Window initialized successfully")
+        print("PuprisaChannelViewWindow: Window initialized successfully")
     
     def initUI(self):
         """Initialize the user interface."""
@@ -523,7 +548,12 @@ class PuprisaChannelViewWindow(QMainWindow):
         mainLayout.setSpacing(10)
         
         # Create title label
-        self.titleLabel = QLabel(f'Channel {self.channelNum} - Slice {self.currentSlice + 1}/{self.nSlices}')
+        if self.nSlices == 0:
+            self.titleLabel = QLabel("No stack loaded — use File → Open Stack…")
+        else:
+            self.titleLabel = QLabel(
+                f"Channel {self.channelNum} — Slice {self.currentSlice + 1}/{self.nSlices}"
+            )
         self.titleLabel.setAlignment(Qt.AlignCenter)
         self.titleLabel.setStyleSheet("font-weight: bold; font-size: 14px;")
         mainLayout.addWidget(self.titleLabel)
@@ -677,6 +707,16 @@ class PuprisaChannelViewWindow(QMainWindow):
     def createMenuBar(self):
         """Create the menu bar with color scale options."""
         menubar = self.menuBar()
+
+        file_menu = menubar.addMenu("File")
+        open_action = file_menu.addAction("Open Stack…")
+        open_action.triggered.connect(self.mnuOpenStack)
+        file_menu.addSeparator()
+        about_action = file_menu.addAction("About puprisa")
+        about_action.triggered.connect(self.mnuAbout)
+        file_menu.addSeparator()
+        quit_action = file_menu.addAction("Quit")
+        quit_action.triggered.connect(lambda: QApplication.instance().quit())
         
         # View menu
         view_menu = menubar.addMenu('View')
@@ -757,6 +797,175 @@ class PuprisaChannelViewWindow(QMainWindow):
         analysis_menu = menubar.addMenu('Analysis')
         phasor_action = analysis_menu.addAction('Phasor Analysis...')
         phasor_action.triggered.connect(self.openPhasorAnalysis)
+
+        self._menus_require_stack = [
+            view_menu,
+            processing_menu,
+            roi_menu,
+            mask_menu,
+            analysis_menu,
+        ]
+
+    def mnuAbout(self):
+        """About dialog."""
+        QMessageBox.about(
+            self,
+            "About PUPRISA",
+            "PUPRISA: PUmp PRobe Image Stack Analysis.\n"
+            "Warren Lab: Duke University.\n"
+            "Created 2011 by J. W. Wilson.\n"
+            "Contributions by P. Samineni, M.J. Simpson, M.C. Fischer\n\n"
+            "Python port — single stack / channel view.",
+        )
+
+    def mnuOpenStack(self):
+        """File dialog to open one stack (DukeScan, pickle, or Mathematica)."""
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open pump-probe stack",
+            str(Path.cwd()),
+            "Stacks (*.tif *.TIF *.tiff *.pkl *.pickle);;"
+            "TIFF (*.tif *.TIF *.tiff);;"
+            "Pickle (*.pkl *.pickle);;"
+            "All files (*)",
+        )
+        if path:
+            self.load_stack_from_path(path)
+
+    def load_stack_from_path(self, path_str, data_type=None):
+        """
+        Load one ``PPS`` stack from disk. Replaces current stack and resets the UI.
+
+        Parameters
+        ----------
+        path_str : str
+            File path.
+        data_type : str, optional
+            ``\"DukeScan\"``, ``\"pickle\"``, or ``\"mathematica\"``. If None, guess from extension
+            or prompt.
+        """
+        path = Path(path_str)
+        if not path.is_file():
+            QMessageBox.warning(self, "Open", f"File not found:\n{path_str}")
+            return
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            if data_type is None:
+                guessed = _guess_pps_data_type(path)
+                if guessed is None:
+                    choice, ok = QInputDialog.getItem(
+                        self,
+                        "Stack format",
+                        "Choose format for this file:",
+                        ["DukeScan (TIFF)", "pickle", "mathematica"],
+                        0,
+                        False,
+                    )
+                    if not ok:
+                        return
+                    key = choice.lower()
+                    if "pickle" in key:
+                        data_type = "pickle"
+                    elif "mathematica" in key:
+                        data_type = "mathematica"
+                    else:
+                        data_type = "DukeScan"
+                else:
+                    data_type = guessed
+
+            new_pps = PPS(str(path), dataType=data_type)
+        except Exception as e:
+            QMessageBox.critical(self, "Open", f"Failed to load stack:\n{e}")
+            return
+        finally:
+            QApplication.restoreOverrideCursor()
+
+        self.reset_ui_for_new_stack(new_pps, str(path))
+
+    def reset_ui_for_new_stack(self, new_pps, file_name=None):
+        """Replace ``self.pps`` and clear scene/UI state so a new stack has a clean session."""
+        self._updateTimer.stop()
+        self._roiUpdateTimer.stop()
+
+        if getattr(self, "_phasorWindow", None) is not None:
+            try:
+                self._phasorWindow.close()
+            except Exception:
+                pass
+            self._phasorWindow = None
+
+        for roi_info in self.roiItems[:]:
+            try:
+                self.graphicsScene.removeItem(roi_info["rect_item"])
+            except Exception:
+                pass
+        self.roiItems.clear()
+        self.roiListWidget.clear()
+
+        self.graphicsScene.clear()
+        self.pixmapRect = None
+        self.imagePixmap = None
+        self._lastPixmapRect = None
+
+        self.pps = new_pps
+        self.fileName = file_name or getattr(new_pps, "filename", None)
+        self.channelNum = 1
+        self.nSlices = len(new_pps.images)
+        self.currentSlice = 0
+        self.colormap_vmin = None
+        self.colormap_vmax = None
+        self.custom_vmin = None
+        self.custom_vmax = None
+        self._roiColorIndex = 0
+        self._mask_autoload_done = False
+
+        h0, w0 = new_pps.image_dimensions[0], new_pps.image_dimensions[1]
+        self.header = {
+            "fullHeaderText": (
+                f"File: {Path(str(self.fileName)).name}\n"
+                f"Slices: {self.nSlices}\n"
+                f"Dimensions: {h0} x {w0}"
+            ),
+            "nSlices": self.nSlices,
+            "numofchannels": 1,
+        }
+
+        self.sliceSlider.setMaximum(max(0, self.nSlices - 1))
+        self.sliceSlider.setValue(0)
+        self.sliceSlider.setEnabled(self.nSlices > 0)
+
+        if self.pps is not None:
+            self.setWindowTitle(f"{Path(str(self.fileName)).name} — puprisa")
+        else:
+            self.setWindowTitle("puprisa")
+
+        self.titleLabel.setText(
+            f"Channel {self.channelNum} — Slice {self.currentSlice + 1}/{max(1, self.nSlices)}"
+        )
+        self.sliceLabel.setText(f"Slice: {self.currentSlice + 1}/{max(1, self.nSlices)}")
+        self.timeLabel.setText("")
+
+        self.plotAxes.clear()
+        self.plotAxes.set_xlabel("Time Delay (ps)")
+        self.plotAxes.set_ylabel("Average Signal (arb. u.)")
+        self.plotAxes.grid(True, alpha=0.3)
+        self.plotCanvas.draw()
+
+        try:
+            self.colorbarAxes.clear()
+            self.colorbarCanvas.draw()
+        except Exception:
+            pass
+
+        self.refreshMaskList()
+        self._set_stack_menus_enabled(True)
+        # Restore default color scale (± standard deviation) and menu state; replaces a plain updateImage().
+        self.setColorScaleMode("std_dev")
+
+    def _set_stack_menus_enabled(self, enabled):
+        for m in getattr(self, "_menus_require_stack", []):
+            m.setEnabled(enabled)
     
     def setColorScaleMode(self, mode):
         """Set the color scale mode and update the display."""
@@ -789,6 +998,8 @@ class PuprisaChannelViewWindow(QMainWindow):
     
     def showCustomScaleDialog(self):
         """Show dialog to input custom color scale values. Returns True if accepted, False if cancelled."""
+        if self.pps is None:
+            return False
         # Get current data range for reference
         all_data = np.concatenate([img.flatten() for img in self.pps.images])
         data_min = float(np.nanmin(all_data))
@@ -852,6 +1063,8 @@ class PuprisaChannelViewWindow(QMainWindow):
     
     def _recalculateColorScale(self):
         """Recalculate color scale based on current mode."""
+        if self.pps is None:
+            return
         all_data = np.concatenate([img.flatten() for img in self.pps.images])
         
         if self.colormap_mode == 'std_dev':
@@ -883,6 +1096,8 @@ class PuprisaChannelViewWindow(QMainWindow):
     
     def applyBackgroundSubtraction(self, method="negative_delays", n=None, pixelwise=True):
         """Apply background subtraction to the PPS object and update display."""
+        if self.pps is None:
+            return
         try:
             # Apply background subtraction
             self.pps.subtractFirst(method=method, n=n, pixelwise=pixelwise, inplace=True)
@@ -908,6 +1123,8 @@ class PuprisaChannelViewWindow(QMainWindow):
     
     def resetBackgroundSubtraction(self):
         """Reset background subtraction to restore original images."""
+        if self.pps is None:
+            return
         try:
             # Reset background subtraction in PPS object
             self.pps.resetBackgroundSubtraction()
@@ -930,6 +1147,8 @@ class PuprisaChannelViewWindow(QMainWindow):
     
     def showBackgroundSubtractionDialog(self):
         """Show dialog to configure first N images background subtraction."""
+        if self.pps is None:
+            return
         dialog = QDialog(self)
         dialog.setWindowTitle('Background Subtraction - First N Images')
         dialog.setModal(True)
@@ -1151,6 +1370,9 @@ class PuprisaChannelViewWindow(QMainWindow):
         """Rebuild the mask list widget from PPS mask layers (checkbox = enabled)."""
         self.maskListWidget.blockSignals(True)
         self.maskListWidget.clear()
+        if self.pps is None:
+            self.maskListWidget.blockSignals(False)
+            return
         for layer_id in self.pps.get_all_mask_layer_ids():
             layer = self.pps.get_mask_layer(layer_id)
             if layer is None:
@@ -1403,6 +1625,8 @@ class PuprisaChannelViewWindow(QMainWindow):
 
     def runIntensityThreshold(self):
         """Run intensity threshold and add the result as a new mask layer (exportable from Mask panel)."""
+        if self.pps is None:
+            return
         dlg = IntensityThresholdDialog(self)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
@@ -1427,6 +1651,8 @@ class PuprisaChannelViewWindow(QMainWindow):
 
     def autoloadMasksFromImageDir(self, silent=False):
         """Scan image directory for mask_*.npz (or NPZ with mask+shape) and add matching layers."""
+        if self.pps is None:
+            return
         img_dir = self._getImageDirectory()
         if img_dir is None:
             if not silent:
@@ -1740,9 +1966,8 @@ class PuprisaChannelViewWindow(QMainWindow):
         h, w = self.pps.image_dimensions[0], self.pps.image_dimensions[1]
         x1, y1 = pixel_rect.left(), pixel_rect.top()
         pw, ph = pixel_rect.width(), pixel_rect.height()
-        y2 = y1 + ph
-        # Display is always vertically flipped vs PPS storage (DukeScan convention)
-        im_y1 = max(0, h - y2)
+        # Scene origin is top-left; image row 0 is top (same as main window projection)
+        im_y1 = max(0, min(y1, h - 1e-9))
         im_h = min(ph, h - im_y1)
         cx = x1 + pw / 2.0
         cy_im = im_y1 + im_h / 2.0
@@ -1792,18 +2017,13 @@ class PuprisaChannelViewWindow(QMainWindow):
         else:
             return None
 
-        # Image pixel bbox -> display pixel bbox (display is always flipud vs storage)
-        disp_x = x
-        disp_y = h - (y + bh)
-
-        # Display pixel bbox -> scene bbox (pixmapRect is in scene coords)
-        sx = self.pixmapRect.left() + (disp_x / w) * pix_w
-        sy = self.pixmapRect.top() + (disp_y / h) * pix_h
+        # Image pixel bbox (row y at top) -> scene bbox (pixmap top = row 0)
+        sx = self.pixmapRect.left() + (x / w) * pix_w
+        sy = self.pixmapRect.top() + (y / h) * pix_h
         sw = (bw / w) * pix_w
         sh = (bh / h) * pix_h
         return QRectF(sx, sy, sw, sh)
-        return None
-    
+
     def resizeEvent(self, event):
         """Refit the image to the view when the window is resized (no full re-render)."""
         super().resizeEvent(event)
@@ -1821,6 +2041,8 @@ class PuprisaChannelViewWindow(QMainWindow):
     def showEvent(self, event):
         """Override showEvent to update image, autoload ROIs, and autoload masks after window is shown."""
         super().showEvent(event)
+        if self.pps is None:
+            return
         self._updateTimer.stop()
         QTimer.singleShot(0, self.updateImage)
         # Autoload ROIs from JSON file (e.g., *_ROIs.json)
@@ -1832,6 +2054,9 @@ class PuprisaChannelViewWindow(QMainWindow):
 
     def openPhasorAnalysis(self):
         """Open the Phasor Analysis window, optionally applying current active masks."""
+        if self.pps is None:
+            QMessageBox.information(self, "Phasor Analysis", "Load a stack first (File → Open Stack…).")
+            return
         reply = QMessageBox.question(
             self,
             "Phasor Analysis",
@@ -1886,6 +2111,9 @@ class PuprisaChannelViewWindow(QMainWindow):
         # Prevent concurrent updates
         if self._updating:
             return
+
+        if self.pps is None:
+            return
         
         if self.nSlices == 0:
             print("PuprisaChannelViewWindow: No slices available")
@@ -1918,10 +2146,7 @@ class PuprisaChannelViewWindow(QMainWindow):
                 print(f"Warning: Image slice contains NaN or Inf values, replacing with 0")
                 imageSlice = np.nan_to_num(imageSlice, nan=0.0, posinf=0.0, neginf=0.0)
             
-            # DukeScan layout: flip vertically for on-screen pixmap (matches ROI mapping)
-            imageSlice = np.flipud(imageSlice)
             effective_mask = np.asarray(self.pps.mask, dtype=bool)
-            effective_mask = np.flipud(effective_mask)
 
             # Apply colormap: blue (negative) -> black (zero) -> red (positive)
             if self.use_colormap:

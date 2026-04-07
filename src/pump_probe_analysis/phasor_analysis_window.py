@@ -7,9 +7,8 @@ Phasor Analysis window for PUPRISA.
 Plots pixels in phasor (g,s) space with ROIs; average signal vs time per ROI;
 grayscale spatial image with time slider and ROI-colored overlay.
 
-Stacks are assumed DukeScan TIFF layout; the spatial projection view always
-applies np.flipud to the projection and mask so the image matches channel view
-(ROI overlay indices are aligned to that flipped display).
+Spatial projection uses the same row order as ``PPS`` storage and the main
+window (row 0 at top); ROI overlays use the same indexing.
 """
 
 import json
@@ -1126,11 +1125,8 @@ class PhasorAnalysisWindow(QDialog):
         if proj.ndim != 2:
             return
         proj = np.nan_to_num(proj, nan=0.0, posinf=0.0, neginf=0.0)
-        # DukeScan layout: match channel view vertical convention
-        proj = np.flipud(proj)
         h, w = proj.shape
         effective_mask = np.asarray(self.pps.mask, dtype=bool)
-        effective_mask = np.flipud(effective_mask)
         proj_valid = proj[effective_mask]
         proj_min = float(np.min(proj_valid)) if np.any(effective_mask) else 0.0
         proj_max = float(np.max(proj_valid)) if np.any(effective_mask) else 1.0
@@ -1147,8 +1143,7 @@ class PhasorAnalysisWindow(QDialog):
             if mask_1d is None:
                 continue
             roi_assignment[(roi_assignment == -1) & mask_1d] = idx
-        # mask_1d is storage row-major; proj/rgb are flipud — align ROI rows to display
-        roi_assignment_display = np.flipud(roi_assignment.reshape(h, w))
+        roi_assignment_display = roi_assignment.reshape(h, w)
         for idx in range(len(self.phasorRoiItems)):
             item = self.phasorRoiItems[idx]
             color = item["color"]
