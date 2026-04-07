@@ -29,6 +29,43 @@ All steps below assume your shell’s working directory is the **repository root
 
 ---
 
+### Tutorial: get the code with Git (branch `pyprisa`)
+
+The active development line for this package lives on the **`pyprisa`** branch. Clone that branch so your checkout matches the instructions below.
+
+1. **Clone** the repository and check out `pyprisa` in one step (replace the URL with your fork or the upstream remote — HTTPS or SSH is fine):
+
+   ```bash
+   git clone -b pyprisa https://github.com/<owner>/pump_probe_analysis.git
+   cd pump_probe_analysis
+   ```
+
+   Example with SSH:
+
+   ```bash
+   git clone -b pyprisa git@github.com:<owner>/pump_probe_analysis.git
+   cd pump_probe_analysis
+   ```
+
+2. **If you already cloned** the default branch (e.g. `main`), switch to `pyprisa`:
+
+   ```bash
+   cd pump_probe_analysis
+   git fetch origin
+   git checkout pyprisa
+   ```
+
+3. **Confirm** you are on the right branch (optional):
+
+   ```bash
+   git branch --show-current
+   # should print: pyprisa
+   ```
+
+You are now at the repository root. Continue with **install with `venv`** or **install with Conda** below.
+
+---
+
 ### Tutorial: install with `venv` (standard library)
 
 `venv` creates an isolated Python environment next to your project. No extra tools are required beyond Python itself.
