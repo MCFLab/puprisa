@@ -21,46 +21,37 @@ This package provides end-to-end analysis tools for pump-probe spectroscopy expe
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - pip package manager
 
-### Setup
+### Editable install (development)
 
-1. Clone or download this repository:
+From the repository root (`pump_probe_analysis/`):
+
 ```bash
-git clone <repository-url>
-cd pump_probe_analysis
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[gui]"
 ```
 
-2. Create a virtual environment (recommended):
-```bash
-python -m venv venv
-```
+- Omit `[gui]` if you only need the analysis library (no Qt / PySide6).
+- With `[gui]`, you can run **`pump-probe-gui`** or **`python -m pump_probe_analysis`**.
 
-3. Activate the virtual environment:
-   - Windows:
-     ```bash
-     venv\Scripts\activate
-     ```
-   - Linux/Mac:
-     ```bash
-     source venv/bin/activate
-     ```
+Example data paths in notebooks assume the repo layout: `data/` at the repository root (see `examples/example.ipynb`).
 
-4. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+### Legacy `requirements.txt`
+
+You can still `pip install -r requirements.txt` for a loose dependency list, but **`pip install -e ".[gui]"`** is the supported way to install this package.
 
 ## Quick Start
 
 ### Basic Usage
 
 ```python
-from pps import PPS
 from pathlib import Path
+from pump_probe_analysis.pps import PPS
 
-# Load a pump-probe stack from DukeScan format
+# Load a pump-probe stack from DukeScan format (path relative to your cwd)
 filename = Path("data/example_stack_DS_CH1.tif")
 stack = PPS(filename, dataType="DukeScan")
 
@@ -140,9 +131,15 @@ difference = PPS.linear_combination(stack1, 1, stack2, -1)
 average = PPS.linear_combination(stack1, 0.5, stack2, 0.5)
 ```
 
+## Layout
+
+- **`src/pump_probe_analysis/`** — installable package (`import pump_probe_analysis`).
+- **`examples/`** — notebooks (e.g. `example.ipynb`).
+- **`data/`** — example inputs (e.g. logs); place companion `.tif` stacks here when available.
+
 ## Module Structure
 
-### `pps.py`
+### `pps.py` (under `src/pump_probe_analysis/`)
 Main module containing the `PPS` class for pump-probe stack analysis and visualization.
 
 **Key Methods:**

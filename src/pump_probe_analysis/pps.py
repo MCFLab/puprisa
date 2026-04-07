@@ -53,58 +53,220 @@ Notes
 The PPS class maintains image stacks with associated time delays and spatial masks.
 All analysis methods respect the mask attribute to focus on regions of interest.
 
+File organization (this file)
+-----------------------------
+This file merges the historical ``pump_probe_analysis`` PPS API with the extended
+implementation used by the PyPrisa GUI (mask layers, 2D background model, ROI shapes).
+
+**Section A — New module-level helpers (ROI JSON / masks)**  
+Functions: ``roi_shape_to_mask``, ``roi_mask_to_rectangle_params``,
+``_to_json_serializable_params``, ``roi_entry_to_dict``, ``roi_dict_to_entry``.  
+These did not exist in the original ``pps.py``; they are shared with the GUI for
+serializing ROIs and building boolean masks from shape parameters.
+
+**Section B — Class PPS: legacy & edited methods**  
+Behavior carried from the original analysis module but updated where needed for the
+GUI and for backwards-compatible notebooks:
+
+- ``__init__`` / ``save`` / ``load``: richer DukeScan loading, optional pickle fields
+  for background subtraction, ROIs, and mask layers (older pickles are upgraded on load).
+- ``subtractFirst``: uses a stored 2D background map (``_background_subtraction``) so the
+  GUI can reset; **notebook compatibility**: ``subtractFirst(n=k)`` and
+  ``subtractFirst(k)`` still mean “average the first *k* frames as background” (legacy),
+  while ``subtractFirst()`` / ``subtractFirst(method='negative_delays')`` follows
+  negative-delay frames (GUI default).
+- ``normalize``, ``select_delays``, ``average_times``: ``inplace`` / ``inPlace`` paths
+  return ``self`` when requested, matching the old chaining semantics.
+- ``downsample``: optional ``inplace=`` flag preserved from the legacy API.
+- ``intensity_threshold``: returns a boolean ``ndarray`` by default; with
+  ``inplace=True`` updates ``_base_mask`` / effective mask for layer-aware workflows.
+
+**Section C — Class PPS: new methods (PyPrisa / GUI)**  
+Mask layers (``add_mask_layer``, …), effective mask sync, ``resetBackgroundSubtraction``,
+ROI CRUD (``add_roi``, ``get_roi_mask``, …), ``_update_display_images``, and related
+helpers. These support interactive workflows and were not in the original analysis-only
+``pps.py``.
+
 Created on Thu May 11 14:25:04 2023
 @author: david
 """
 import numpy as np
-import pandas as pd
 import os
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mlp
 from skimage import io
 from skimage.transform import downscale_local_mean
 import re
 from pathlib import Path
+from datetime import datetime
 import tifffile
+
+
+# =============================================================================
+# SECTION A — New module-level helpers (ROI masks & JSON)
+# =============================================================================
+# Used by ``PPS`` and by the PyPrisa GUI for ROI export/import. Coordinates are
+# in pixels; origin is top-left with x = column, y = row.
+# =============================================================================
+
+def roi_shape_to_mask(shape_type, params, image_dimensions):
+    """
+    Generate a boolean mask from ROI shape type and parameters.
+
+    Parameters
+    ----------
+    shape_type : str
+        One of "circle", "ellipse", "square", "rectangle".
+    params : dict
+        Shape-specific parameters (pixel coordinates):
+        - circle: center_x, center_y, radius
+        - ellipse: center_x, center_y, radius_x, radius_y, optional angle_deg (default 0)
+        - square: center_x, center_y, size
+        - rectangle: x, y, width, height (top-left corner and size)
+    image_dimensions : tuple (height, width)
+        Shape of the image.
+
+    Returns
+    -------
+    np.ndarray of bool
+        Boolean mask, True inside the ROI.
+    """
+    height, width = image_dimensions
+    yy, xx = np.mgrid[0:height, 0:width].astype(np.float64)
+
+    if shape_type == "circle":
+        cx = params["center_x"]
+        cy = params["center_y"]
+        r = params["radius"]
+        mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= r * r
+        return mask
+
+    if shape_type == "ellipse":
+        cx = params["center_x"]
+        cy = params["center_y"]
+        rx = float(params["radius_x"])
+        ry = float(params["radius_y"])
+        angle_deg = params.get("angle_deg", 0.0)
+        angle_rad = np.deg2rad(angle_deg)
+        cos_a = np.cos(angle_rad)
+        sin_a = np.sin(angle_rad)
+        # Rotate and scale: (x-cx)*cos + (y-cy)*sin -> x', -(x-cx)*sin + (y-cy)*cos -> y'
+        dx = xx - cx
+        dy = yy - cy
+        xr = (dx * cos_a + dy * sin_a) / (rx + 1e-10)
+        yr = (-dx * sin_a + dy * cos_a) / (ry + 1e-10)
+        mask = (xr * xr + yr * yr) <= 1.0
+        return mask
+
+    if shape_type == "square":
+        cx = params["center_x"]
+        cy = params["center_y"]
+        size = params["size"]
+        x = cx - size / 2.0
+        y = cy - size / 2.0
+        mask = (
+            (xx >= x) & (xx < x + size) &
+            (yy >= y) & (yy < y + size)
+        )
+        return mask
+
+    if shape_type == "rectangle":
+        x = params["x"]
+        y = params["y"]
+        w = params["width"]
+        h = params["height"]
+        mask = (
+            (xx >= x) & (xx < x + w) &
+            (yy >= y) & (yy < y + h)
+        )
+        return mask
+
+    raise ValueError(f"Unknown ROI shape type: {shape_type}")
+
+
+def roi_mask_to_rectangle_params(roi_mask):
+    """Derive rectangle params (x, y, width, height) from a boolean mask (bounding box)."""
+    rows, cols = np.where(roi_mask)
+    if len(rows) == 0 or len(cols) == 0:
+        return None
+    y_min, y_max = rows.min(), rows.max()
+    x_min, x_max = cols.min(), cols.max()
+    return {
+        "x": float(x_min),
+        "y": float(y_min),
+        "width": float(x_max - x_min + 1),
+        "height": float(y_max - y_min + 1),
+    }
+
+
+def _to_json_serializable_params(params):
+    """Convert params dict to JSON-serializable (no numpy types)."""
+    return {k: float(v) if isinstance(v, (np.floating, np.integer)) else v for k, v in params.items()}
+
+
+def roi_entry_to_dict(roi_entry, include_id=True):
+    """Convert PPS ROI entry to a dict suitable for JSON export."""
+    d = {
+        "label": roi_entry["label"],
+        "shape": roi_entry["shape"],
+        "params": _to_json_serializable_params(roi_entry["params"]),
+    }
+    if include_id:
+        d["id"] = roi_entry["id"]
+    return d
+
+
+def roi_dict_to_entry(d, image_dimensions, roi_id=None):
+    """
+    Parse a dict (from JSON) into an ROI entry for PPS.
+    Returns dict with id, label, shape, params (params as floats).
+    """
+    label = d.get("label", d.get("name", ""))
+    shape = d.get("shape", "rectangle")
+    params_raw = d.get("params", {})
+    params = _to_json_serializable_params(params_raw) if isinstance(params_raw, dict) else {}
+    if roi_id is None:
+        roi_id = d.get("id", f"roi_{hash(str(d)) % 100000}")
+    return {"id": str(roi_id), "label": str(label), "shape": shape, "params": params}
+
+
+# =============================================================================
+# SECTION B — Class PPS (legacy + edited + new; see module docstring)
+# =============================================================================
+# Methods appear in a practical order (initialization, I/O, processing, analysis).
+# Subsections below mark *new* GUI-oriented APIs vs *edited* legacy APIs.
+# =============================================================================
 
 
 class PPS:
 
+    # -------------------------------------------------------------------------
+    # Initialization & I/O (edited: DukeScan load, pickle includes mask layers / BG)
+    # -------------------------------------------------------------------------
+
     def __init__(self, data, dataType="DukeScan", filename="unkown", mask=None):
         """
-        Import and initialize a pump-probe stack.
-
-        Supports multiple input formats including DukeScan TIFF files (including
-        stitched ImageJ files), Mathematica binary format, pickle files, and raw
-        [images, delays] arrays. Automatically extracts time delays and generates
-        a mask based on non-zero pixels.
+        Import pump-probe stack.
 
         Parameters
         ----------
-        data : str, Path, or [images, delays]
-            If str or Path: filename of DukeScan (.tif), Mathematica, or pickle
-            (.pkl) file. For DukeScan, handles both standard and stitched ("stich")
-            files. If array: data in form of [images, delays].
+        data : str or [images, delays]
+            If str must be a filename of DukeScan, mathematica, or pickle pps
+            file. Otherwise data in form of [images, delays].
         dataType : str, optional
-            Format type: "mathematica", "DukeScan", "pickle", or "data".
-            Default is "DukeScan".
+            Either mathematica, DukeScan, pickle, or data. The default is
+            "data".
         filename : str, optional
-            If dataType="data", this string is saved as the filename attribute.
-            Default is "unkown".
-        mask : np.ndarray of bool, optional
-            Boolean array to set as the mask. If None, automatically generates
-            mask from non-zero pixels in the projected image. Default is None.
+            If dataType=data, this string is saved as the filename of the pps
+            instance. The default is "unkown".
+        mask : np.bool_, optional
+            This array is set as mask of this pps instance. The default is
+            None.
 
         Returns
         -------
         None.
-
-        Notes
-        -----
-        For DukeScan files, time delays are extracted using time_delays() which
-        checks for _xaxis.txt files, TIFF tags, or .log files in that order.
-        Stitched files (containing "stich" in filename) are read with tifffile
-        to handle different TIFF levels.
 
         """
         if dataType == "mathematica":
@@ -124,26 +286,67 @@ class PPS:
             if isinstance(data, Path):
                 data = str(data)
 
-            self.times = np.array(PPS.time_delays(data))
-
-            # pump-probe stacks that were stitched together with ImageJ have less levels compared with
-            # with DukeScan generated files. Also I introduced a typo into all filenames, I know it
-            # should be stitched instead of stich...
-            if "stich" in data:
-                with tifffile.TiffFile(str(data)) as tif:
-                    self.images = np.array(
-                        [page.asarray() for page in tif.pages], dtype=np.float64
-                    )
-            else:
-                self.images = np.array(io.imread_collection(data)[0], dtype=np.float64)
-
+            # Read all images from the TIFF stack
+            # imread_collection returns an ImageCollection, convert to array of all images
+            image_collection = io.imread_collection(data)
+            # Convert collection to numpy array: [n_images, height, width]
+            # ImageCollection can be converted to list, then to array
+            images_list = list(image_collection)
+            if len(images_list) == 0:
+                raise ValueError(f"No images found in {data}")
+            
+            # Convert to numpy array and ensure correct shape
+            self.images = np.array(images_list, dtype=np.float64)
+            
+            # Handle different dimensionalities
+            # Remove any dimensions of size 1 (squeeze) but preserve at least 3D
+            original_shape = self.images.shape
+            self.images = np.squeeze(self.images)
+            
+            # Ensure images is 3D: [n_images, height, width]
+            if self.images.ndim == 2:
+                # Single image case - add dimension
+                self.images = self.images[np.newaxis, :, :]
+                print("Single image case - added dimension", self.images.shape)
+            elif self.images.ndim == 4:
+                # 4D case: might be [1, n_images, height, width] or [n_images, 1, height, width]
+                # Remove the dimension of size 1
+                if self.images.shape[0] == 1:
+                    self.images = self.images[0, :, :, :]  # Remove first dimension
+                elif self.images.shape[1] == 1:
+                    self.images = self.images[:, 0, :, :]  # Remove second dimension
+                else:
+                    # Try to squeeze out any dimension of size 1
+                    self.images = np.squeeze(self.images)
+                    # If still 4D, take first slice
+                    if self.images.ndim == 4:
+                        self.images = self.images[0, :, :, :]
+            elif self.images.ndim != 3:
+                raise ValueError(f"Unexpected image array shape: {original_shape} -> {self.images.shape}, expected 3D array [n_images, height, width]")
+            
+            self.times = PPS.time_delays(data)
+            # If times is empty or doesn't match number of images, create sequential delays
+            n_images = len(self.images)
+            if len(self.times) == 0 or len(self.times) != n_images:
+                # Create sequential delays based on number of images
+                print("Times are empty or don't match number of images, creating sequential delays")
+                self.times = np.arange(n_images, dtype=np.float64)
             self.filename = data
             self.image_dimensions = self.images[0].shape
-
+            
+            # Verify image_dimensions is 2D (height, width)
+            if len(self.image_dimensions) != 2:
+                raise ValueError(f"Expected 2D image dimensions, got {self.image_dimensions}")
+            
             # check if there are 0 value pixel and derive mask
             # becasue there is no mask array yet we can obviously not use it to
             # create the mask here:
-            self.mask = self.project(maskOn=False) != 0
+            try:
+                self.mask = self.project(maskOn=False) != 0
+            except Exception as e:
+                # If projection fails, create a default mask (all True)
+                print(f"Warning: Could not create mask from projection: {e}")
+                self.mask = np.ones(self.image_dimensions, dtype=bool)
 
         elif dataType == "pickle":
             import pickle
@@ -156,6 +359,71 @@ class PPS:
             self.filename = save_object["filename"]
             self.image_dimensions = save_object["image_dimensions"]
             self.mask = save_object["mask"]
+            
+            # Load background subtraction if present (backward compatible)
+            if "_original_images" in save_object:
+                self._original_images = save_object["_original_images"]
+            else:
+                # If not present, assume current images are original
+                self._original_images = self.images.copy()
+            
+            if "_background_subtraction" in save_object:
+                self._background_subtraction = save_object["_background_subtraction"]
+            else:
+                # Initialize to zeros if not present
+                self._background_subtraction = np.zeros(self.image_dimensions, dtype=np.float64)
+            
+            # Update display images based on background subtraction
+            self._update_display_images()
+            
+            # Load ROIs if present (backward compatible with older pickles)
+            rois_loaded = save_object.get("rois", [])
+            # Convert legacy dict format to new list format if needed
+            if isinstance(rois_loaded, dict):
+                self.rois = [
+                    {"id": k, "mask": v, "label": ""}
+                    for k, v in rois_loaded.items()
+                ]
+            else:
+                self.rois = list(rois_loaded)
+            # Normalize ROI entries: ensure each has shape + params
+            for r in self.rois:
+                if "shape" not in r or "params" not in r:
+                    mask = r.get("mask")
+                    if mask is not None and isinstance(mask, np.ndarray):
+                        rect = roi_mask_to_rectangle_params(mask)
+                        if rect is not None:
+                            r["shape"] = "rectangle"
+                            r["params"] = rect
+                        else:
+                            r["shape"] = "rectangle"
+                            r["params"] = {"x": 0, "y": 0, "width": 1, "height": 1}
+                    else:
+                        r["shape"] = "rectangle"
+                        r["params"] = {"x": 0, "y": 0, "width": 1, "height": 1}
+                if "mask" in r:
+                    del r["mask"]
+            self._rois_by_id = {r["id"]: i for i, r in enumerate(self.rois)}
+            num_parts = [int(r["id"].split("_")[-1]) for r in self.rois if "_" in r["id"] and r["id"].split("_")[-1].isdigit()]
+            self._roi_counter = max(num_parts, default=0)
+            # Mask layers (backward compatible: single mask -> base, no layers)
+            if "mask_layers" in save_object:
+                self.mask_layers = []
+                for ly in save_object["mask_layers"]:
+                    self.mask_layers.append({
+                        "id": ly["id"],
+                        "label": ly.get("label", ""),
+                        "mask": np.asarray(ly["mask"], dtype=bool),
+                        "enabled": ly.get("enabled", True),
+                        "comment": ly.get("comment", ""),
+                        "date": ly.get("date", ""),
+                    })
+                self._base_mask = np.asarray(
+                    save_object.get("base_mask", save_object["mask"]), dtype=bool
+                )
+            else:
+                self._base_mask = np.array(save_object["mask"], copy=True, dtype=bool)
+                self.mask_layers = []
 
         elif dataType == "data":
             if isinstance(data, (str, Path, os.PathLike)):
@@ -180,6 +448,136 @@ class PPS:
             print("PPS constructor failed")
 
         self.results = {}
+        
+        # Store original images for background subtraction reset capability
+        # Initialize background subtraction array (2D, same dimensions as single image)
+        if hasattr(self, 'images') and self.images is not None and hasattr(self, 'image_dimensions'):
+            self._original_images = self.images.copy()
+            self._background_subtraction = np.zeros(self.image_dimensions, dtype=np.float64)
+            # Initialize display images (original - background subtraction)
+            self._update_display_images()
+        else:
+            self._original_images = None
+            self._background_subtraction = None
+        
+        # ROI management: list of ROI dicts for ordered display
+        # Each ROI: {"id": str, "mask": ndarray, "label": str}
+        # Only init if not loaded from pickle
+        if dataType != "pickle":
+            self.rois = []  # List of {"id": ..., "mask": ..., "label": ...}
+            self._rois_by_id = {}  # roi_id -> index in rois list (for fast lookup)
+            self._roi_counter = 0  # Counter for generating unique ROI IDs
+
+        # Mask layers: base mask + list of layers; effective mask = base & AND(enabled layers)
+        if not hasattr(self, "_base_mask"):
+            self._base_mask = np.array(self.mask, copy=True, dtype=bool)
+        if not hasattr(self, "mask_layers"):
+            self.mask_layers = []
+        self._sync_effective_mask()
+
+    # -------------------------------------------------------------------------
+    # Mask layers, display images, save/load (NEW — PyPrisa GUI)
+    # -------------------------------------------------------------------------
+
+    def _compute_effective_mask(self):
+        """Compute effective mask as base_mask & AND of all enabled layer masks."""
+        out = np.array(self._base_mask, copy=True, dtype=bool)
+        for layer in self.mask_layers:
+            if layer.get("enabled", True):
+                out &= layer["mask"]
+        return out
+
+    def _sync_effective_mask(self):
+        """Update self.mask to the current effective mask (used everywhere in computations)."""
+        self.mask = self._compute_effective_mask()
+
+    def add_mask_layer(self, mask, layer_id=None, label="", enabled=True, comment="", date=None, restrict_to_effective=True):
+        """
+        Add a mask layer. Effective mask becomes base & (all enabled layers).
+        If restrict_to_effective is True (default), AND with current effective so the new layer only restricts.
+        """
+        mask = np.asarray(mask, dtype=bool)
+        if mask.shape != self.image_dimensions:
+            raise ValueError(
+                f"Mask shape {mask.shape} doesn't match image dimensions {self.image_dimensions}"
+            )
+        if date is None:
+            date = datetime.now().isoformat()
+        if layer_id is None:
+            existing = [ly["id"] for ly in self.mask_layers]
+            n = 1
+            while f"mask_layer_{n}" in existing:
+                n += 1
+            layer_id = f"mask_layer_{n}"
+        if restrict_to_effective:
+            effective = self._compute_effective_mask()
+            mask = mask & effective
+        self.mask_layers.append({
+            "id": layer_id,
+            "label": str(label),
+            "mask": mask,
+            "enabled": bool(enabled),
+            "comment": str(comment),
+            "date": str(date),
+        })
+        self._sync_effective_mask()
+        return layer_id
+
+    def remove_mask_layer(self, layer_id):
+        """Remove the mask layer with the given id."""
+        self.mask_layers = [ly for ly in self.mask_layers if ly["id"] != layer_id]
+        self._sync_effective_mask()
+
+    def set_mask_layer_enabled(self, layer_id, enabled):
+        """Enable or disable a mask layer."""
+        for layer in self.mask_layers:
+            if layer["id"] == layer_id:
+                layer["enabled"] = bool(enabled)
+                self._sync_effective_mask()
+                return
+        raise KeyError(f"No mask layer with id {layer_id!r}")
+
+    def set_mask_layer_label(self, layer_id, label):
+        """Set the label of a mask layer."""
+        for layer in self.mask_layers:
+            if layer["id"] == layer_id:
+                layer["label"] = str(label)
+                return
+        raise KeyError(f"No mask layer with id {layer_id!r}")
+
+    def set_mask_layer_comment(self, layer_id, comment):
+        """Set the comment of a mask layer."""
+        for layer in self.mask_layers:
+            if layer["id"] == layer_id:
+                layer["comment"] = str(comment)
+                return
+        raise KeyError(f"No mask layer with id {layer_id!r}")
+
+    def set_mask_layer_date(self, layer_id, date):
+        """Set the date of a mask layer."""
+        for layer in self.mask_layers:
+            if layer["id"] == layer_id:
+                layer["date"] = str(date)
+                return
+        raise KeyError(f"No mask layer with id {layer_id!r}")
+
+    def get_mask_layer(self, layer_id):
+        """Return the mask layer dict for the given id, or None."""
+        for layer in self.mask_layers:
+            if layer["id"] == layer_id:
+                return dict(layer)
+        return None
+
+    def get_all_mask_layer_ids(self):
+        """Return list of all mask layer ids (in order)."""
+        return [ly["id"] for ly in self.mask_layers]
+
+    def _update_display_images(self):
+        """Update self.images to be original images minus background subtraction."""
+        if self._original_images is not None and self._background_subtraction is not None:
+            # Subtract background subtraction from original images
+            # Background subtraction is 2D, so we broadcast it across the time dimension
+            self.images = self._original_images - self._background_subtraction[None, :, :]
 
     def save(self, filename):
         """
@@ -197,13 +595,42 @@ class PPS:
         """
         import pickle
 
+        # Save ROIs as shape + params (mask is recomputed on load)
+        rois_to_save = []
+        for r in self.rois:
+            rois_to_save.append({
+                "id": r["id"],
+                "label": r["label"],
+                "shape": r["shape"],
+                "params": r["params"],
+            })
+        # Persist effective mask and optionally mask layers
+        mask_layers_to_save = []
+        for ly in self.mask_layers:
+            mask_layers_to_save.append({
+                "id": ly["id"],
+                "label": ly["label"],
+                "mask": ly["mask"],
+                "enabled": ly["enabled"],
+                "comment": ly["comment"],
+                "date": ly["date"],
+            })
         save_object = {
             "images": self.images,
             "times": self.times,
             "filename": self.filename,
             "image_dimensions": self.image_dimensions,
             "mask": self.mask,
+            "base_mask": self._base_mask,
+            "mask_layers": mask_layers_to_save,
+            "rois": rois_to_save,
         }
+        
+        # Save background subtraction data if available
+        if hasattr(self, '_original_images') and self._original_images is not None:
+            save_object["_original_images"] = self._original_images
+        if hasattr(self, '_background_subtraction') and self._background_subtraction is not None:
+            save_object["_background_subtraction"] = self._background_subtraction
 
         with open(filename, "wb") as f:
             pickle.dump(save_object, f)
@@ -289,6 +716,8 @@ class PPS:
             fn_new = filename.replace("_DS_CH3.tif", ".log")
         elif filename.endswith("_DS_CH4.tif"):
             fn_new = filename.replace("_DS_CH4.tif", ".log")
+        else:
+            fn_new = filename.replace(".tif", ".log")
         try:
             with open(fn_new, "r", encoding="utf-8") as f:
                 log = f.read()
@@ -296,13 +725,9 @@ class PPS:
             with open(fn_new, "r", encoding="latin1") as f:
                 log = f.read()
 
-        fn_new = filename.replace("_DS_CH1.tif", ".log")
-
-        with open(fn_new, "r") as f:
-            log = f.read()
         match = re.search(r"(?:delayArr_ps = )([\-0-9,.]+).*", log)
         if match:
-            times = np.fromstring(match.group(1), dtype=float, sep=",")
+            times = np.array(match.group(1).split(","), dtype=float)
         else:
             print("there was a problem importing time delays with", filename)
             times = []
@@ -338,7 +763,9 @@ class PPS:
                     if tag_value.startswith(r"t = "):
                         delay = float(tag_value[4:-3])
                         delays.append(delay)
+        print("delays from tiff", delays)
         return delays
+
 
     @staticmethod
     def _substack_index_1d(size_image, size_sub):
@@ -426,6 +853,10 @@ class PPS:
 
         return [images, time]
 
+    # -------------------------------------------------------------------------
+    # Time / stack processing (legacy notebooks; edited returns & bg state)
+    # -------------------------------------------------------------------------
+
     def average_times(self, time_averages, inplace=True):
         """Average multiple time delay images together to reduce noise.
 
@@ -469,15 +900,20 @@ class PPS:
         if inplace:
             self.times = np.array(new_times)
             self.images = np.array(new_images)
+            if hasattr(self, "_original_images") and self._original_images is not None:
+                new_orig = []
+                for idx_group in positions:
+                    new_orig.append(np.mean(self._original_images[idx_group], axis=0))
+                self._original_images = np.array(new_orig)
+            self._update_display_images()
             return self
 
-        else:
-            return PPS(
-                [np.array(new_images), np.array(new_times)],
-                mask=self.mask,
-                filename=self.filename,
-                dataType="data",
-            )
+        return PPS(
+            [np.array(new_images), np.array(new_times)],
+            mask=self.mask,
+            filename=self.filename,
+            dataType="data",
+        )
 
     def select_delays(self, delays="melanoma1", inplace=True):
         """Select and filter specific time delays from the image stack.
@@ -552,29 +988,44 @@ class PPS:
 
         # redefine time delays and image stacks
         if inplace:
-            self.times = np.array(self.times[pos])
-            self.images = np.array(self.images[pos])
+            self.times = self.times[pos]
+            self.images = self.images[pos]
+            # Update original images to match selected subset
+            if hasattr(self, '_original_images') and self._original_images is not None:
+                self._original_images = self._original_images[pos]
+                # Reapply background subtraction to the subset
+                self._update_display_images()
             return self
 
-        else:
-            return PPS(
-                [np.array(self.images[pos]), np.array(self.times[pos])],
-                mask=self.mask,
-                filename=self.filename,
-                dataType="data",
-            )
+        return PPS(
+            [self.images[pos], self.times[pos]],
+            mask=self.mask,
+            filename=self.filename,
+            dataType="data",
+        )
 
-    def subtractFirst(self, n=1, inplace=True):
-        """Subtract average of first n images from entire stack.
+    def subtractFirst(self, method="negative_delays", n=None, pixelwise=True, inplace=True):
+        """Subtract background from entire stack.
 
-        Performs background subtraction by removing the average of early time
-        delays (typically negative delays before pump pulse arrives).
+        Performs background subtraction by storing a 2D background subtraction array.
+        Display images are computed as original_images - background_subtraction.
+        Default behavior averages images with negative time delays (before pump pulse).
 
         Parameters
         ----------
+        method : str, optional
+            Method for selecting background images:
+            - "negative_delays": Average images with negative time delays (default)
+            - "first_n": Average first n images from the start
+            Default is "negative_delays". For backwards compatibility, passing
+            only ``n=`` (or a single positional integer) still selects ``first_n``
+            behavior; the GUI always passes ``method`` explicitly.
         n : int, optional
-            Number of initial images to average for background subtraction.
-            Default is 1.
+            Number of initial images to average when using ``first_n`` (including
+            legacy ``subtractFirst(n=k)``). If None and method="first_n", defaults to 1.
+        pixelwise : bool, optional
+            If True, subtract pixel-by-pixel average (default).
+            If False, subtract single scalar average of entire image.
         inplace : bool, optional
             If True, modifies this instance. If False, returns new instance.
             Default is True.
@@ -583,20 +1034,89 @@ class PPS:
         -------
         PPS
             Background-subtracted stack. Returns self if inplace=True, otherwise
-            returns new PPS instance.
+            returns new PPS instance with background subtraction applied.
         """
-        mean = np.mean(self.images[:n], axis=0)
-        images_subtracted = self.images - mean
+        # Legacy ``pps.py`` / notebooks: ``subtractFirst(n=k)`` or ``subtractFirst(k)``
+        # meant "use the mean of the first *k* frames as background". The GUI always
+        # passes ``method`` explicitly and uses ``n`` only with ``method="first_n"``.
+        if isinstance(method, int):
+            n = method
+            method = "negative_delays"
+        if method == "negative_delays" and n is not None:
+            method = "first_n"
+
+        # Ensure we have original images stored
+        if not hasattr(self, '_original_images') or self._original_images is None:
+            self._original_images = self.images.copy()
+        
+        # Ensure background subtraction array exists
+        if not hasattr(self, '_background_subtraction') or self._background_subtraction is None:
+            self._background_subtraction = np.zeros(self.image_dimensions, dtype=np.float64)
+        
+        # Select background images based on method (use original images for calculation)
+        if method == "negative_delays":
+            # Find images with negative time delays
+            negative_indices = np.where(np.array(self.times) < 0)[0]
+            if len(negative_indices) == 0:
+                print("Warning: No negative time delays found. Using first image as background.")
+                bg_indices = [0]
+            else:
+                bg_indices = negative_indices
+        elif method == "first_n":
+            # Use first n images
+            if n is None:
+                n = 1
+            n = max(1, min(n, len(self._original_images)))  # Ensure valid range
+            bg_indices = np.arange(n)
+        else:
+            raise ValueError(f"Unknown method: {method}. Use 'negative_delays' or 'first_n'.")
+        
+        # Calculate background from original images
+        bg_images = self._original_images[bg_indices]
+        
+        if pixelwise:
+            # Pixel-by-pixel average (2D array)
+            background_subtraction = np.mean(bg_images, axis=0)
+        else:
+            # Whole-image average (single scalar) - broadcast to 2D array
+            mean_scalar = np.mean(bg_images)
+            background_subtraction = np.full(self.image_dimensions, mean_scalar, dtype=np.float64)
+        
         if inplace:
-            self.images = np.array(images_subtracted)
+            # Store background subtraction array
+            self._background_subtraction = background_subtraction
+            # Update display images
+            self._update_display_images()
             return self
         else:
-            return PPS(
-                [np.array(images_subtracted), np.array(self.times)],
+            # Create new PPS instance with background subtraction applied
+            images_subtracted = self._original_images - background_subtraction[None, :, :]
+            new_pps = PPS(
+                [images_subtracted, self.times],
                 mask=self.mask,
                 filename=self.filename,
                 dataType="data",
             )
+            # Set background subtraction in new instance
+            new_pps._original_images = self._original_images.copy()
+            new_pps._background_subtraction = background_subtraction.copy()
+            return new_pps
+    
+    def resetBackgroundSubtraction(self):
+        """Reset background subtraction by setting background subtraction array to zeros.
+        
+        This restores the display images to the original images.
+        
+        Returns
+        -------
+        None
+        """
+        if hasattr(self, '_background_subtraction') and self._background_subtraction is not None:
+            self._background_subtraction = np.zeros(self.image_dimensions, dtype=np.float64)
+            self._update_display_images()
+            print("Background subtraction reset.")
+        else:
+            print("Warning: Background subtraction array not initialized.")
 
     def normalize(self, norm="minmax", inPlace=False):
         """
@@ -618,18 +1138,42 @@ class PPS:
             returns a new instance.
         """
         if norm is None:
-            pass
-        elif norm == "minmax":
+            if inPlace:
+                return self
+            return PPS(
+                [self.images, self.times],
+                mask=self.mask,
+                filename=self.filename,
+                dataType="data",
+            )
+        if norm == "minmax":
             avg = self.avg()
             extremum = np.max(np.abs([np.min(avg), np.max(avg)]))
+            if extremum == 0:
+                extremum = 1.0
+            scaled = self.images / extremum
+        else:
+            if inPlace:
+                return self
+            return PPS(
+                [self.images, self.times],
+                mask=self.mask,
+                filename=self.filename,
+                dataType="data",
+            )
 
         if inPlace:
-            self.images = self.images / extremum
+            self.images = scaled
+            if hasattr(self, "_original_images") and self._original_images is not None:
+                self._original_images = self._original_images / extremum
+            self._update_display_images()
             return self
-        else:
-            return PPS(
-                [self.images / extremum, self.times], mask=self.mask, dataType="data"
-            )
+        return PPS(
+            [scaled, self.times],
+            mask=self.mask,
+            filename=self.filename,
+            dataType="data",
+        )
 
     def avg(self, maskOn=True, norm=None):
         """
@@ -745,6 +1289,12 @@ class PPS:
         """
         result = np.zeros(self.image_dimensions, dtype=np.float64)
         for i in self.images:
+            # Ensure image is 2D
+            if i.ndim != 2:
+                raise ValueError(f"Expected 2D image in stack, got shape {i.shape}")
+            # Ensure image matches expected dimensions
+            if i.shape != self.image_dimensions:
+                raise ValueError(f"Image shape {i.shape} doesn't match expected dimensions {self.image_dimensions}")
             np.add(result, np.abs(i), out=result)
 
         if maskOn is True:
@@ -837,7 +1387,8 @@ class PPS:
         """
         if slices is not None:
             for i in slices:
-                self.mask[i] = False
+                self._base_mask[i] = False
+            self._sync_effective_mask()
 
     def count_nonzero_pixel(self):
         """Count the number of non-zero pixels in the stack projection.
@@ -897,11 +1448,17 @@ class PPS:
             Downsampling factor. Each dimension is reduced by this factor.
         obsolete_version : bool, optional
             If True, use the older implementation. Default is False.
+        inplace : bool, optional
+            If True, replace this stack's arrays in place (legacy ``pps.py``) and
+            keep ``self`` for chaining. Also resamples background-subtraction state
+            and mask layers when present. ``obsolete_version=True`` ignores
+            ``inplace`` and always returns a new stack (legacy behavior).
 
         Returns
         -------
         PPS
-            New downsampled PPS instance with reduced image dimensions.
+            Downsampled stack: ``self`` if ``inplace`` is True, otherwise a new
+            instance with reduced image dimensions.
         """
         if obsolete_version:
             return self._downsample_obsolete(size)
@@ -909,19 +1466,43 @@ class PPS:
         images_ds = [downscale_local_mean(img, (size, size)) for img in self.images]
         mask_ds = downscale_local_mean(self.mask.astype(float), (size, size)) > 0
 
-        if inplace:
-            self.images = np.array(images_ds)
-            self.mask = np.array(mask_ds)
-            self.image_dimensions = self.images[0].shape
-            return self
-
-        else:
+        if not inplace:
             return PPS(
-                [np.array(images_ds), np.array(self.times)],
+                [images_ds, self.times],
                 dataType="data",
                 filename=self.filename,
-                mask=np.array(mask_ds),
+                mask=mask_ds,
             )
+
+        self.images = np.array(images_ds)
+        self.image_dimensions = self.images[0].shape
+        self._base_mask = np.array(mask_ds, copy=True, dtype=bool)
+        self.mask = np.array(mask_ds, dtype=bool)
+        if hasattr(self, "_original_images") and self._original_images is not None:
+            self._original_images = np.array(
+                [downscale_local_mean(img, (size, size)) for img in self._original_images]
+            )
+        if hasattr(self, "_background_subtraction") and self._background_subtraction is not None:
+            self._background_subtraction = downscale_local_mean(
+                self._background_subtraction, (size, size)
+            )
+        for layer in getattr(self, "mask_layers", []) or []:
+            layer["mask"] = (
+                downscale_local_mean(layer["mask"].astype(float), (size, size)) > 0
+            )
+        inv = float(size)
+        for r in getattr(self, "rois", []) or []:
+            p = r.get("params") or {}
+            for key in list(p.keys()):
+                if key == "angle_deg":
+                    continue
+                try:
+                    p[key] = float(p[key]) / inv
+                except (TypeError, ValueError):
+                    pass
+        self._sync_effective_mask()
+        self._update_display_images()
+        return self
 
     def _downsample_obsolete(self, size):
         """
@@ -1186,8 +1767,10 @@ class PPS:
         # define sin, cos of time delays, and prepare list containing TA curve
         # of each pixel
         self.freq = freq * 2 * np.pi
-        self.sin = np.sin(self.times * self.freq)
-        self.cos = np.cos(self.times * self.freq)
+        # Ensure times is numeric array (pickle/backends may store as Python list)
+        times = np.asarray(self.times, dtype=np.float64)
+        self.sin = np.sin(times * self.freq)
+        self.cos = np.cos(times * self.freq)
         self.ta_curves = self._phasor_flatten_stack(remove_zero=remove_zero)
 
         self.phasor_coor = np.apply_along_axis(
@@ -1330,39 +1913,32 @@ class PPS:
 
         Returns
         -------
-        None.
+        np.ndarray of bool
+            The computed mask (same shape as image). Also applied in-place if inplace=True.
 
         """
-        # import filter
         from skimage import filters
 
         # compute intensity projection and do gaussian smoothing
         projection = filters.gaussian(
             self.project(maskOn=projection_use_mask), sigma=sigma
         )
-        mask_zero = projection != 0
 
         # compute mask
         if threshold == "Li":
-            cutoff = filters.threshold_li(projection[mask_zero])
+            cutoff = filters.threshold_li(projection)
             mask = self.mask & np.where(projection > cutoff, True, False)
-
         elif isinstance(threshold, (int, float)):
             mask = self.mask & np.where(projection > threshold, True, False)
         else:
-            print("invalid use of threshold variable")
+            raise ValueError(f"threshold must be 'Li' or a number, got {type(threshold).__name__!r}")
 
         if inplace:
-            self.mask = mask
-            return self
+            self._base_mask = mask
+            self.mask_layers = []
+            self._sync_effective_mask()
 
-        else:
-            return PPS(
-                [self.images, self.times],
-                dataType="data",
-                filename=self.filename,
-                mask=mask,
-            )
+        return mask
 
     @staticmethod
     def intensity_threshold_shared(stacks, threshold, sigma=5):
@@ -1462,7 +2038,235 @@ class PPS:
         None.
 
         """
-        self.mask = self.mask & mask
+        self._base_mask = self._base_mask & mask
+        self._sync_effective_mask()
+
+    # -------------------------------------------------------------------------
+    # ROI management (NEW — shape+params; ``roi_mask`` bbox supported for legacy)
+    # -------------------------------------------------------------------------
+
+    def add_roi(self, roi_mask=None, shape=None, params=None, roi_id=None, label=""):
+        """
+        Add a Region of Interest to the stack.
+
+        Can be called with either a boolean mask (legacy) or shape + params.
+        Stored as shape + params; mask is computed when needed.
+
+        Parameters
+        ----------
+        roi_mask : np.ndarray of bool, optional
+            Boolean mask (legacy). If provided, bounding box is stored as rectangle.
+        shape : str, optional
+            One of "circle", "ellipse", "square", "rectangle". Required if params given.
+        params : dict, optional
+            Shape parameters in pixels (see roi_shape_to_mask).
+        roi_id : str, optional
+            Unique identifier. If None, generated.
+        label : str, optional
+            User label. Default "".
+
+        Returns
+        -------
+        str
+            ROI ID.
+        """
+        if roi_mask is not None:
+            roi_mask = roi_mask.astype(bool)
+            if roi_mask.shape != self.image_dimensions:
+                raise ValueError(f"ROI mask shape {roi_mask.shape} doesn't match image dimensions {self.image_dimensions}")
+            rect = roi_mask_to_rectangle_params(roi_mask)
+            if rect is None:
+                rect = {"x": 0, "y": 0, "width": 1, "height": 1}
+            shape = "rectangle"
+            params = rect
+        if shape is None or params is None:
+            raise ValueError("Either roi_mask or (shape, params) must be provided")
+        mask = roi_shape_to_mask(shape, params, self.image_dimensions)
+
+        if roi_id is None:
+            self._roi_counter += 1
+            roi_id = f"roi_{self._roi_counter}"
+
+        roi_entry = {"id": roi_id, "label": str(label), "shape": shape, "params": dict(params)}
+        self.rois.append(roi_entry)
+        self._rois_by_id[roi_id] = len(self.rois) - 1
+        return roi_id
+    
+    def remove_roi(self, roi_id):
+        """
+        Remove a ROI from the stack.
+        
+        Parameters
+        ----------
+        roi_id : str
+            ID of the ROI to remove.
+        
+        Returns
+        -------
+        bool
+            True if ROI was removed, False if ROI didn't exist.
+        """
+        if roi_id not in self._rois_by_id:
+            return False
+        idx = self._rois_by_id[roi_id]
+        del self.rois[idx]
+        del self._rois_by_id[roi_id]
+        # Rebuild _rois_by_id
+        self._rois_by_id = {r["id"]: i for i, r in enumerate(self.rois)}
+        return True
+    
+    def get_roi_mask(self, roi_id):
+        """
+        Get the mask for a specific ROI (computed from shape + params).
+        
+        Parameters
+        ----------
+        roi_id : str
+            ID of the ROI.
+        
+        Returns
+        -------
+        np.ndarray of bool or None
+            ROI mask array, or None if ROI doesn't exist.
+        """
+        if roi_id not in self._rois_by_id:
+            return None
+        r = self.rois[self._rois_by_id[roi_id]]
+        return roi_shape_to_mask(r["shape"], r["params"], self.image_dimensions)
+    
+    def get_roi_label(self, roi_id):
+        """
+        Get the user-defined label (comment) for a specific ROI.
+        
+        Labels are used to identify ROIs in the GUI (e.g. in the ROI list and
+        plot legend) so you can name them (e.g. "background", "peak 1").
+        
+        Parameters
+        ----------
+        roi_id : str
+            ID of the ROI.
+        
+        Returns
+        -------
+        str or None
+            ROI label, or None if ROI doesn't exist.
+        """
+        if roi_id not in self._rois_by_id:
+            return None
+        return self.rois[self._rois_by_id[roi_id]]["label"]
+    
+    def set_roi_label(self, roi_id, label):
+        """
+        Set the label for a specific ROI.
+        
+        Parameters
+        ----------
+        roi_id : str
+            ID of the ROI.
+        label : str
+            New label text.
+        
+        Returns
+        -------
+        bool
+            True if ROI was updated, False if ROI didn't exist.
+        """
+        if roi_id not in self._rois_by_id:
+            return False
+        self.rois[self._rois_by_id[roi_id]]["label"] = str(label)
+        return True
+    
+    def get_roi_signal(self, roi_id, mask_on=True):
+        """
+        Get the average signal within a ROI as a function of time delay.
+        
+        Parameters
+        ----------
+        roi_id : str
+            ID of the ROI.
+        mask_on : bool, optional
+            Whether to apply the stack's main mask in addition to ROI mask.
+            The default is True.
+        
+        Returns
+        -------
+        np.ndarray
+            Array of average signal values, one per time delay/slice.
+            Returns None if ROI doesn't exist.
+        """
+        if roi_id not in self._rois_by_id:
+            return None
+        
+        roi_mask = self.get_roi_mask(roi_id)
+        if roi_mask is None:
+            return None
+        
+        # Combine with main mask if requested
+        if mask_on:
+            combined_mask = roi_mask & self.mask
+        else:
+            combined_mask = roi_mask
+        
+        # Count pixels in ROI
+        n_pixels = np.sum(combined_mask)
+        if n_pixels == 0:
+            return np.zeros(len(self.images))
+        
+        # Compute average signal for each time point
+        signals = []
+        for img in self.images:
+            roi_values = img[combined_mask]
+            avg_signal = np.mean(roi_values)
+            signals.append(avg_signal)
+        
+        return np.array(signals)
+    
+    def get_all_roi_ids(self):
+        """
+        Get list of all ROI IDs (in order).
+        
+        Returns
+        -------
+        list of str
+            List of ROI IDs.
+        """
+        return [r["id"] for r in self.rois]
+    
+    def update_roi(self, roi_id, roi_mask=None, shape=None, params=None):
+        """
+        Update an existing ROI (by mask or by shape+params).
+        
+        Parameters
+        ----------
+        roi_id : str
+            ID of the ROI to update.
+        roi_mask : np.ndarray of bool, optional
+            New mask (legacy). Stored as rectangle bbox.
+        shape : str, optional
+            New shape type.
+        params : dict, optional
+            New shape params.
+        
+        Returns
+        -------
+        bool
+            True if updated.
+        """
+        if roi_id not in self._rois_by_id:
+            return False
+        r = self.rois[self._rois_by_id[roi_id]]
+        if roi_mask is not None:
+            roi_mask = roi_mask.astype(bool)
+            if roi_mask.shape != self.image_dimensions:
+                raise ValueError(f"ROI mask shape {roi_mask.shape} doesn't match image dimensions {self.image_dimensions}")
+            rect = roi_mask_to_rectangle_params(roi_mask)
+            if rect is not None:
+                r["shape"] = "rectangle"
+                r["params"] = rect
+        elif shape is not None and params is not None:
+            r["shape"] = shape
+            r["params"] = dict(params)
+        return True
 
     @staticmethod
     def linear_combination(stack1, coeff1, stack2, coeff2):
@@ -1492,7 +2296,12 @@ class PPS:
         if np.allclose(stack1.times, stack2.times):
             images = coeff1 * stack1.images + coeff2 * stack2.images
             mask = stack1.mask & stack2.mask
-            return PPS([images, stack1.times], mask=mask, dataType="data")
+            return PPS(
+                [images, stack1.times],
+                mask=mask,
+                dataType="data",
+                filename=getattr(stack1, "filename", "combined"),
+            )
         else:
             print("time delays of stack1 and stack2 differ")
             return None
