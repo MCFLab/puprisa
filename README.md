@@ -74,6 +74,16 @@ The active development line for this package lives on the **`pyprisa`** branch. 
    # should print: pyprisa
    ```
 
+**Stay up to date (especially for testers):** Run **`git pull`** in your local clone often so you stay on the latest **`pyprisa`** commits. You do **not** need to activate your `venv` or Conda environment first—`git` uses your repo folder only. From the repository root:
+
+```bash
+cd /path/to/pump_probe_analysis
+git checkout pyprisa
+git pull
+```
+
+If a pull changes dependencies (`pyproject.toml` or similar), reinstall in your environment (same commands as below), e.g. `pip install -e ".[gui]"` or `pip install -e .`.
+
 You are now at the repository root. Continue with **one** of the installation tutorials below: **install with `venv`** or **install with Conda** (pick a single path—not both).
 
 ---
