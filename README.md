@@ -6,6 +6,10 @@ A comprehensive Python package for analyzing pump-probe imaging data, with a foc
 
 This package provides end-to-end analysis tools for pump-probe spectroscopy experiments, enabling researchers to process, analyze, and visualize time-resolved optical data. The toolkit supports multiple data formats, advanced processing techniques, and sophisticated visualization methods including phasor analysis.
 
+Here is a link to a google doc to show the roadmap of future features/bugfixes and for test users to leave feedback:
+
+https://docs.google.com/document/d/1uNBoRhGl6r8pxomQA-IgmFEcgjlpmZBz5Xu39qViVS8/edit?usp=sharing
+
 ## Features
 
 - **Multiple Data Format Support**: Import from DukeScan, Mathematica, and pickle formats with intelligent parsing
@@ -27,6 +31,19 @@ This package provides end-to-end analysis tools for pump-probe spectroscopy expe
 
 All steps below assume your shell’s working directory is the **repository root** — the folder that contains `pyproject.toml` and `src/` (i.e. `pump_probe_analysis/` after you clone or unpack the project).
 
+### Virtual environment: pick **one** (`venv` **or** Conda)
+
+Install this package into a **virtual environment** — a self-contained Python environment for this project only. That isolates dependencies from your **system Python** (the interpreter macOS/Linux ship or you installed globally), so upgrades here do not break other tools, and you can delete the env folder to remove the project cleanly. It also pins what you install for reproducible analysis.
+
+You need **some** virtual environment; you do **not** need both mechanisms below.
+
+| Use | If you… |
+|-----|--------|
+| **`venv`** | Want the standard library only—no Conda—and are fine with `python` + `pip`. |
+| **Conda** | Already use Conda/Mamba for science stacks, or prefer `conda` envs. |
+
+Follow **either** the `venv` tutorial **or** the Conda tutorial—not both. Creating a `.venv` beside the repo *and* a separate Conda env for the same checkout is unnecessary and easy to confuse; pick one workflow and stick with it.
+
 ---
 
 ### Tutorial: get the code with Git (branch `pyprisa`)
@@ -35,15 +52,10 @@ The active development line for this package lives on the **`pyprisa`** branch. 
 
 1. **Clone** the repository and check out `pyprisa` in one step (replace the URL with your fork or the upstream remote — HTTPS or SSH is fine):
 
-   ```bash
-   git clone -b pyprisa https://github.com/<owner>/pump_probe_analysis.git
-   cd pump_probe_analysis
-   ```
-
    Example with SSH:
 
    ```bash
-   git clone -b pyprisa git@github.com:<owner>/pump_probe_analysis.git
+   git clone -b pyprisa git@gitlab.oit.duke.edu:dg208/pump_probe_analysis.git
    cd pump_probe_analysis
    ```
 
@@ -62,11 +74,13 @@ The active development line for this package lives on the **`pyprisa`** branch. 
    # should print: pyprisa
    ```
 
-You are now at the repository root. Continue with **install with `venv`** or **install with Conda** below.
+You are now at the repository root. Continue with **one** of the installation tutorials below: **install with `venv`** or **install with Conda** (pick a single path—not both).
 
 ---
 
 ### Tutorial: install with `venv` (standard library)
+
+**If you are using Conda for this project, skip this section** and use the Conda tutorial below instead.
 
 `venv` creates an isolated Python environment next to your project. No extra tools are required beyond Python itself.
 
@@ -144,6 +158,8 @@ You are now at the repository root. Continue with **install with `venv`** or **i
 
 ### Tutorial: install with Conda (Anaconda, Miniconda, or Mambaforge)
 
+**If you already installed with `venv` above, skip this entire section**—you already have an environment.
+
 Conda manages a separate Python and packages per environment. This package is installed **from your local checkout with pip** inside that environment (editable install is not published on conda-forge by default).
 
 1. **Install** [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/download) if you do not already have `conda`. Initialize your shell so `conda activate` works (the installer usually offers to do this).
@@ -185,23 +201,75 @@ Conda manages a separate Python and packages per environment. This package is in
    conda deactivate
    ```
 
-**Note:** Mixing `conda install` for scientific stacks and `pip install -e` for this repo in the *same* env is normal. Prefer installing **this** project with `pip` from the local tree so the editable install tracks your edits to `src/`.
+**Note:** Inside a **single** Conda environment, using `conda install` for some libraries and `pip install -e` for this repo is normal. That is not the same as using both a `.venv` and a Conda env for one checkout—avoid the latter. Prefer installing **this** project with `pip` from the local tree so the editable install tracks your edits to `src/`.
 
 ---
 
-### After installation: GUI (PUPRISA)
+### After installation: run the GUI or use the library in code
 
-The launcher opens the **channel view** directly (single stack at a time). Use **File → Open Stack…** to load one file:
+Do these steps **inside the same environment** you chose (`venv` or Conda): activate it (`source .venv/bin/activate`, `conda activate pump-probe`, etc.) before running commands or Python.
 
-- **DukeScan**: any single-channel TIFF (e.g. `*_DS_CH1.tif` … `*_DS_CH4.tif`, `.tif` or `.TIF`)
-- **Pickle**: a stack saved with `PPS.save` (`.pkl` / `.pickle`)
-- **Mathematica**: binary stack path (choose format when the extension is ambiguous)
+#### Open the GUI (PUPRISA)
 
-**File → Open Stack…** auto-detects format from the extension; if it cannot, you are prompted. You can pass a path on the command line: `pump-probe-gui /path/to/stack.tif`. Opening a new file resets the session (ROIs, masks, plots, phasor window).
+1. **Install the GUI extra** if you have not already (from the repository root, env activated):
 
-With `[gui]` installed you can run **`pump-probe-gui`** or **`python -m pump_probe_analysis`**.
+   ```bash
+   pip install -e ".[gui]"
+   ```
 
-Example data paths in notebooks assume the repo layout: `data/` at the repository root (see `examples/example.ipynb`).
+   This pulls in **PySide6** and registers the `pump-probe-gui` command.
+
+2. **Launch** the application:
+
+   ```bash
+   pump-probe-gui
+   ```
+
+   Optional: open a file immediately:
+
+   ```bash
+   pump-probe-gui /path/to/stack.tif
+   ```
+
+   Equivalent entry point:
+
+   ```bash
+   python -m pump_probe_analysis
+   ```
+
+3. **In the app**, the launcher opens the **channel view** (one stack at a time). Use **File → Open Stack…** to load data:
+
+   - **DukeScan**: any single-channel TIFF (e.g. `*_DS_CH1.tif` … `*_DS_CH4.tif`, `.tif` or `.TIF`)
+   - **Pickle**: a stack saved with `PPS.save` (`.pkl` / `.pickle`)
+   - **Mathematica**: binary stack path (choose format when the extension is ambiguous)
+
+   **File → Open Stack…** auto-detects format from the extension; if it cannot, you are prompted. Opening a new file resets the session (ROIs, masks, plots, phasor window).
+
+#### Use the package without the GUI (scripts, notebooks, REPL)
+
+You do **not** need PySide6 or `pump-probe-gui` for programmatic analysis.
+
+1. **Install** the core package only (no GUI), from the repo root with your env activated:
+
+   ```bash
+   pip install -e .
+   ```
+
+   If you already ran `pip install -e ".[gui]"`, you can keep that install—the library imports the same; the GUI extra only adds optional dependencies and the launcher.
+
+2. **Use Python** anywhere your environment is active: scripts, Jupyter, or `python` in a terminal. Minimal example (paths relative to your current working directory):
+
+   ```python
+   from pathlib import Path
+   from pump_probe_analysis.pps import PPS
+
+   stack = PPS(Path("data/example_stack_DS_CH1.tif"), dataType="DukeScan")
+   stack.subtractFirst(n=3)
+   stack.normalize(norm="minmax")
+   stack.avg_show()
+   ```
+
+3. **Go deeper** with [Quick Start](#quick-start) below and the notebook `examples/example.ipynb`. Example data paths in the docs assume a `data/` folder at the **repository root** when you run code from that tree.
 
 ### Legacy `requirements.txt`
 
