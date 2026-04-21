@@ -15,6 +15,7 @@ Created: 2025
 """
 
 import sys
+import csv
 import json
 import re
 from datetime import datetime
@@ -50,6 +51,13 @@ except ImportError:
 
 # Default matplotlib color palette for ROI color-matching
 ROI_COLOR_PALETTE = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+
+def _sanitize_csv_column_name(name):
+    """Make a safe single-line CSV column name from an ROI label or id."""
+    s = "".join(c if c not in '[];:"\n\r,' else "_" for c in str(name))
+    s = s.strip() or "roi"
+    return s[:200]
 
 
 def _guess_pps_data_type(path: Path):
@@ -243,6 +251,7 @@ class DraggableROI(QGraphicsRectItem):
         self._resizing = False
         self._resizeHandle = None
         self._roiChangedCallback = None
+        self._movementBounds = None
         
     def setRoiChangedCallback(self, callback):
         """Set callback function to be called when ROI changes."""
@@ -276,9 +285,28 @@ class DraggableROI(QGraphicsRectItem):
         """Notify that ROI has changed."""
         if self._roiChangedCallback:
             self._roiChangedCallback()
+
+    def setMovementBounds(self, bounds_rect):
+        """Restrict ROI movement to a scene-space bounds rectangle."""
+        self._movementBounds = QRectF(bounds_rect) if bounds_rect is not None else None
     
     def itemChange(self, change, value):
         """Handle item changes and emit signal."""
+        if change == QGraphicsRectItem.ItemPositionChange and self._movementBounds is not None:
+            new_pos = QPointF(value)
+            rect = self.rect()
+            b = self._movementBounds
+            min_x = b.left()
+            min_y = b.top()
+            max_x = b.right() - rect.width()
+            max_y = b.bottom() - rect.height()
+            if max_x < min_x:
+                max_x = min_x
+            if max_y < min_y:
+                max_y = min_y
+            new_pos.setX(max(min_x, min(new_pos.x(), max_x)))
+            new_pos.setY(max(min_y, min(new_pos.y(), max_y)))
+            return new_pos
         result = super().itemChange(change, value)
         # Emit signal when position changes
         if change == QGraphicsRectItem.ItemPositionHasChanged:
@@ -570,6 +598,8 @@ class PuprisaChannelViewWindow(QMainWindow):
         self.graphicsScene = QGraphicsScene()
         self.graphicsView.setScene(self.graphicsScene)
         self.graphicsView.setMinimumSize(400, 400)
+        self.graphicsView.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.graphicsView.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.graphicsView.setRenderHint(QPainter.Antialiasing)
         self.graphicsView.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         imageLayout.addWidget(self.graphicsView)
@@ -656,12 +686,15 @@ class PuprisaChannelViewWindow(QMainWindow):
         self.maskListWidget.itemChanged.connect(self.onMaskListItemChanged)
         plotLayout.addWidget(self.maskListWidget)
         maskControlsLayout = QHBoxLayout()
+        maskFromRoisButton = QPushButton("Mask from ROIs")
+        maskFromRoisButton.clicked.connect(self.maskFromRois)
         renameMaskButton = QPushButton("Rename")
         renameMaskButton.clicked.connect(self.renameSelectedMaskLayer)
         commentMaskButton = QPushButton("Edit comment…")
         commentMaskButton.clicked.connect(self.editSelectedMaskComment)
         removeMaskButton = QPushButton("Remove")
         removeMaskButton.clicked.connect(self.removeSelectedMaskLayer)
+        maskControlsLayout.addWidget(maskFromRoisButton)
         maskControlsLayout.addWidget(renameMaskButton)
         maskControlsLayout.addWidget(commentMaskButton)
         maskControlsLayout.addWidget(removeMaskButton)
@@ -785,6 +818,10 @@ class PuprisaChannelViewWindow(QMainWindow):
         clear_rois_action = roi_menu.addAction('Clear All ROIs')
         clear_rois_action.triggered.connect(self.clearAllROIs)
 
+        export_ta_menu = menubar.addMenu("Export TA curves")
+        export_ta_action = export_ta_menu.addAction("Export ROI curves to CSV…")
+        export_ta_action.triggered.connect(self.exportTaCurvesToCsv)
+
         # Mask menu
         mask_menu = menubar.addMenu('Mask')
         mask_add_action = mask_menu.addAction('Add mask from file…')
@@ -806,6 +843,7 @@ class PuprisaChannelViewWindow(QMainWindow):
             view_menu,
             processing_menu,
             roi_menu,
+            export_ta_menu,
             mask_menu,
             analysis_menu,
         ]
@@ -1296,6 +1334,7 @@ class PuprisaChannelViewWindow(QMainWindow):
         rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
         rect_item.setPos(QPointF(center_x - roi_size / 2, center_y - roi_size / 2))
         rect_item.setRoiChangedCallback(self.onROIChanged)
+        rect_item.setMovementBounds(self.pixmapRect)
         rect_item.setZValue(10)
         self.graphicsScene.addItem(rect_item)
         params = self._sceneRectToRoiParams(shape_type, rect_item.getSceneRect())
@@ -1349,6 +1388,76 @@ class PuprisaChannelViewWindow(QMainWindow):
             return None
         p = Path(self.fileName)
         return p.parent / f"{p.stem}_ROIs.json"
+
+    def exportTaCurvesToCsv(self):
+        """Export ROI average TA curves (same data as the ROI signal plot) to a wide CSV."""
+        if self.pps is None:
+            QMessageBox.information(self, "Export TA curves", "Load a stack first.")
+            return
+        if not self.roiItems:
+            QMessageBox.information(
+                self,
+                "Export TA curves",
+                "No ROIs on the plot. Create ROIs first.",
+            )
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export ROI curves to CSV",
+            str(Path.cwd()),
+            "CSV (*.csv);;All files (*)",
+        )
+        if not path:
+            return
+        is_z = getattr(self.pps, "stack_axis", "time") == "z"
+        x_key = "z_um" if is_z else "time_ps"
+        axis_x = np.asarray(self.pps.slice_axis_values(), dtype=np.float64)
+        n = len(axis_x)
+        column_keys = [x_key]
+        columns = {x_key: axis_x}
+        used_names = {x_key}
+
+        for roi_info in self.roiItems:
+            roi_id = roi_info["roi_id"]
+            roi_mask = self.pps.get_roi_mask(roi_id)
+            if roi_mask is None:
+                continue
+            label = self.pps.get_roi_label(roi_id) or roi_id
+            signal = self._signalForMask(roi_mask)
+            if signal is None:
+                continue
+            base = _sanitize_csv_column_name(label)
+            colname = base
+            k = 1
+            while colname in used_names:
+                colname = f"{base}_{k}"
+                k += 1
+            used_names.add(colname)
+            sig = np.asarray(signal, dtype=np.float64)
+            n_pts = min(n, len(sig))
+            padded = np.full(n, np.nan, dtype=np.float64)
+            padded[:n_pts] = sig[:n_pts]
+            columns[colname] = padded
+            column_keys.append(colname)
+
+        if len(column_keys) < 2:
+            QMessageBox.information(
+                self,
+                "Export TA curves",
+                "No plottable ROI curves (check ROIs and masks).",
+            )
+            return
+
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(column_keys)
+                for i in range(n):
+                    w.writerow([float(columns[k][i]) for k in column_keys])
+        except OSError as e:
+            QMessageBox.critical(self, "Export TA curves", f"Could not write file:\n{e}")
+            return
+        QMessageBox.information(self, "Export TA curves", f"Saved:\n{path}")
 
     def exportRoisToJson(self):
         """Export all active ROIs to rois.json in the image directory."""
@@ -1685,6 +1794,38 @@ class PuprisaChannelViewWindow(QMainWindow):
             except KeyError:
                 pass
 
+    def maskFromRois(self):
+        """Add a mask layer that keeps only the union of all defined ROIs (False elsewhere)."""
+        if self.pps is None:
+            QMessageBox.information(self, "Mask from ROIs", "Load a stack first.")
+            return
+        roi_ids = self.pps.get_all_roi_ids()
+        if not roi_ids:
+            QMessageBox.information(
+                self,
+                "Mask from ROIs",
+                "No ROIs defined. Create at least one ROI first.",
+            )
+            return
+        combined = None
+        for roi_id in roi_ids:
+            m = self.pps.get_roi_mask(roi_id)
+            if m is None:
+                continue
+            if combined is None:
+                combined = np.zeros(self.pps.image_dimensions, dtype=bool)
+            combined |= m
+        if combined is None or not np.any(combined):
+            QMessageBox.warning(
+                self,
+                "Mask from ROIs",
+                "Could not build a non-empty mask from the current ROIs.",
+            )
+            return
+        # restrict_to_effective=True: union is ANDed with current analysis area so already-excluded pixels are not re-included.
+        self.pps.add_mask_layer(combined, label="From ROIs", enabled=True, restrict_to_effective=True)
+        self._maskChangeRefresh()
+
     def removeSelectedMaskLayer(self):
         """Remove the selected mask layer."""
         item = self.maskListWidget.currentItem()
@@ -1799,6 +1940,7 @@ class PuprisaChannelViewWindow(QMainWindow):
             rect_item = DraggableROI(item_rect, color=color, shape_type=entry["shape"])
             rect_item.setPos(scene_rect.topLeft())
             rect_item.setRoiChangedCallback(self.onROIChanged)
+            rect_item.setMovementBounds(self.pixmapRect)
             rect_item.setZValue(10)
             self.graphicsScene.addItem(rect_item)
             self.roiItems.append({"roi_id": roi_id, "rect_item": rect_item, "color": color})
@@ -1868,6 +2010,7 @@ class PuprisaChannelViewWindow(QMainWindow):
             rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
             rect_item.setPos(scene_rect.topLeft())
             rect_item.setRoiChangedCallback(self.onROIChanged)
+            rect_item.setMovementBounds(self.pixmapRect)
             rect_item.setZValue(10)
             self.graphicsScene.addItem(rect_item)
             self.roiItems.append({"roi_id": roi_id, "rect_item": rect_item, "color": color})
@@ -2292,6 +2435,10 @@ class PuprisaChannelViewWindow(QMainWindow):
             self.roiItems = []
             pixmap_item = self.graphicsScene.addPixmap(pixmap)
             self.pixmapRect = pixmap_item.boundingRect()
+            should_refit = (
+                self._lastPixmapRect is None
+                or self._lastPixmapRect.size() != self.pixmapRect.size()
+            )
             
             # Re-add ROI items from shape+params
             for backup in roi_backups:
@@ -2302,6 +2449,7 @@ class PuprisaChannelViewWindow(QMainWindow):
                 rect_item = DraggableROI(item_rect, color=backup["color"], shape_type=backup["shape_type"])
                 rect_item.setPos(scene_rect.topLeft())
                 rect_item.setRoiChangedCallback(self.onROIChanged)
+                rect_item.setMovementBounds(self.pixmapRect)
                 rect_item.setZValue(10)
                 self.graphicsScene.addItem(rect_item)
                 self.roiItems.append({"roi_id": backup["roi_id"], "rect_item": rect_item, "color": backup["color"]})
@@ -2311,9 +2459,11 @@ class PuprisaChannelViewWindow(QMainWindow):
             
             # Store pixmap rect for next update
             self._lastPixmapRect = self.pixmapRect
-            # Fit full image in view after layout has correct viewport size
-            self._fitChannelImageView()
-            QTimer.singleShot(0, self._fitChannelImageView)
+            # Only refit when a new image size appears (initial load/open/new stack),
+            # not on every repaint, to avoid view recentering during ROI interaction.
+            if should_refit:
+                self._fitChannelImageView()
+                QTimer.singleShot(0, self._fitChannelImageView)
             
             # Update title
             self.titleLabel.setText(f'Channel {self.channelNum} - Slice {self.currentSlice + 1}/{self.nSlices}')

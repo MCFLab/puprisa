@@ -11,6 +11,7 @@ Spatial projection uses the same row order as ``PPS`` storage and the main
 window (row 0 at top); ROI overlays use the same indexing.
 """
 
+import csv
 import json
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +32,13 @@ import matplotlib.colors as mcolors
 
 # Optional: get PPS from parent (channel view)
 # No import from puprisa_channel_view to avoid circular import.
+
+
+def _sanitize_csv_column_name(name):
+    """Make a safe single-line CSV column name from an ROI label or id."""
+    s = "".join(c if c not in '[];:"\n\r,' else "_" for c in str(name))
+    s = s.strip() or "roi"
+    return s[:200]
 
 
 def phasor_shape_to_mask(shape_type, params, g_array, s_array):
@@ -307,6 +315,8 @@ class PhasorAnalysisWindow(QDialog):
         roi_menu = menu_bar.addMenu("ROI")
         roi_menu.addAction("Import ROIs…", self._importPhasorRoisFromFile)
         roi_menu.addAction("Export ROIs…", self._exportPhasorRois)
+        export_ta_menu = menu_bar.addMenu("Export TA curves")
+        export_ta_menu.addAction("Export ROI curves to CSV…", self.exportPhasorTaCurvesToCsv)
         layout.addWidget(menu_bar)
         # Top: controls
         ctrl = QHBoxLayout()
@@ -688,6 +698,71 @@ class PhasorAnalysisWindow(QDialog):
         if self._apply_effective_mask and self._effective_mask_1d is not None and self._effective_mask_1d.size == base_mask.size:
             return base_mask & self._effective_mask_1d
         return base_mask
+
+    def exportPhasorTaCurvesToCsv(self):
+        """Export phasor ROI average TA curves (same x/y as the signal plot) to CSV. Time-only phasor semantics: x matches ``_drawSignalPlot`` (``pps.times``)."""
+        if self.pps is None:
+            QMessageBox.information(self, "Export TA curves", "No stack data.")
+            return
+        if not self.phasorRoiItems:
+            QMessageBox.information(
+                self,
+                "Export TA curves",
+                "No phasor ROIs. Add ROIs on the phasor plot first.",
+            )
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export ROI curves to CSV",
+            str(Path.cwd()),
+            "CSV (*.csv);;All files (*)",
+        )
+        if not path:
+            return
+        # Match _drawSignalPlot: independent axis is pps.times (ps for delay stacks; µm if stack_axis z).
+        x_key = "z_um" if getattr(self.pps, "stack_axis", "time") == "z" else "time_ps"
+        x_axis = np.asarray(self.pps.times, dtype=np.float64)
+        n = len(x_axis)
+        column_keys = [x_key]
+        columns = {x_key: x_axis}
+        used_names = {x_key}
+
+        for item in self.phasorRoiItems:
+            sig = self._signalForPhasorRoi(item)
+            if sig is None:
+                continue
+            label = item.get("label") or item.get("id") or "roi"
+            base = _sanitize_csv_column_name(label)
+            colname = base
+            k = 1
+            while colname in used_names:
+                colname = f"{base}_{k}"
+                k += 1
+            used_names.add(colname)
+            sig = np.asarray(sig, dtype=np.float64)
+            n_pts = min(n, len(sig))
+            padded = np.full(n, np.nan, dtype=np.float64)
+            padded[:n_pts] = sig[:n_pts]
+            columns[colname] = padded
+            column_keys.append(colname)
+
+        if len(column_keys) < 2:
+            QMessageBox.information(
+                self,
+                "Export TA curves",
+                "No plottable phasor ROI curves.",
+            )
+            return
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(column_keys)
+                for i in range(n):
+                    w.writerow([float(columns[c][i]) for c in column_keys])
+        except OSError as e:
+            QMessageBox.critical(self, "Export TA curves", f"Could not write file:\n{e}")
+            return
+        QMessageBox.information(self, "Export TA curves", f"Saved:\n{path}")
 
     def _signalForPhasorRoi(self, item):
         """Average TA curve for pixels in this phasor ROI (and inside pps.mask)."""
@@ -1126,16 +1201,20 @@ class PhasorAnalysisWindow(QDialog):
             return
         proj = np.nan_to_num(proj, nan=0.0, posinf=0.0, neginf=0.0)
         h, w = proj.shape
-        effective_mask = np.asarray(self.pps.mask, dtype=bool)
-        proj_valid = proj[effective_mask]
-        proj_min = float(np.min(proj_valid)) if np.any(effective_mask) else 0.0
-        proj_max = float(np.max(proj_valid)) if np.any(effective_mask) else 1.0
+        # Match "Apply current active masks?": only gray out non-analysis pixels when user chose to apply masks.
+        if self._apply_effective_mask:
+            display_mask = np.asarray(self.pps.mask, dtype=bool)
+        else:
+            display_mask = np.ones((h, w), dtype=bool)
+        proj_valid = proj[display_mask]
+        proj_min = float(np.min(proj_valid)) if np.any(display_mask) else 0.0
+        proj_max = float(np.max(proj_valid)) if np.any(display_mask) else 1.0
         if proj_max <= proj_min:
             proj_max = proj_min + 1.0
         proj_norm = np.clip((proj - proj_min) / (proj_max - proj_min), 0.0, 1.0).astype(np.float64)
         gray_u8 = (proj_norm * 255).astype(np.uint8)
         rgb = np.stack([gray_u8, gray_u8, gray_u8], axis=-1).astype(np.float64)
-        rgb[~effective_mask, :] = 200.0
+        rgb[~display_mask, :] = 200.0
         n_pixels = h * w
         roi_assignment = np.full(n_pixels, -1)
         for idx, item in enumerate(self.phasorRoiItems):
@@ -1170,7 +1249,7 @@ class PhasorAnalysisWindow(QDialog):
                 rgb[sel, 1] = (1.0 - alpha) * rgb[sel, 1] + alpha * g + 1
                 rgb[sel, 2] = (1.0 - alpha) * rgb[sel, 2] + alpha * b + 1
         rgb = np.clip(rgb, 0, 255).astype(np.uint8)
-        rgb[~effective_mask, :] = [200, 200, 200]
+        rgb[~display_mask, :] = [200, 200, 200]
         rgb = np.ascontiguousarray(rgb)
         qimg = QImage(rgb.data, w, h, w * 3, QImage.Format.Format_RGB888).copy()
         pixmap = QPixmap.fromImage(qimg)
