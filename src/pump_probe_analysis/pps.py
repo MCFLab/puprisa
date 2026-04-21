@@ -245,7 +245,7 @@ class PPS:
     # Initialization & I/O (edited: DukeScan load, pickle includes mask layers / BG)
     # -------------------------------------------------------------------------
 
-    def __init__(self, data, dataType="DukeScan", filename="unkown", mask=None):
+    def __init__(self, data, dataType="DukeScan", filename="unkown", mask=None, stack_axis="time"):
         """
         Import pump-probe stack.
 
@@ -263,6 +263,9 @@ class PPS:
         mask : np.bool_, optional
             This array is set as mask of this pps instance. The default is
             None.
+        stack_axis : {"time", "z"}, optional
+            For ``dataType="DukeScan"`` only: third axis is delay (ps) or Z (µm).
+            For ``"z"``, Z positions are read from TIFF tag 285 (``z = ...`` per page).
 
         Returns
         -------
@@ -280,6 +283,9 @@ class PPS:
                 # becasue there is no mask array yet we can obviously not use
                 # it to create the mask here:
                 self.mask = self.project(maskOn=False) != 0
+
+            self.stack_axis = "time"
+            self.pos_z = None
 
         elif dataType == "DukeScan":
             # convert Path to string because skimage.io.imread_collection does not accept Path objects
@@ -323,14 +329,31 @@ class PPS:
                         self.images = self.images[0, :, :, :]
             elif self.images.ndim != 3:
                 raise ValueError(f"Unexpected image array shape: {original_shape} -> {self.images.shape}, expected 3D array [n_images, height, width]")
-            
-            self.times = PPS.time_delays(data)
-            # If times is empty or doesn't match number of images, create sequential delays
+
             n_images = len(self.images)
-            if len(self.times) == 0 or len(self.times) != n_images:
-                # Create sequential delays based on number of images
-                print("Times are empty or don't match number of images, creating sequential delays")
-                self.times = np.arange(n_images, dtype=np.float64)
+            if stack_axis not in ("time", "z"):
+                raise ValueError('stack_axis must be "time" or "z"')
+
+            if stack_axis == "time":
+                self.stack_axis = "time"
+                self.pos_z = None
+                self.times = np.asarray(PPS.time_delays(data), dtype=np.float64)
+                if len(self.times) == 0 or len(self.times) != n_images:
+                    print("Times are empty or don't match number of images, creating sequential delays")
+                    self.times = np.arange(n_images, dtype=np.float64)
+            else:
+                # Z-stack: positions in µm from TIFF tag 285 ("z = ..."), else companion .log (posZArr_um).
+                self.stack_axis = "z"
+                self.pos_z = np.asarray(PPS.pos_z_for_dukescan_z_stack(data, n_images), dtype=np.float64)
+                if self.pos_z.size != n_images:
+                    raise ValueError(
+                        "Z-stack: need Z positions for each frame: TIFF tag 285 (z = …) per page, or "
+                        "companion .log with posZArr_um (µm). "
+                        "Found %d Z values for %d images. If this is a time-delay stack, reload and choose "
+                        '"Time delay stack (ps)".' % (self.pos_z.size, n_images)
+                    )
+                self.times = self.pos_z.copy()
+
             self.filename = data
             self.image_dimensions = self.images[0].shape
             
@@ -359,6 +382,17 @@ class PPS:
             self.filename = save_object["filename"]
             self.image_dimensions = save_object["image_dimensions"]
             self.mask = save_object["mask"]
+
+            self.stack_axis = save_object.get("stack_axis", "time")
+            _pz = save_object.get("pos_z")
+            if self.stack_axis == "z":
+                self.pos_z = (
+                    np.asarray(_pz, dtype=np.float64)
+                    if _pz is not None
+                    else np.asarray(self.times, dtype=np.float64)
+                )
+            else:
+                self.pos_z = None if _pz is None else np.asarray(_pz, dtype=np.float64)
             
             # Load background subtraction if present (backward compatible)
             if "_original_images" in save_object:
@@ -433,6 +467,8 @@ class PPS:
             self.times = np.array(data[1])
             self.filename = filename
             self.image_dimensions = self.images[0].shape
+            self.stack_axis = "time"
+            self.pos_z = None
 
             # deal with mask
             if mask is None:
@@ -624,6 +660,8 @@ class PPS:
             "base_mask": self._base_mask,
             "mask_layers": mask_layers_to_save,
             "rois": rois_to_save,
+            "stack_axis": getattr(self, "stack_axis", "time"),
+            "pos_z": None if getattr(self, "pos_z", None) is None else np.asarray(self.pos_z, dtype=np.float64),
         }
         
         # Save background subtraction data if available
@@ -759,12 +797,160 @@ class PPS:
             for page in tif.pages:
                 if 285 in page.tags:
                     tag_value = page.tags[285].value
+                    if isinstance(tag_value, bytes):
+                        tag_value = tag_value.decode("utf-8", errors="replace")
                     if tag_value.startswith(r"t = "):
                         delay = float(tag_value[4:-3])
                         delays.append(delay)
         print("delays from tiff", delays)
         return delays
 
+    @staticmethod
+    def tiff_page285_axis_hint(filename):
+        """Inspect first TIFF page tag 285 (PageName) for *t* vs *z* prefix.
+
+        Returns ``\"t\"``, ``\"z\"``, or ``None`` if missing/unrecognized (caller may still load).
+        """
+        try:
+            with tifffile.TiffFile(filename) as tif:
+                if not tif.pages:
+                    return None
+                page = tif.pages[0]
+                if 285 not in page.tags:
+                    return None
+                tag_value = page.tags[285].value
+                if isinstance(tag_value, bytes):
+                    tag_value = tag_value.decode("utf-8", errors="replace")
+                s = str(tag_value).strip().lower()
+                if s.startswith("t ="):
+                    return "t"
+                if s.startswith("z ="):
+                    return "z"
+                return None
+        except Exception:
+            return None
+
+    @staticmethod
+    def pos_z_from_tiff(filename):
+        """Extract Z positions (µm) from TIFF tag 285 on each page.
+
+        Expects each page's PageName to start with ``z =`` followed by a float
+        (legacy MATLAB ``ReadImageStack_TIFF`` convention). Optional text after
+        the number is ignored.
+
+        Parameters
+        ----------
+        filename : str or Path
+            Multi-page TIFF path.
+
+        Returns
+        -------
+        np.ndarray
+            One Z value per page (µm). Empty array if no ``z =`` entries found.
+        """
+        values = []
+        z_pat = re.compile(
+            r"^\s*z\s*=\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)",
+            re.IGNORECASE,
+        )
+        with tifffile.TiffFile(filename) as tif:
+            for page in tif.pages:
+                if 285 not in page.tags:
+                    continue
+                tag_value = page.tags[285].value
+                if isinstance(tag_value, bytes):
+                    tag_value = tag_value.decode("utf-8", errors="replace")
+                m = z_pat.match(str(tag_value).strip())
+                if m:
+                    values.append(float(m.group(1)))
+        return np.array(values, dtype=np.float64)
+
+    @staticmethod
+    def pos_z_from_log(filename):
+        """Extract Z positions (µm) from a DukeScan companion ``.log`` file (silent if missing).
+
+        Reads ``[StackConfig]`` field ``posZArr_um = -1.0,2.0,...`` as used for Z-stack
+        acquisitions (``fileType = ZS``, ``multiDepth = 1``). Same path rule as
+        :meth:`delays_from_log`: ``path/to/stack.tif`` → ``path/to/stack.log``.
+
+        Parameters
+        ----------
+        filename : str or Path
+            Path to the TIFF stack; the ``.log`` next to it is opened.
+
+        Returns
+        -------
+        np.ndarray
+            1D array of Z positions in µm. Empty array if ``posZArr_um`` is not found
+            or parsing fails.
+        """
+        p = Path(filename)
+        if p.suffix.lower() == ".tif":
+            fn_log = str(p.with_suffix(".log"))
+        else:
+            fn_log = str(p) + ".log"
+        if not os.path.isfile(fn_log):
+            return np.array([], dtype=np.float64)
+        try:
+            with open(fn_log, "r", encoding="utf-8") as f:
+                log = f.read()
+        except UnicodeDecodeError:
+            with open(fn_log, "r", encoding="latin1") as f:
+                log = f.read()
+        except OSError:
+            return np.array([], dtype=np.float64)
+
+        raw = None
+        for line in log.splitlines():
+            s = line.strip()
+            if s.lower().startswith("poszarr_um"):
+                m = re.match(r"posZArr_um\s*=\s*(.+)", s, re.IGNORECASE)
+                if m:
+                    raw = m.group(1).strip()
+                    break
+        if not raw:
+            return np.array([], dtype=np.float64)
+        parts = [x.strip() for x in raw.split(",") if x.strip()]
+        if not parts:
+            return np.array([], dtype=np.float64)
+        try:
+            return np.array([float(x) for x in parts], dtype=np.float64)
+        except ValueError:
+            return np.array([], dtype=np.float64)
+
+    @staticmethod
+    def pos_z_for_dukescan_z_stack(filename, n_images):
+        """Resolve Z positions (µm): TIFF ``z =`` tags first, then silent ``.log`` fallback.
+
+        Parameters
+        ----------
+        filename : str
+            DukeScan TIFF path.
+        n_images : int
+            Expected number of slices (must match ``len(pos_z)``).
+
+        Returns
+        -------
+        np.ndarray
+            Length ``n_images`` if a source matches; otherwise shorter or empty (caller raises).
+        """
+        pz = PPS.pos_z_from_tiff(filename)
+        if pz.size == n_images:
+            return pz
+        pz_log = PPS.pos_z_from_log(filename)
+        if pz_log.size == n_images:
+            return pz_log
+        return pz
+
+    def slice_axis_values(self):
+        """1D coordinates for the stack axis: delays (ps) or Z (µm)."""
+        if getattr(self, "stack_axis", "time") == "z" and getattr(self, "pos_z", None) is not None:
+            return np.asarray(self.pos_z, dtype=np.float64)
+        return np.asarray(self.times, dtype=np.float64)
+
+    # Manual test checklist (GUI): load time-stack TIFF → ps labels; load Z TIFF with z= tags → µm;
+    # Z-stack without per-page z= tags but with companion .log (posZArr_um) → silent fallback;
+    # cancel axis dialog → no load; Phasor disabled on Z; pickle round-trip preserves stack_axis.
 
     @staticmethod
     def _substack_index_1d(size_image, size_sub):

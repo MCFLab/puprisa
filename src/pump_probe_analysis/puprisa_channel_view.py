@@ -431,26 +431,24 @@ class SliceScrollGraphicsView(QGraphicsView):
         # Only update if slice actually changed
         if new_slice != self.channelViewWindow.currentSlice:
             self.channelViewWindow.currentSlice = new_slice
-            
+
             # Update slider position
             self.channelViewWindow.sliceSlider.setValue(new_slice)
-            
+
             # Update labels immediately
             self.channelViewWindow.sliceLabel.setText(f'Slice: {new_slice + 1}/{self.channelViewWindow.nSlices}')
-            if new_slice < len(self.channelViewWindow.pps.times):
-                time_delay = self.channelViewWindow.pps.times[new_slice]
-                self.channelViewWindow.timeLabel.setText(f'Time: {time_delay:.2f} ps')
-            else:
-                self.channelViewWindow.timeLabel.setText('')
-            
+            self.channelViewWindow.timeLabel.setText(
+                self.channelViewWindow._slice_axis_footer_text(new_slice)
+            )
+
             # Update image (use debounced update like slider)
             self.channelViewWindow._updateTimer.stop()
             self.channelViewWindow._updateTimer.start(10)
-            
+
             # Update plot marker if ROIs exist
             if self.channelViewWindow.roiItems:
                 self.channelViewWindow._updateRoiPlot()
-        
+
         # Accept the event to prevent default scrolling behavior
         event.accept()
 
@@ -607,6 +605,7 @@ class PuprisaChannelViewWindow(QMainWindow):
         plotTitle.setAlignment(Qt.AlignCenter)
         plotTitle.setStyleSheet("font-weight: bold; font-size: 12px;")
         plotLayout.addWidget(plotTitle)
+        self.roiPlotTitleLabel = plotTitle
         
         # Create matplotlib figure for ROI signal plot
         self.plotFigure = Figure(figsize=(4, 4))
@@ -711,6 +710,8 @@ class PuprisaChannelViewWindow(QMainWindow):
         file_menu = menubar.addMenu("File")
         open_action = file_menu.addAction("Open Stack…")
         open_action.triggered.connect(self.mnuOpenStack)
+        new_window_action = file_menu.addAction("New window")
+        new_window_action.triggered.connect(self.mnuNewWindow)
         file_menu.addSeparator()
         about_action = file_menu.addAction("About puprisa")
         about_action.triggered.connect(self.mnuAbout)
@@ -752,9 +753,11 @@ class PuprisaChannelViewWindow(QMainWindow):
         # Negative delays option (default)
         bg_neg_delays_action = bg_subtract_menu.addAction('Negative Time Delays (Pixel-wise)')
         bg_neg_delays_action.triggered.connect(lambda: self.applyBackgroundSubtraction('negative_delays', pixelwise=True))
-        
+        self.bg_neg_delays_action = bg_neg_delays_action
+
         bg_neg_delays_scalar_action = bg_subtract_menu.addAction('Negative Time Delays (Whole Image)')
         bg_neg_delays_scalar_action.triggered.connect(lambda: self.applyBackgroundSubtraction('negative_delays', pixelwise=False))
+        self.bg_neg_delays_scalar_action = bg_neg_delays_scalar_action
         
         bg_subtract_menu.addSeparator()
         
@@ -797,6 +800,7 @@ class PuprisaChannelViewWindow(QMainWindow):
         analysis_menu = menubar.addMenu('Analysis')
         phasor_action = analysis_menu.addAction('Phasor Analysis...')
         phasor_action.triggered.connect(self.openPhasorAnalysis)
+        self.phasor_action = phasor_action
 
         self._menus_require_stack = [
             view_menu,
@@ -810,13 +814,18 @@ class PuprisaChannelViewWindow(QMainWindow):
         """About dialog."""
         QMessageBox.about(
             self,
-            "About PUPRISA",
-            "PUPRISA: PUmp PRobe Image Stack Analysis.\n"
+            "About PYPRISA",
+            "PYRISA: Python-based PUmp PRobe Image Stack Analysis.\n"
             "Warren Lab: Duke University.\n"
-            "Created 2011 by J. W. Wilson.\n"
-            "Contributions by P. Samineni, M.J. Simpson, M.C. Fischer\n\n"
-            "Python port — single stack / channel view.",
+            "Created 2026 by R.Su.\n"
+            "Contributions by D. Grass, M.C. Fischer\n\n"
         )
+
+    def mnuNewWindow(self):
+        """Open another independent channel-view window in the same process."""
+        from pump_probe_analysis.puprisa_gui import open_channel_view
+
+        open_channel_view()
 
     def mnuOpenStack(self):
         """File dialog to open one stack (DukeScan, pickle, or Mathematica)."""
@@ -832,7 +841,7 @@ class PuprisaChannelViewWindow(QMainWindow):
         if path:
             self.load_stack_from_path(path)
 
-    def load_stack_from_path(self, path_str, data_type=None):
+    def load_stack_from_path(self, path_str, data_type=None, stack_axis=None):
         """
         Load one ``PPS`` stack from disk. Replaces current stack and resets the UI.
 
@@ -843,6 +852,8 @@ class PuprisaChannelViewWindow(QMainWindow):
         data_type : str, optional
             ``\"DukeScan\"``, ``\"pickle\"``, or ``\"mathematica\"``. If None, guess from extension
             or prompt.
+        stack_axis : {\"time\", \"z\"}, optional
+            For DukeScan only: skip the axis dialog when set (default GUI: ask user).
         """
         path = Path(path_str)
         if not path.is_file():
@@ -874,7 +885,42 @@ class PuprisaChannelViewWindow(QMainWindow):
                 else:
                     data_type = guessed
 
-            new_pps = PPS(str(path), dataType=data_type)
+            pps_kwargs = {}
+            if data_type == "DukeScan":
+                if stack_axis is not None:
+                    axis_choice = stack_axis
+                else:
+                    axis_labels = ["Time delay stack (ps)", "Z stack (µm)"]
+                    choice, ok = QInputDialog.getItem(
+                        self,
+                        "Third axis",
+                        "Does the stack vary along pump–probe delay (ps) or sample Z (µm)?",
+                        axis_labels,
+                        0,
+                        False,
+                    )
+                    if not ok:
+                        return
+                    axis_choice = "z" if choice == axis_labels[1] else "time"
+
+                hint = PPS.tiff_page285_axis_hint(str(path))
+                if hint == "t" and axis_choice == "z":
+                    QMessageBox.warning(
+                        self,
+                        "Axis mismatch",
+                        "TIFF page metadata looks like a time stack (t = …), but Z stack was selected.",
+                    )
+                    return
+                if hint == "z" and axis_choice == "time":
+                    QMessageBox.warning(
+                        self,
+                        "Axis mismatch",
+                        "TIFF page metadata looks like a Z stack (z = …), but time delay was selected.",
+                    )
+                    return
+                pps_kwargs["stack_axis"] = axis_choice
+
+            new_pps = PPS(str(path), dataType=data_type, **pps_kwargs)
         except Exception as e:
             QMessageBox.critical(self, "Open", f"Failed to load stack:\n{e}")
             return
@@ -882,6 +928,35 @@ class PuprisaChannelViewWindow(QMainWindow):
             QApplication.restoreOverrideCursor()
 
         self.reset_ui_for_new_stack(new_pps, str(path))
+
+    def _slice_axis_footer_text(self, slice_idx):
+        """Footer text for slice slider: time (ps) or Z (µm)."""
+        if self.pps is None:
+            return ""
+        vals = self.pps.slice_axis_values()
+        if slice_idx < 0 or slice_idx >= len(vals):
+            return ""
+        v = float(vals[slice_idx])
+        if getattr(self.pps, "stack_axis", "time") == "z":
+            return f"Z: {v:.3f} µm"
+        return f"Time: {v:.2f} ps"
+
+    def _sync_axis_ui(self):
+        """ROI plot title, x-axis label, and items that assume a time axis."""
+        if self.pps is None:
+            return
+        is_z = getattr(self.pps, "stack_axis", "time") == "z"
+        if hasattr(self, "roiPlotTitleLabel"):
+            self.roiPlotTitleLabel.setText(
+                "ROI Signal vs Z position" if is_z else "ROI Signal vs Time Delay"
+            )
+        xl = "z-position (µm)" if is_z else "Time Delay (ps)"
+        self.plotAxes.set_xlabel(xl)
+        if hasattr(self, "bg_neg_delays_action"):
+            self.bg_neg_delays_action.setEnabled(not is_z)
+            self.bg_neg_delays_scalar_action.setEnabled(not is_z)
+        if hasattr(self, "phasor_action"):
+            self.phasor_action.setEnabled(not is_z)
 
     def reset_ui_for_new_stack(self, new_pps, file_name=None):
         """Replace ``self.pps`` and clear scene/UI state so a new stack has a clean session."""
@@ -947,7 +1022,6 @@ class PuprisaChannelViewWindow(QMainWindow):
         self.timeLabel.setText("")
 
         self.plotAxes.clear()
-        self.plotAxes.set_xlabel("Time Delay (ps)")
         self.plotAxes.set_ylabel("Average Signal (arb. u.)")
         self.plotAxes.grid(True, alpha=0.3)
         self.plotCanvas.draw()
@@ -960,6 +1034,7 @@ class PuprisaChannelViewWindow(QMainWindow):
 
         self.refreshMaskList()
         self._set_stack_menus_enabled(True)
+        self._sync_axis_ui()
         # Restore default color scale (± standard deviation) and menu state; replaces a plain updateImage().
         self.setColorScaleMode("std_dev")
 
@@ -1824,17 +1899,19 @@ class PuprisaChannelViewWindow(QMainWindow):
     
     def _updateRoiPlot(self):
         """Update the ROI plot - show all visible ROIs (saved and unsaved) with color-matched lines."""
+        is_z = getattr(self.pps, "stack_axis", "time") == "z"
+        xl = "z-position (µm)" if is_z else "Time Delay (ps)"
         if not self.roiItems:
             self.plotAxes.clear()
-            self.plotAxes.set_xlabel('Time Delay (ps)')
+            self.plotAxes.set_xlabel(xl)
             self.plotAxes.set_ylabel('Average Signal (arb. u.)')
             self.plotAxes.grid(True, alpha=0.3)
             self.plotCanvas.draw()
             return
-        
-        times = np.asarray(self.pps.times, dtype=np.float64)
+
+        axis_x = np.asarray(self.pps.slice_axis_values(), dtype=np.float64)
         self.plotAxes.clear()
-        
+
         for i, roi_info in enumerate(self.roiItems):
             roi_id = roi_info["roi_id"]
             color = roi_info["color"]
@@ -1845,12 +1922,12 @@ class PuprisaChannelViewWindow(QMainWindow):
             signal = self._signalForMask(roi_mask)
             if signal is None:
                 continue
-            
-            n_pts = min(len(times), len(signal))
-            self.plotAxes.plot(times[:n_pts], np.asarray(signal)[:n_pts], color=color,
+
+            n_pts = min(len(axis_x), len(signal))
+            self.plotAxes.plot(axis_x[:n_pts], np.asarray(signal)[:n_pts], color=color,
                               marker='o', markersize=3, label=label)
-        
-        self.plotAxes.set_xlabel('Time Delay (ps)')
+
+        self.plotAxes.set_xlabel(xl)
         self.plotAxes.set_ylabel('Average Signal (arb. u.)')
         self.plotAxes.grid(True, alpha=0.3)
         if self.roiItems:
@@ -1862,12 +1939,12 @@ class PuprisaChannelViewWindow(QMainWindow):
             self.plotAxes.autoscale_view(tight=True)
 
         # Mark current slice
-        if self.currentSlice < len(times):
-            current_time = times[self.currentSlice]
+        if self.currentSlice < len(axis_x):
+            current_x = axis_x[self.currentSlice]
             ylim = self.plotAxes.get_ylim()
-            self.plotAxes.axvline(x=current_time, color='green', linestyle='--', linewidth=2)
+            self.plotAxes.axvline(x=current_x, color='green', linestyle='--', linewidth=2)
             self.plotAxes.set_ylim(ylim)
-        
+
         self.plotCanvas.draw()
     
     def _updateColorbar(self, vmin, vmax):
@@ -2057,6 +2134,13 @@ class PuprisaChannelViewWindow(QMainWindow):
         if self.pps is None:
             QMessageBox.information(self, "Phasor Analysis", "Load a stack first (File → Open Stack…).")
             return
+        if getattr(self.pps, "stack_axis", "time") == "z":
+            QMessageBox.information(
+                self,
+                "Phasor Analysis",
+                "Phasor analysis requires pump–probe time delays (ps). It is not available for Z stacks.",
+            )
+            return
         reply = QMessageBox.question(
             self,
             "Phasor Analysis",
@@ -2081,12 +2165,7 @@ class PuprisaChannelViewWindow(QMainWindow):
         
         # Update labels immediately for responsive UI
         self.sliceLabel.setText(f'Slice: {self.currentSlice + 1}/{self.nSlices}')
-        # Update time label if available
-        if self.currentSlice < len(self.pps.times):
-            time_delay = self.pps.times[self.currentSlice]
-            self.timeLabel.setText(f'Time: {time_delay:.2f} ps')
-        else:
-            self.timeLabel.setText('')
+        self.timeLabel.setText(self._slice_axis_footer_text(self.currentSlice))
         
         # Debounce image updates
         self._updateTimer.stop()
@@ -2242,12 +2321,7 @@ class PuprisaChannelViewWindow(QMainWindow):
             # Update labels
             self.sliceLabel.setText(f'Slice: {self.currentSlice + 1}/{self.nSlices}')
             
-            # Update time delay label if available
-            if self.currentSlice < len(self.pps.times):
-                time_delay = self.pps.times[self.currentSlice]
-                self.timeLabel.setText(f'Time: {time_delay:.2f} ps')
-            else:
-                self.timeLabel.setText('')
+            self.timeLabel.setText(self._slice_axis_footer_text(self.currentSlice))
             
             print(f"PuprisaChannelViewWindow: Image updated for slice {self.currentSlice + 1}")
         except Exception as e:
