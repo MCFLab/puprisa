@@ -9,8 +9,7 @@ import pandas as pd
 import re
 from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
-from pump_probe_analysis import ta
-
+from . import ta
 
 def fit_xcorr(filename, delay_stage_passes=4, dt_default=0.077):
     """

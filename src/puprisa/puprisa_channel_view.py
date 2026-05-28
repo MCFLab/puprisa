@@ -36,12 +36,12 @@ import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
-from pump_probe_analysis.phasor_analysis_window import PhasorAnalysisWindow
-from pump_probe_analysis.pps import PPS
+from .phasor_analysis_window import PhasorAnalysisWindow
+from .pps import PPS
 
 # Import ROI utilities from shared pump_probe_analysis PPS module
 try:
-    from pump_probe_analysis.pps import (
+    from .pps import (
         roi_shape_to_mask,
         roi_entry_to_dict,
         roi_dict_to_entry,
@@ -861,7 +861,7 @@ class PuprisaChannelViewWindow(QMainWindow):
 
     def mnuNewWindow(self):
         """Open another independent channel-view window in the same process."""
-        from pump_probe_analysis.puprisa_gui import open_channel_view
+        from puprisa.puprisa_gui import open_channel_view
 
         open_channel_view()
 
