@@ -23,13 +23,13 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel, QScrollArea,
-    QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsEllipseItem,
+    QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsPolygonItem, QGraphicsItem,
     QSplitter, QPushButton, QListWidget, QListWidgetItem, QInputDialog, QDialog,
     QDialogButtonBox, QLineEdit, QMenuBar, QMenu, QDoubleSpinBox, QSpinBox,
     QFormLayout, QCheckBox, QComboBox, QFileDialog, QMessageBox, QApplication,
 )
 from PySide6.QtCore import Qt, QTimer, QRectF, QPointF
-from PySide6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QPainter, QWheelEvent, QIcon
+from PySide6.QtGui import QImage, QPixmap, QPen, QBrush, QColor, QPainter, QWheelEvent, QIcon, QPolygonF, QActionGroup
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.cm as cm
@@ -162,64 +162,48 @@ def _mask_npz_load(path, expected_shape):
         "date": get_str("date"),
     }
 
+def default_cmap():
+    colors = [
+        (0.0,   (0.0, 1.0, 1.0)),   # cyan
+        (0.25,  (0.0, 0.0, 1.0)),   # blue
+        (0.5,   (0.0, 0.0, 0.0)),   # black
+        (0.75,  (1.0, 0.0, 0.0)),   # red
+        (1.0,   (1.0, 1.0, 0.0)),   # yellow
+    ]
+    return mcolors.LinearSegmentedColormap.from_list("PumpProbe", colors)
 
-def apply_diverging_colormap(data, vmin=None, vmax=None):
-    """
-    Apply diverging colormap: blue (negative) -> black (zero) -> red (positive).
-    
-    Parameters
-    ----------
-    data : np.ndarray
-        Input image data (can be any range)
-    vmin : float, optional
-        Minimum value for colormap scaling. If None, uses data minimum.
-    vmax : float, optional
-        Maximum value for colormap scaling. If None, uses data maximum.
-    
-    Returns
-    -------
-    rgb_image : np.ndarray
-        RGB image array of shape (height, width, 3) with values 0-255
-    vmin : float
-        Actual minimum value used
-    vmax : float
-        Actual maximum value used
-    """
+def apply_colormap(data, vmin=None, vmax=None, cmap='pumpprobe'):
     data = np.asarray(data, dtype=np.float64)
-    
-    # Determine scaling range
     if vmin is None:
         vmin = np.nanmin(data)
     if vmax is None:
         vmax = np.nanmax(data)
-    
-    # Handle edge case
     if vmax <= vmin:
         vmax = vmin + 1.0
-    
-    # Find the maximum absolute value for symmetric scaling
-    abs_max = max(abs(vmin), abs(vmax))
-    
-    # Normalize data to [-1, 1] range (symmetric around zero)
-    normalized = np.clip(data / abs_max, -1.0, 1.0)
-    
-    # Create RGB image
-    height, width = data.shape
-    rgb_image = np.zeros((height, width, 3), dtype=np.uint8)
-    
-    # Negative values: blue (0, 0, 255) -> black (0, 0, 0)
-    negative_mask = normalized < 0
-    negative_values = -normalized[negative_mask]  # Make positive for interpolation
-    rgb_image[negative_mask, 2] = (negative_values * 255).astype(np.uint8)  # Blue channel
-    
-    # Positive values: black (0, 0, 0) -> red (255, 0, 0)
-    positive_mask = normalized > 0
-    positive_values = normalized[positive_mask]
-    rgb_image[positive_mask, 0] = (positive_values * 255).astype(np.uint8)  # Red channel
-    
-    # Zero values remain black (already 0)
-    
-    return rgb_image, -abs_max, abs_max
+    cmap_lower = cmap.lower()
+    if cmap_lower == 'pumpprobe':
+        cm_obj = default_cmap()
+        abs_max = max(abs(vmin), abs(vmax))
+        vmin_used, vmax_used = -abs_max, abs_max
+    elif cmap_lower == 'rdbu_r':
+        cm_obj = plt.cm.RdBu_r
+        abs_max = max(abs(vmin), abs(vmax))
+        vmin_used, vmax_used = -abs_max, abs_max
+    elif cmap_lower == 'viridis':
+        cm_obj = plt.cm.viridis
+        vmin_used, vmax_used = vmin, vmax
+    elif cmap_lower == 'gray':
+        cm_obj = plt.cm.gray
+        vmin_used, vmax_used = vmin, vmax
+    else:
+        cm_obj = default_cmap()
+        abs_max = max(abs(vmin), abs(vmax))
+        vmin_used, vmax_used = -abs_max, abs_max
+
+    normalized = np.clip((data - vmin_used) / (vmax_used - vmin_used), 0.0, 1.0)
+    rgba = cm_obj(normalized)
+    rgb_image = (rgba[..., :3] * 255).astype(np.uint8)
+    return rgb_image, vmin_used, vmax_used
 
 
 def _matplotlib_color_to_qt(color_spec):
@@ -420,6 +404,159 @@ class DraggableROI(QGraphicsRectItem):
         # Notify change after resize is complete
         self._notifyChanged()
 
+class DraggablePolygonROI(QGraphicsPolygonItem):
+    SHAPE_TYPE = "polygon"
+    _vertexHitRadius = 10
+    _vertexDrawSize = 4
+
+    def __init__(self, polygon, parent=None, color=None):
+        super().__init__(polygon, parent)
+        self._shape_type = "polygon"
+        self._roi_color = _matplotlib_color_to_qt(color) if color else QColor(255, 0, 0)
+        self.setPen(QPen(self._roi_color, 2))
+        self.setBrush(QBrush(QColor(self._roi_color.red(),
+                                   self._roi_color.green(),
+                                   self._roi_color.blue(), 50)))
+        self.setFlag(QGraphicsPolygonItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsPolygonItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsPolygonItem.ItemSendsGeometryChanges, True)
+        self._roiChangedCallback = None
+        self._draggingVertexIndex = None
+        self._movementBounds = None
+        self.setAcceptHoverEvents(True)
+        self.setCacheMode(QGraphicsItem.DeviceCoordinateCache)  # 可选
+
+    def setRoiChangedCallback(self, callback):
+        self._roiChangedCallback = callback
+
+    def getShapeType(self):
+        return self._shape_type
+
+    def getScenePolygon(self):
+        return self.mapToScene(self.polygon())
+
+    def setMovementBounds(self, bounds_rect):
+        self._movementBounds = QRectF(bounds_rect) if bounds_rect is not None else None
+
+    def paint(self, painter, option, widget=None):
+        painter.setPen(self.pen())
+        painter.setBrush(self.brush())
+        painter.drawPolygon(self.polygon())
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.setPen(QPen(self._roi_color, 1))
+        for pt in self.polygon():
+            s = self._vertexDrawSize
+            painter.drawRect(QRectF(pt.x() - s/2, pt.y() - s/2, s, s))
+
+    def mousePressEvent(self, event):
+        pos = event.pos()
+        poly = self.polygon()
+        min_dist = float('inf')
+        closest_idx = -1
+        for i, pt in enumerate(poly):
+            dist = (pos - pt).manhattanLength()
+            if dist < min_dist:
+                min_dist = dist
+                closest_idx = i
+        if min_dist < self._vertexHitRadius:
+            self._draggingVertexIndex = closest_idx
+            event.accept()
+            return
+        self._draggingVertexIndex = None
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._draggingVertexIndex is not None:
+            new_poly = QPolygonF(self.polygon())
+            new_pt = event.pos()
+            if self._movementBounds is not None:
+                scene_pt = self.mapToScene(new_pt)
+                if not self._movementBounds.contains(scene_pt):
+                    return
+            new_poly[self._draggingVertexIndex] = new_pt
+            self.prepareGeometryChange()
+            self.setPolygon(new_poly)
+            self._notifyChanged()
+            event.accept()
+        else:
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self._draggingVertexIndex is not None:
+            self._draggingVertexIndex = None
+            self._notifyChanged()
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        """Handle double-click to add or remove vertices."""
+        pos = event.pos()
+        poly = self.polygon()
+
+        # Check if double-click is on a vertex to remove it
+        for i, pt in enumerate(poly):
+            if (pos - pt).manhattanLength() < self._vertexHitRadius:
+                if poly.size() <= 3:
+                    # 顶点数已达下限，不允许继续删除
+                    return
+                new_poly = QPolygonF(poly)
+                new_poly.remove(i)
+                self.prepareGeometryChange()
+                self.setPolygon(new_poly)
+                self._notifyChanged()
+                event.accept()
+                return
+
+        # Otherwise, add a new vertex at the closest edge if within threshold
+        if poly.size() < 2:
+            super().mouseDoubleClickEvent(event)
+            return
+
+        min_dist = float('inf')
+        insert_after = -1
+        for i in range(poly.size()):
+            p1 = poly.at(i)
+            p2 = poly.at((i + 1) % poly.size())
+            line_vec = p2 - p1
+            len_sq = line_vec.x()**2 + line_vec.y()**2
+            if len_sq == 0:
+                dist = (pos - p1).manhattanLength()
+            else:
+                t = QPointF.dotProduct(pos - p1, line_vec) / len_sq
+                t = max(0.0, min(1.0, t))
+                projection = p1 + t * line_vec
+                dist = (pos - projection).manhattanLength()
+            if dist < min_dist:
+                min_dist = dist
+                insert_after = i
+
+        if min_dist < 20 and insert_after >= 0:
+            new_poly = QPolygonF(poly)
+            new_poly.insert(insert_after + 1, pos)
+            self.prepareGeometryChange()
+            self.setPolygon(new_poly)
+            self._notifyChanged()
+            event.accept()
+        else:
+            super().mouseDoubleClickEvent(event)
+
+    def itemChange(self, change, value):
+        if change == QGraphicsPolygonItem.ItemPositionChange and self._movementBounds is not None:
+            new_pos = value
+            scene_rect = self.mapToScene(self.boundingRect()).boundingRect()
+            b = self._movementBounds
+            if scene_rect.left() + new_pos.x() - self.pos().x() < b.left():
+                new_pos.setX(b.left() - scene_rect.left() + self.pos().x())
+            if scene_rect.right() + new_pos.x() - self.pos().x() > b.right():
+                new_pos.setX(b.right() - scene_rect.right() + self.pos().x())
+            return new_pos
+        result = super().itemChange(change, value)
+        if change == QGraphicsPolygonItem.ItemPositionHasChanged:
+            self._notifyChanged()
+        return result
+
+    def _notifyChanged(self):
+        if self._roiChangedCallback:
+            self._roiChangedCallback()
 
 class SliceScrollGraphicsView(QGraphicsView):
     """Custom QGraphicsView that handles mouse wheel scrolling to change slices."""
@@ -530,6 +667,8 @@ class PuprisaChannelViewWindow(QMainWindow):
         self.colormap_vmax = None  # Store max for colormap scaling
         self.use_colormap = True  # Flag to enable/disable colormap
         self.colormap_mode = 'std_dev'  # Scale mode: 'std_dev', 'full_range', 'custom'
+        self.current_colormap_name = 'PumpProbe'  # Default colormap name
+        self.cmap_actions = {}
         self.custom_vmin = None  # Custom min value
         self.custom_vmax = None  # Custom max value
         
@@ -662,7 +801,7 @@ class PuprisaChannelViewWindow(QMainWindow):
         shapeLabel = QLabel("Shape:")
         roiControlsLayout.addWidget(shapeLabel)
         self.roiShapeCombo = QComboBox()
-        self.roiShapeCombo.addItems(["Rectangle", "Square", "Circle", "Ellipse"])
+        self.roiShapeCombo.addItems(["Rectangle", "Square", "Circle", "Ellipse", "Polygon"])
         roiControlsLayout.addWidget(self.roiShapeCombo)
         createRoiButton = QPushButton("Create")
         createRoiButton.clicked.connect(self.createROI)
@@ -776,6 +915,29 @@ class PuprisaChannelViewWindow(QMainWindow):
         custom_action.setCheckable(True)
         custom_action.triggered.connect(lambda: self.setColorScaleMode('custom'))
         self.custom_action = custom_action
+
+        # Colormap menu
+        cmap_menu = view_menu.addMenu('Colormap')
+        cmap_group = QActionGroup(self)
+        cmap_group.setExclusive(True)
+
+        cmap_options = [
+            ('PumpProbe', 'pumpprobe'),
+            ('RdBu_r',    'RdBu_r'),
+            ('Viridis',   'viridis'),
+            ('Grayscale', 'gray'),
+        ]
+        for label, name in cmap_options:
+            action = cmap_menu.addAction(label)
+            action.setCheckable(True)
+            action.setActionGroup(cmap_group)
+            action.setData(name)
+            self.cmap_actions[name] = action
+            action.triggered.connect(
+                lambda checked, n=name: self.setColormap(n)
+            )
+
+        self.cmap_actions['pumpprobe'].setChecked(True)
         
         # Processing menu
         processing_menu = menubar.addMenu('Processing')
@@ -1184,7 +1346,7 @@ class PuprisaChannelViewWindow(QMainWindow):
             # ± standard deviation
             std = np.nanstd(all_data)
             mean = np.nanmean(all_data)
-            abs_max = max(abs(mean - std), abs(mean + std))
+            abs_max = max(abs(mean - 4*std), abs(mean + 4*std))
             # Use symmetric scaling around zero
             self.colormap_vmin = -abs_max
             self.colormap_vmax = abs_max
@@ -1203,9 +1365,24 @@ class PuprisaChannelViewWindow(QMainWindow):
                 # Fallback to std_dev if custom values not set
                 std = np.nanstd(all_data)
                 mean = np.nanmean(all_data)
-                abs_max = max(abs(mean - std), abs(mean + std))
+                abs_max = max(abs(mean - 4*std), abs(mean + 4*std))
                 self.colormap_vmin = -abs_max
                 self.colormap_vmax = abs_max
+
+    def setColormap(self, name):
+        if name not in self.cmap_actions:
+            return
+        self.current_colormap_name = name
+
+        for nm, act in self.cmap_actions.items():
+            act.setChecked(nm == name)
+
+        if name in ('viridis', 'gray'):
+            if self.colormap_mode != 'full_range':
+                self.colormap_mode = 'full_range'
+                self._recalculateColorScale()
+
+        self.updateImage()
     
     def applyBackgroundSubtraction(self, method="negative_delays", n=None, pixelwise=True):
         """Apply background subtraction to the PPS object and update display."""
@@ -1317,30 +1494,49 @@ class PuprisaChannelViewWindow(QMainWindow):
             self.applyBackgroundSubtraction(method='first_n', n=n, pixelwise=pixelwise)
     
     def createROI(self):
-        """Create a new ROI with the selected shape and add it to the stack (active immediately)."""
         if not self.pixmapRect:
             self.updateImage()
             QTimer.singleShot(100, self.createROI)
             return
-        shape_map = {"Rectangle": "rectangle", "Square": "square", "Circle": "circle", "Ellipse": "ellipse"}
+        shape_map = {"Rectangle": "rectangle", "Square": "square", "Circle": "circle", "Ellipse": "ellipse", "Polygon": "polygon"}
         shape_type = shape_map.get(self.roiShapeCombo.currentText(), "rectangle")
         color = ROI_COLOR_PALETTE[self._roiColorIndex % len(ROI_COLOR_PALETTE)]
         self._roiColorIndex += 1
-        center_x = self.pixmapRect.center().x()
-        center_y = self.pixmapRect.center().y()
+
         roi_size = min(self.pixmapRect.width(), self.pixmapRect.height()) * 0.1
-        # Standardize ROI geometry: local rect at (0,0,w,h), scene position = top-left.
-        item_rect = QRectF(0, 0, roi_size, roi_size)
-        rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
-        rect_item.setPos(QPointF(center_x - roi_size / 2, center_y - roi_size / 2))
+        center = self.pixmapRect.center()
+
+        if shape_type == "polygon":
+            # default triangle
+            n = 3
+            radius = roi_size
+            polygon_pts = []
+            for i in range(n):
+                angle = 2 * np.pi * i / n - np.pi/2
+                px = center.x() + radius * np.cos(angle)
+                py = center.y() + radius * np.sin(angle)
+                polygon_pts.append(QPointF(px, py))
+            polygon = QPolygonF(polygon_pts)
+            rect_item = DraggablePolygonROI(polygon, color=color)
+        else:
+            item_rect = QRectF(0, 0, roi_size, roi_size)
+            rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
+            rect_item.setPos(QPointF(center.x() - roi_size/2, center.y() - roi_size/2))
+
         rect_item.setRoiChangedCallback(self.onROIChanged)
         rect_item.setMovementBounds(self.pixmapRect)
         rect_item.setZValue(10)
         self.graphicsScene.addItem(rect_item)
-        params = self._sceneRectToRoiParams(shape_type, rect_item.getSceneRect())
+
+        # get params based on shape
+        if shape_type == "polygon":
+            params = self._scenePolygonToRoiParams(rect_item)
+        else:
+            params = self._sceneRectToRoiParams(shape_type, rect_item.getSceneRect())
         if params is None:
             self.graphicsScene.removeItem(rect_item)
             return
+
         default_label = f"ROI {len(self.pps.rois) + 1}"
         roi_id = self.pps.add_roi(shape=shape_type, params=params, label=default_label)
         self.roiItems.append({"roi_id": roi_id, "rect_item": rect_item, "color": color})
@@ -1932,13 +2128,19 @@ class PuprisaChannelViewWindow(QMainWindow):
             roi_id = self.pps.add_roi(shape=entry["shape"], params=entry["params"], label=entry["label"])
             if not self.pixmapRect:
                 continue
-            scene_rect = self._roiParamsToSceneRect(entry["shape"], entry["params"])
-            if scene_rect is None:
-                continue
-            item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
+            shape_type = entry["shape"]
+            params = entry["params"]
             color = ROI_COLOR_PALETTE[(len(self.roiItems) + i) % len(ROI_COLOR_PALETTE)]
-            rect_item = DraggableROI(item_rect, color=color, shape_type=entry["shape"])
-            rect_item.setPos(scene_rect.topLeft())
+            if shape_type == "polygon":
+                scene_poly = self._roiParamsToScenePolygon(params)
+                rect_item = DraggablePolygonROI(scene_poly, color=color)
+            else:
+                scene_rect = self._roiParamsToSceneRect(shape_type, params)
+                if scene_rect is None:
+                    continue
+                item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
+                rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
+                rect_item.setPos(scene_rect.topLeft())
             rect_item.setRoiChangedCallback(self.onROIChanged)
             rect_item.setMovementBounds(self.pixmapRect)
             rect_item.setZValue(10)
@@ -1992,7 +2194,6 @@ class PuprisaChannelViewWindow(QMainWindow):
         self._roiUpdateTimer.start(50)
 
     def _loadPpsRoisToDisplay(self):
-        """Create ROI items for PPS ROIs that don't have display items yet (from shape + params)."""
         if not self.pixmapRect:
             return
         existing_ids = {r["roi_id"] for r in self.roiItems}
@@ -2002,19 +2203,22 @@ class PuprisaChannelViewWindow(QMainWindow):
                 continue
             shape_type = roi_entry.get("shape", "rectangle")
             params = roi_entry.get("params", {})
-            scene_rect = self._roiParamsToSceneRect(shape_type, params)
-            if scene_rect is None:
-                continue
-            item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
             color = ROI_COLOR_PALETTE[i % len(ROI_COLOR_PALETTE)]
-            rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
-            rect_item.setPos(scene_rect.topLeft())
+            if shape_type == "polygon":
+                scene_poly = self._roiParamsToScenePolygon(params)
+                rect_item = DraggablePolygonROI(scene_poly, color=color)
+            else:
+                scene_rect = self._roiParamsToSceneRect(shape_type, params)
+                if scene_rect is None:
+                    continue
+                item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
+                rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
+                rect_item.setPos(scene_rect.topLeft())
             rect_item.setRoiChangedCallback(self.onROIChanged)
             rect_item.setMovementBounds(self.pixmapRect)
             rect_item.setZValue(10)
             self.graphicsScene.addItem(rect_item)
             self.roiItems.append({"roi_id": roi_id, "rect_item": rect_item, "color": color})
-        # Ensure the next ROI color starts after all currently active ROIs
         self._roiColorIndex = len(self.roiItems)
         self.refreshRoiList()
     
@@ -2104,7 +2308,12 @@ class PuprisaChannelViewWindow(QMainWindow):
         gradient = np.linspace(actual_vmin, actual_vmax, n_colors).reshape(1, -1)
         
         # Apply colormap to gradient - this will return symmetric values
-        rgb_gradient, vmin_used, vmax_used = apply_diverging_colormap(gradient, vmin=actual_vmin, vmax=actual_vmax)
+        rgb_gradient, vmin_used, vmax_used = apply_colormap(
+            gradient,
+            vmin=actual_vmin,
+            vmax=actual_vmax,
+            cmap=self.current_colormap_name
+        )
         # Reshape for imshow: (1, n_colors, 3) -> (n_colors, 3) then reshape to (1, n_colors, 3)
         rgb_gradient = rgb_gradient[0, :, :].reshape(1, n_colors, 3)
         
@@ -2135,14 +2344,18 @@ class PuprisaChannelViewWindow(QMainWindow):
         self.colorbarCanvas.draw()
     
     def updateROIMask(self):
-        """Update PPS ROI params from current ROI items (shape + params)."""
         if not self.pixmapRect:
             return
         for roi_info in self.roiItems:
             roi_id = roi_info["roi_id"]
             item = roi_info["rect_item"]
             shape_type = item.getShapeType()
-            params = self._sceneRectToRoiParams(shape_type, item.getSceneRect())
+            params = None
+            if shape_type == "polygon":
+                params = self._scenePolygonToRoiParams(item)
+            else:
+                scene_rect = item.getSceneRect()
+                params = self._sceneRectToRoiParams(shape_type, scene_rect)
             if params is not None:
                 self.pps.update_roi(roi_id, shape=shape_type, params=params)
         self._updateRoiPlot()
@@ -2243,6 +2456,48 @@ class PuprisaChannelViewWindow(QMainWindow):
         sw = (bw / w) * pix_w
         sh = (bh / h) * pix_h
         return QRectF(sx, sy, sw, sh)
+
+    def _scenePointToPixel(self, scene_point):
+        """Convert a single QPointF in scene coords to pixel (col, row) tuple."""
+        if not self.pixmapRect:
+            return None
+        scale_x = self.pps.image_dimensions[1] / self.pixmapRect.width()
+        scale_y = self.pps.image_dimensions[0] / self.pixmapRect.height()
+        x = (scene_point.x() - self.pixmapRect.left()) * scale_x
+        y = (scene_point.y() - self.pixmapRect.top()) * scale_y
+        return x, y   # column, row
+
+    def _pixelPointToScene(self, pixel_col, pixel_row):
+        """Convert a pixel (col, row) to a scene QPointF."""
+        if not self.pixmapRect:
+            return QPointF()
+        scale_x = self.pixmapRect.width() / self.pps.image_dimensions[1]
+        scale_y = self.pixmapRect.height() / self.pps.image_dimensions[0]
+        sx = self.pixmapRect.left() + pixel_col * scale_x
+        sy = self.pixmapRect.top() + pixel_row * scale_y
+        return QPointF(sx, sy)
+
+    def _scenePolygonToRoiParams(self, polygon_item):
+        """Extract polygon vertices in image pixel coords from a DraggablePolygonROI item."""
+        if not self.pixmapRect:
+            return {"vertices": []}
+        scene_poly = polygon_item.getScenePolygon()
+        vertices = []
+        for pt in scene_poly:
+            col, row = self._scenePointToPixel(pt)
+            # Clamp to the valid image area
+            col = max(0.0, min(col, self.pps.image_dimensions[1] - 1e-9))
+            row = max(0.0, min(row, self.pps.image_dimensions[0] - 1e-9))
+            vertices.append([col, row])
+        return {"vertices": vertices}
+
+    def _roiParamsToScenePolygon(self, params):
+        """Convert a polygon ROI's vertices from pixel coords to a QPolygonF in scene coords."""
+        vertices = params.get("vertices", [])
+        pts = []
+        for v in vertices:
+            pts.append(self._pixelPointToScene(v[0], v[1]))
+        return QPolygonF(pts)
 
     def resizeEvent(self, event):
         """Refit the image to the view when the window is resized (no full re-render)."""
@@ -2377,10 +2632,11 @@ class PuprisaChannelViewWindow(QMainWindow):
                     self._recalculateColorScale()
                 
                 # Apply colormap
-                rgb_image, vmin_used, vmax_used = apply_diverging_colormap(
-                    imageSlice, 
-                    vmin=self.colormap_vmin, 
-                    vmax=self.colormap_vmax
+                rgb_image, vmin_used, vmax_used = apply_colormap(
+                    imageSlice,
+                    vmin=self.colormap_vmin,
+                    vmax=self.colormap_vmax,
+                    cmap=self.current_colormap_name
                 )
                 # Overlay masked-out pixels (excluded from analysis) as light gray
                 rgb_image[~effective_mask] = [200, 200, 200]
@@ -2416,7 +2672,7 @@ class PuprisaChannelViewWindow(QMainWindow):
             pixmap = QPixmap.fromImage(q_image)
             self.imagePixmap = pixmap
             
-            # Store ROI shape+params before clearing (use PPS as source of truth)
+            # inside updateImage, after clearing scene and adding pixmap
             roi_backups = []
             for roi_info in self.roiItems:
                 roi_id = roi_info["roi_id"]
@@ -2429,8 +2685,6 @@ class PuprisaChannelViewWindow(QMainWindow):
                     "shape_type": entry.get("shape", "rectangle"),
                     "params": entry.get("params", {}),
                 })
-            
-            # Clear scene and add full-resolution pixmap; view transform fits it to the window
             self.graphicsScene.clear()
             self.roiItems = []
             pixmap_item = self.graphicsScene.addPixmap(pixmap)
@@ -2439,20 +2693,25 @@ class PuprisaChannelViewWindow(QMainWindow):
                 self._lastPixmapRect is None
                 or self._lastPixmapRect.size() != self.pixmapRect.size()
             )
-            
-            # Re-add ROI items from shape+params
             for backup in roi_backups:
-                scene_rect = self._roiParamsToSceneRect(backup["shape_type"], backup["params"])
-                if scene_rect is None:
-                    continue
-                item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
-                rect_item = DraggableROI(item_rect, color=backup["color"], shape_type=backup["shape_type"])
-                rect_item.setPos(scene_rect.topLeft())
+                shape_type = backup["shape_type"]
+                params = backup["params"]
+                color = backup["color"]
+                if shape_type == "polygon":
+                    scene_poly = self._roiParamsToScenePolygon(params)
+                    rect_item = DraggablePolygonROI(scene_poly, color=color)
+                else:
+                    scene_rect = self._roiParamsToSceneRect(shape_type, params)
+                    if scene_rect is None:
+                        continue
+                    item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
+                    rect_item = DraggableROI(item_rect, color=color, shape_type=shape_type)
+                    rect_item.setPos(scene_rect.topLeft())
                 rect_item.setRoiChangedCallback(self.onROIChanged)
                 rect_item.setMovementBounds(self.pixmapRect)
                 rect_item.setZValue(10)
                 self.graphicsScene.addItem(rect_item)
-                self.roiItems.append({"roi_id": backup["roi_id"], "rect_item": rect_item, "color": backup["color"]})
+                self.roiItems.append({"roi_id": backup["roi_id"], "rect_item": rect_item, "color": color})
             
             # Load any PPS ROIs that don't have rect_items yet (e.g., from pickle)
             self._loadPpsRoisToDisplay()

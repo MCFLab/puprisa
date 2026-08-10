@@ -97,6 +97,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mlp
 from skimage import io
 from skimage.transform import downscale_local_mean
+from skimage.draw import polygon2mask
 import re
 from pathlib import Path
 from datetime import datetime
@@ -182,6 +183,16 @@ def roi_shape_to_mask(shape_type, params, image_dimensions):
         )
         return mask
 
+    if shape_type == "polygon":
+        vertices = params.get("vertices", [])
+        if not vertices:
+            return np.zeros(image_dimensions, dtype=bool)
+        # vertices are expected as [[x1,y1], [x2,y2], ...] in pixel coords
+        # convert to (row, col) for polygon2mask, row = y, col = x
+        rows = [int(y) for x, y in vertices]
+        cols = [int(x) for x, y in vertices]
+        return polygon2mask((height, width), np.column_stack((rows, cols)))
+
     raise ValueError(f"Unknown ROI shape type: {shape_type}")
 
 
@@ -201,9 +212,30 @@ def roi_mask_to_rectangle_params(roi_mask):
 
 
 def _to_json_serializable_params(params):
-    """Convert params dict to JSON-serializable (no numpy types)."""
-    return {k: float(v) if isinstance(v, (np.floating, np.integer)) else v for k, v in params.items()}
+    result = {}
+    for k, v in params.items():
+        if isinstance(v, (np.floating, np.integer)):
+            result[k] = float(v)
+        elif isinstance(v, list):
+            # handle nested lists (e.g., vertices)
+            result[k] = _to_json_serializable_list(v)
+        elif isinstance(v, dict):
+            result[k] = _to_json_serializable_params(v)
+        else:
+            result[k] = v
+    return result
 
+def _to_json_serializable_list(lst):
+    return [_to_json_serializable_value(item) for item in lst]
+
+def _to_json_serializable_value(val):
+    if isinstance(val, (np.floating, np.integer)):
+        return float(val)
+    if isinstance(val, list):
+        return _to_json_serializable_list(val)
+    if isinstance(val, dict):
+        return _to_json_serializable_params(val)
+    return val
 
 def roi_entry_to_dict(roi_entry, include_id=True):
     """Convert PPS ROI entry to a dict suitable for JSON export."""
@@ -245,7 +277,7 @@ class PPS:
     # Initialization & I/O (edited: DukeScan load, pickle includes mask layers / BG)
     # -------------------------------------------------------------------------
 
-    def __init__(self, data, dataType="DukeScan", filename="unkown", mask=None, stack_axis="time"):
+    def __init__(self, data, dataType="DukeScan", filename="unknown", mask=None, stack_axis="time"):
         """
         Import pump-probe stack.
 
@@ -256,10 +288,10 @@ class PPS:
             file. Otherwise data in form of [images, delays].
         dataType : str, optional
             Either mathematica, DukeScan, pickle, or data. The default is
-            "data".
+            "DukeScan".
         filename : str, optional
             If dataType=data, this string is saved as the filename of the pps
-            instance. The default is "unkown".
+            instance. The default is "unknown".
         mask : np.bool_, optional
             This array is set as mask of this pps instance. The default is
             None.
