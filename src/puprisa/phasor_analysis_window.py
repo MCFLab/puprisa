@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 import numpy as np
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget,
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QListWidget, QSlider,
     QListWidgetItem, QSplitter, QWidget, QGraphicsView, QGraphicsScene, QGraphicsRectItem,
     QGraphicsLineItem, QGraphicsTextItem,
     QDoubleSpinBox, QComboBox, QColorDialog, QInputDialog, QLineEdit,
@@ -299,6 +299,19 @@ class PhasorAnalysisWindow(QDialog):
         # Autoload default phasor ROI JSON once UI and phasor scene exist (after mask prompt / init)
         QTimer.singleShot(0, self._tryAutoloadPhasorRoisJson)
 
+    def _syncFreqSliderFromSpin(self, value):
+        slider_val = int(min(value, 1.0) / 0.01)
+        self.freqSlider.blockSignals(True)
+        self.freqSlider.setValue(slider_val)
+        self.freqSlider.blockSignals(False)
+
+    def _syncFreqSpinFromSlider(self, slider_val):
+        freq = slider_val * 0.01
+        self.freqSpin.blockSignals(True)
+        self.freqSpin.setValue(freq)
+        self.freqSpin.blockSignals(False)
+        self._onPhasorParamsChanged()
+
     def _getFreq(self):
         return self.freqSpin.value()
 
@@ -321,12 +334,24 @@ class PhasorAnalysisWindow(QDialog):
         # Top: controls
         ctrl = QHBoxLayout()
         ctrl.addWidget(QLabel("Frequency (THz):"))
+        ctrl.addWidget(QLabel("0.01"))
+        self.freqSlider = QSlider(Qt.Horizontal)
+        self.freqSlider.setMinimum(1)
+        self.freqSlider.setMaximum(100)
+        ctrl.addWidget(self.freqSlider)
+        ctrl.addWidget(QLabel("1.0"))
         self.freqSpin = QDoubleSpinBox()
-        self.freqSpin.setRange(0.01, 10.0)
-        self.freqSpin.setValue(0.25)
         self.freqSpin.setDecimals(3)
-        self.freqSpin.valueChanged.connect(self._onPhasorParamsChanged)
+        self.freqSpin.setMinimum(0.0001)
+        self.freqSpin.setMaximum(1e12)
+        self.freqSpin.setSingleStep(0.01)
+        self.freqSpin.setValue(0.25)
+        self.freqSlider.setValue(25)
         ctrl.addWidget(self.freqSpin)
+        self.freqSpin.valueChanged.connect(self._syncFreqSliderFromSpin)
+        self.freqSpin.valueChanged.connect(self._onPhasorParamsChanged)
+        self.freqSlider.valueChanged.connect(self._syncFreqSpinFromSlider)
+
         ctrl.addStretch()
         layout.addLayout(ctrl)
 

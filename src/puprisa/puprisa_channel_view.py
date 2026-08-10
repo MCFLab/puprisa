@@ -2325,22 +2325,28 @@ class PuprisaChannelViewWindow(QMainWindow):
         # Show actual values at the ends (and zero if it's within range)
         tick_positions = []
         tick_labels = []
-        
-        # Always show min and max at the ends (these are the symmetric values actually used)
+
+        def _fmt(x):
+            if x == 0:
+                return "0"
+            if abs(x) < 1e-3 or abs(x) >= 1e4:
+                return f"{x:.3e}"
+            s = f"{x:.3f}".rstrip('0').rstrip('.')
+            return s
+
         tick_positions.append(vmin_used)
-        tick_labels.append(f'{vmin_used:.3e}')
-        
-        # Show zero if it's within the range
+        tick_labels.append(_fmt(vmin_used))
+
         if vmin_used < 0 < vmax_used:
             tick_positions.append(0)
             tick_labels.append('0')
-        
+
         tick_positions.append(vmax_used)
-        tick_labels.append(f'{vmax_used:.3e}')
+        tick_labels.append(_fmt(vmax_used))
         
         self.colorbarAxes.set_xticks(tick_positions)
         self.colorbarAxes.set_xticklabels(tick_labels, fontsize=8)
-        
+
         self.colorbarCanvas.draw()
     
     def updateROIMask(self):
