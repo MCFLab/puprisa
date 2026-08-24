@@ -395,6 +395,10 @@ class DraggablePolygonROI(QGraphicsPolygonItem):
                 new_pos.setX(b.left() - scene_rect.left() + self.pos().x())
             if scene_rect.right() + new_pos.x() - self.pos().x() > b.right():
                 new_pos.setX(b.right() - scene_rect.right() + self.pos().x())
+            if scene_rect.top() + new_pos.y() - self.pos().y() < b.top():
+                new_pos.setY(b.top() - scene_rect.top() + self.pos().y())
+            if scene_rect.bottom() + new_pos.y() - self.pos().y() > b.bottom():
+                new_pos.setY(b.bottom() - scene_rect.bottom() + self.pos().y())
             return new_pos
 
         result = super().itemChange(change, value)

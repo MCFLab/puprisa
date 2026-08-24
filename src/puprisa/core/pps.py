@@ -160,8 +160,15 @@ class PPS:
         return compute_projection(self.images, mask=mask)
 
     def statistics(self, mask_on: bool = True):
-        """Compute basic statistics (min, max, mean, std) of the stack, optionally applying the mask."""
+        """Compute basic statistics (min, max, mean, std)."""
         if mask_on:
+            if not np.any(self.mask):
+                return {
+                    "min": 0.0,
+                    "max": 0.0,
+                    "mean": 0.0,
+                    "std": 0.0,
+                }
             masked_images = [img[self.mask] for img in self.images]
             all_pixels = np.concatenate(masked_images)
         else:

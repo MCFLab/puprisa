@@ -116,7 +116,10 @@ class PPSPlotController(QObject):
         ax = fig.axes[0] if fig.axes else fig.add_subplot(111)
 
         ax.clear()
-        ax.set_xlabel("Time delay (ps)")
+        axis_label = "Time delay (ps)"
+        if self.pps is not None:
+            axis_label = f"{self.pps.get_axis_label()} ({self.pps.get_axis_unit()})"
+        ax.set_xlabel(axis_label)
         if self.curve_controller.normalize_curves:
             ax.set_ylabel("Normalized signal")
         else:

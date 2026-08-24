@@ -45,6 +45,9 @@ class PhasorWindow(QMainWindow):
         self.frequency_controller = PhasorFrequencyController(
             self.ui.freqSlider, self.ui.freqSpinBox
         )
+
+        QTimer.singleShot(0, self._on_stacks_changed)
+
         # --- Connect menu and buttons ---
         self._connect_FileMenu_actions()
         self._connect_CurveMenu_actions()
@@ -63,10 +66,10 @@ class PhasorWindow(QMainWindow):
     def _connect_CurveMenu_actions(self):
         self.ui.actionNormalizeCurve.toggled.connect(self._on_normalize_toggled)
         self.ui.actionViewCurve.triggered.connect(
-            self.curve_controller.view_standalone
+            lambda checked=False: self.curve_controller.view_standalone()
         )
         self.ui.actionExportCurve.triggered.connect(
-            self.curve_controller.export_to_csv
+            lambda checked=False: self.curve_controller.export_to_csv()
         )
 
     # ------------------------------------------------------------------
@@ -111,7 +114,7 @@ class PhasorWindow(QMainWindow):
         # Stack model
         self.stack_manager.stackChanged.connect(self._on_current_stack_changed)
         self.stack_manager.stackVisibilityChanged.connect(
-            self.roi_controller.update_visibility_by_stack
+            self._on_stack_visibility_changed
         )
         self.stack_manager.stackDeleted.connect(
             self.roi_controller.remove_rois_for_stack
@@ -144,6 +147,11 @@ class PhasorWindow(QMainWindow):
         self.plot_controller.fit_phasor_view()
         self._refresh_plots()
 
+    def _on_stack_visibility_changed(self, stack_id: str, visible: bool):
+        self.roi_controller.update_visibility_by_stack(stack_id, visible)
+        self.plot_controller.render_density(self.stack_manager.get_all_items())
+        self._refresh_plots()
+
     def _on_current_stack_changed(self, stack_item):
         self.roi_controller.set_current_stack(stack_item)
         pps = stack_item["pps"] if stack_item else None
@@ -163,7 +171,6 @@ class PhasorWindow(QMainWindow):
         roi = self.roi_controller._find_roi(roi_id)
         label = f"From ROI {roi['label']}" if roi else "From ROI"
         pps.add_mask(exclude_mask, label=label, enabled=True)
-        self.mask_controller._refresh_after_change()
 
     def _refresh_plots(self):
         """Update signal curves and spatial view."""
@@ -185,6 +192,7 @@ class PhasorWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         QTimer.singleShot(0, self.plot_controller.fit_phasor_view)
+        QTimer.singleShot(0, self.plot_controller.fit_spatial_view)
 
     def _on_normalize_toggled(self, checked: bool):
         """Toggle curve normalization and refresh the embedded plot."""
@@ -279,6 +287,7 @@ class PhasorWindow(QMainWindow):
         ax_curve.set_ylabel(
             "Normalized signal" if normalize else "Average signal (arb. u.)"
         )
+        ax_curve.set_title("ROI Average Curves", fontsize=10)
         ax_curve.grid(True, alpha=0.3)
         if curves:
             ax_curve.legend(fontsize=8, loc="best")

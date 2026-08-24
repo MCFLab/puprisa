@@ -100,8 +100,12 @@ class MainWindow(QMainWindow):
     def _connect_CurveMenu_actions(self):
         """Connect curve-related menu actions to the curve controller."""
         self.ui.actionNormalizeCurve.toggled.connect(self._on_normalize_curve_toggled)
-        self.ui.actionExportCurve.triggered.connect(self.curve_controller.export_to_csv)
-        self.ui.actionViewCurve.triggered.connect(self.curve_controller.view_standalone)
+        self.ui.actionExportCurve.triggered.connect(
+            lambda checked=False: self.curve_controller.export_to_csv()
+        )
+        self.ui.actionViewCurve.triggered.connect(
+            lambda checked=False: self.curve_controller.view_standalone()
+        )
 
     def _connect_MaskMenu_actions(self):
         self.ui.actionImportMask.triggered.connect(self.mask_controller.import_masks_from_json)
@@ -192,7 +196,6 @@ class MainWindow(QMainWindow):
         roi = self.roi_controller._find_roi(roi_id)
         label = f"From ROI {roi['label']}" if roi else "From ROI"
         pps.add_mask(exclude_mask, label=label, enabled=True)
-        self.mask_controller._refresh_after_change()
 
     # ------------------------------------------------------------------
     # MASK SIGNALS
@@ -324,8 +327,13 @@ class MainWindow(QMainWindow):
         ax_curve.set_ylabel(
             "Normalized signal" if normalize else "Average signal (arb. u.)"
         )
+        ax_curve.set_title("ROI Average Curves", fontsize=8)
         ax_curve.grid(True, alpha=0.3)
         if curves:
             ax_curve.legend(fontsize=8, loc="best")
 
         fig.show()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.plot_controller.fit_view()

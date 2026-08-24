@@ -146,6 +146,7 @@ class PPSCurveController:
         """
         curves = self._last_curves
         if not curves:
+            print("No curves to export.")
             return False
 
         if path is None:
@@ -205,29 +206,23 @@ class PPSCurveController:
 
         import matplotlib.pyplot as plt
 
-        # Use a pleasant style if available; fall back to default.
-        try:
-            plt.style.use("seaborn-v0_8-darkgrid")
-        except Exception:
-            pass
-
-        fig, ax = plt.subplots(figsize=(10, 6), dpi=120)
+        fig, ax = plt.subplots(figsize=(8, 6), layout="constrained")
 
         for x, y, label, color in curves:
             ax.plot(x, y, linewidth=2.0, label=label, color=color)
 
-        ax.set_xlabel("Time delay (ps)", fontsize=12)
+        axis_label = "Time delay (ps)"
+        ax.set_xlabel(axis_label)
         if self.normalize_curves:
-            ax.set_ylabel("Normalized signal", fontsize=12)
+            ax.set_ylabel("Normalized signal", fontsize=10)
         else:
-            ax.set_ylabel("Average signal (arb. u.)", fontsize=12)
+            ax.set_ylabel("Average signal (arb. u.)", fontsize=10)
 
-        ax.set_title("ROI Average Curves", fontsize=14, fontweight="bold")
+        ax.set_title("ROI Average Curves")
         ax.grid(True, alpha=0.4)
         ax.tick_params(labelsize=10)
 
         if curves:
             ax.legend(fontsize=10, loc="best", framealpha=0.9)
 
-        fig.tight_layout()
-        plt.show()
+        fig.show()

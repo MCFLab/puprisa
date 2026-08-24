@@ -176,23 +176,17 @@ class PhasorCurveController:
 
         import matplotlib.pyplot as plt
 
-        try:
-            plt.style.use("seaborn-v0_8-darkgrid")
-        except Exception:
-            pass
-
-        fig, ax = plt.subplots(figsize=(10, 6), dpi=120)
+        fig, ax = plt.subplots(figsize=(8, 6), layout="constrained")
         for x, y, label, color in curves:
             ax.plot(x, y, linewidth=2.0, label=label, color=color)
 
-        ax.set_xlabel("Time delay (ps)", fontsize=12)
+        ax.set_xlabel("Time delay (ps)", fontsize=10)
         ylabel = "Normalized signal" if self.normalize_curves else "Average signal (arb. u.)"
-        ax.set_ylabel(ylabel, fontsize=12)
-        ax.set_title("ROI Average Curves", fontsize=14, fontweight="bold")
+        ax.set_ylabel(ylabel, fontsize=10)
+        ax.set_title("ROI Average Curves", fontsize=10)
         ax.grid(True, alpha=0.4)
         ax.tick_params(labelsize=10)
         if curves:
             ax.legend(fontsize=10, loc="best", framealpha=0.9)
 
-        fig.tight_layout()
         fig.show()
