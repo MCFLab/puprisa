@@ -1,0 +1,57 @@
+# docs/mkdocs.yml
+site_name: Puprisa
+site_description: A documentation site for the puprisa project.
+site_author: Xiaotian Feng
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+  palette:
+    - scheme: default
+      primary: teal
+      accent: amber
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ['../src']
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_submodules: true
+            show_root_heading: false
+            members_order: source
+            heading_level: 3
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed
+  - pymdownx.arithmatex:
+      generic: true
+
+nav:
+  - Index: index.md
+  - Architecture: architecture.md
+  - User Guide: user_guide.md
+  - Developer Documentation:
+      - Data Flow: dev/data_flow.md
+      - Testing: dev/testing.md
+  - API Reference:
+      - core: api/core.md
+      - controllers: api/controllers.md
+      - ui: api/ui.md
+      - utils: api/utils.md

@@ -247,13 +247,13 @@ Do these steps **inside the same environment** you chose (`venv` or Conda): acti
    python -m pump_probe_analysis
    ```
 
-3. **In the app**, the launcher opens the **channel view** (one stack at a time). Use **File → Open Stack…** to load data:
+3. **In the app**, the launcher opens the **channel view** (one stack at a time). Use **File -> Open Stack…** to load data:
 
    - **DukeScan**: any single-channel TIFF (e.g. `*_DS_CH1.tif` … `*_DS_CH4.tif`, `.tif` or `.TIF`)
    - **Pickle**: a stack saved with `PPS.save` (`.pkl` / `.pickle`)
    - **Mathematica**: binary stack path (choose format when the extension is ambiguous)
 
-   **File → Open Stack…** auto-detects format from the extension; if it cannot, you are prompted. Opening a new file resets the session (ROIs, masks, plots, phasor window).
+   **File -> Open Stack…** auto-detects format from the extension; if it cannot, you are prompted. Opening a new file resets the session (ROIs, masks, plots, phasor window).
 
 #### Use the package without the GUI (scripts, notebooks, REPL)
 

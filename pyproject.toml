@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-puprisa = "puprisa.puprisa_gui:main"
+puprisa = "puprisa.gui:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

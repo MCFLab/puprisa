@@ -54,14 +54,14 @@ def adjust_roi(row):
     Args:
         row (pd.Series): DataFrame row containing 'sample identifier' and 'continent/ROI' columns.
             Expected format for sample identifier: "elpis_<PATIENT_ID>_<SLIDE_NUM>_<SUFFIX>"
-            Example: "elpis_AB123_2_A" → slide number is 2
+            Example: "elpis_AB123_2_A" -> slide number is 2
 
     Returns:
         str: ROI identifier with slide number prefix (e.g., "2_C01-ROI01")
 
     Examples:
-        Sample identifier "elpis_AB123_2" with ROI "C01-ROI01" → "2_C01-ROI01"
-        Sample identifier "elpis_AB123" with ROI "C01-ROI01" → "1_C01-ROI01"
+        Sample identifier "elpis_AB123_2" with ROI "C01-ROI01" -> "2_C01-ROI01"
+        Sample identifier "elpis_AB123" with ROI "C01-ROI01" -> "1_C01-ROI01"
         If ROI already has slide number ("2_C01-ROI01"), returns unchanged
     """
     search_string = r"^elpis_([A-Z0-9]+)(_([1-9]))?(?:_[A-Z0-9])?"
