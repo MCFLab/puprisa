@@ -9,6 +9,17 @@ import numpy as np
 from skimage.transform import downscale_local_mean
 from skimage import filters
 
+
+def _finite_values(values: np.ndarray) -> np.ndarray:
+    """Return floating data with non-finite samples replaced by zero.
+
+    Invalid detector samples must not poison an entire projection, fit input,
+    or threshold calculation.  The original stack is left untouched; callers
+    that need an invalid-pixel audit can retain it separately.
+    """
+    return np.nan_to_num(np.asarray(values, dtype=np.float64), nan=0.0,
+                         posinf=0.0, neginf=0.0)
+
 def compute_projection(images: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
     """Sum of absolute values across stack frames.
 
@@ -22,7 +33,7 @@ def compute_projection(images: np.ndarray, mask: np.ndarray | None = None) -> np
     -------
     projection : shape (h, w)
     """
-    projection = np.sum(np.abs(images), axis=0)
+    projection = np.sum(np.abs(_finite_values(images)), axis=0)
     if mask is not None:
         projection = projection * mask
     return projection
@@ -44,10 +55,16 @@ def compute_background_map(images: np.ndarray, indices, pixelwise: bool = True) 
     -------
     background : shape (h, w)
     """
-    background_frames = images[list(indices)]
+    indices = list(indices)
+    if not indices:
+        raise ValueError("At least one background frame index is required")
+    background_frames = np.asarray(images, dtype=np.float64)[indices]
     if pixelwise:
-        return np.mean(background_frames, axis=0)
-    scalar = np.mean(background_frames)
+        with np.errstate(invalid="ignore"):
+            return np.nan_to_num(np.nanmean(background_frames, axis=0), nan=0.0,
+                                 posinf=0.0, neginf=0.0)
+    finite = background_frames[np.isfinite(background_frames)]
+    scalar = float(np.mean(finite)) if finite.size else 0.0
     return np.full(images.shape[1:], float(scalar), dtype=np.float64)
 
 
@@ -63,7 +80,8 @@ def subtract_background(images: np.ndarray, background_map: np.ndarray) -> np.nd
     -------
     background-subtracted images, same shape as ``images``.
     """
-    return images - background_map[np.newaxis, :, :]
+    result = np.asarray(images, dtype=np.float64) - np.asarray(background_map, dtype=np.float64)[np.newaxis, :, :]
+    return np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0)
 
 
 def normalize_minmax(images: np.ndarray, avg_curve=None) -> tuple[np.ndarray, float]:
@@ -83,11 +101,15 @@ def normalize_minmax(images: np.ndarray, avg_curve=None) -> tuple[np.ndarray, fl
         The factor by which images were divided.
     """
     if avg_curve is None:
-        avg_curve = np.mean(images, axis=(1, 2))
-    extremum = float(np.max(np.abs(avg_curve)))
+        with np.errstate(invalid="ignore"):
+            avg_curve = np.nanmean(np.asarray(images, dtype=np.float64), axis=(1, 2))
+    finite_curve = np.asarray(avg_curve, dtype=np.float64)
+    finite_curve = finite_curve[np.isfinite(finite_curve)]
+    extremum = float(np.max(np.abs(finite_curve))) if finite_curve.size else 0.0
     if extremum == 0:
         extremum = 1.0
-    return images / extremum, extremum
+    return np.nan_to_num(np.asarray(images, dtype=np.float64) / extremum,
+                         nan=0.0, posinf=0.0, neginf=0.0), extremum
 
 def downsample_mask(mask: np.ndarray, factor: int) -> np.ndarray:
     """Downsample a 2D boolean mask using local averaging.
@@ -155,10 +177,12 @@ def gaussian_threshold_mask(
     -------
     thresholded_mask : shape (h, w)
     """
-    smoothed = filters.gaussian(projection, sigma=sigma)
+    if sigma < 0:
+        raise ValueError("sigma must be non-negative")
+    smoothed = filters.gaussian(_finite_values(projection), sigma=sigma)
 
     if threshold == "Li":
-        cutoff = filters.threshold_li(smoothed)
+        cutoff = filters.threshold_li(smoothed) if np.ptp(smoothed) > 0 else float(smoothed.flat[0])
     elif isinstance(threshold, (int, float)):
         cutoff = threshold
     else:

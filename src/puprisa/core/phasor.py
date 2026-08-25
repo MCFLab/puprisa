@@ -45,15 +45,20 @@ def compute_phasor(
         Columns are ``g`` and ``s``. When ``remove_zero=False``, row order
         matches ``flatten_stack(images)``.
     """
-    ta_curves = flatten_stack(images)
+    ta_curves = np.nan_to_num(flatten_stack(images), nan=0.0, posinf=0.0, neginf=0.0)
 
     if remove_zero:
         valid = np.any(ta_curves != 0, axis=1)
         ta_curves = ta_curves[valid]
 
     omega = 2.0 * np.pi * float(freq)
-    sin_basis = np.sin(np.asarray(axis_values, dtype=np.float64) * omega)
-    cos_basis = np.cos(np.asarray(axis_values, dtype=np.float64) * omega)
+    axis_values = np.asarray(axis_values, dtype=np.float64)
+    if axis_values.ndim != 1 or axis_values.size != images.shape[0]:
+        raise ValueError("axis_values must be 1D and match the number of frames")
+    if not np.all(np.isfinite(axis_values)):
+        raise ValueError("axis_values must contain only finite values")
+    sin_basis = np.sin(axis_values * omega)
+    cos_basis = np.cos(axis_values * omega)
 
     # |I| normalization avoids division by zero.
     norm = np.sum(np.abs(ta_curves), axis=1, keepdims=True)

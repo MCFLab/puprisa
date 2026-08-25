@@ -183,11 +183,6 @@
           </item>
           <item>
            <property name="text">
-            <string>Square</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
             <string>Circle</string>
            </property>
           </item>
@@ -336,10 +331,9 @@
      <property name="title">
       <string>Background Subtraction</string>
      </property>
-     <addaction name="actionNegativeTimeDelaysPixelWise"/>
-     <addaction name="actionNegativeTimeDelaysWholeImage"/>
-     <addaction name="separator"/>
-     <addaction name="actionFirstLastNImages"/>
+     <addaction name="actionSubNegativeTime"/>
+     <addaction name="actionSubFirstLastNFrames"/>
+     <addaction name="actionSubFixedValue"/>
      <addaction name="separator"/>
      <addaction name="actionResetBackgroundSubtraction"/>
     </widget>
@@ -455,24 +449,14 @@
     <string>Intensity Threshold...</string>
    </property>
   </action>
-  <action name="actionNegativeTimeDelaysPixelWise">
+  <action name="actionSubNegativeTime">
    <property name="text">
-    <string>Negative Time Delays (pixel-wise)</string>
+    <string>Subtract Negative Time Frames</string>
    </property>
   </action>
-  <action name="actionNegativeTimeDelaysWholeImage">
+  <action name="actionSubFirstLastNFrames">
    <property name="text">
-    <string>Negative Time Delays (whole-image)</string>
-   </property>
-  </action>
-  <action name="actionFirstLastNImages">
-   <property name="text">
-    <string>First/Last N Images...</string>
-   </property>
-  </action>
-  <action name="actionResetBackgroundSubtraction">
-   <property name="text">
-    <string>Reset Background Subtraction</string>
+    <string>Subtract First/Last N Frames...</string>
    </property>
   </action>
   <action name="actionSaveStackTIFF">
@@ -569,6 +553,16 @@
   <action name="actionSaveView">
    <property name="text">
     <string>Save View...</string>
+   </property>
+  </action>
+  <action name="actionResetBackgroundSubtraction">
+   <property name="text">
+    <string>Reset Background Subtraction</string>
+   </property>
+  </action>
+  <action name="actionSubFixedValue">
+   <property name="text">
+    <string>Subtract Fixed Value</string>
    </property>
   </action>
  </widget>

@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'phasor_window.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.11.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -164,7 +164,6 @@ class Ui_MainWindow(object):
         self.phasorRoiShapeComboBox.addItem("")
         self.phasorRoiShapeComboBox.addItem("")
         self.phasorRoiShapeComboBox.addItem("")
-        self.phasorRoiShapeComboBox.addItem("")
         self.phasorRoiShapeComboBox.setObjectName(u"phasorRoiShapeComboBox")
 
         self.horizontalLayout_3.addWidget(self.phasorRoiShapeComboBox)
@@ -288,10 +287,9 @@ class Ui_MainWindow(object):
         self.phasorRoiMgrLabel.setText(QCoreApplication.translate("MainWindow", u"Phasor ROI Manager", None))
         self.phasorRoiShapeLabel.setText(QCoreApplication.translate("MainWindow", u"Shape:", None))
         self.phasorRoiShapeComboBox.setItemText(0, QCoreApplication.translate("MainWindow", u"Rectangle", None))
-        self.phasorRoiShapeComboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"Square", None))
-        self.phasorRoiShapeComboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"Circle", None))
-        self.phasorRoiShapeComboBox.setItemText(3, QCoreApplication.translate("MainWindow", u"Ellipse", None))
-        self.phasorRoiShapeComboBox.setItemText(4, QCoreApplication.translate("MainWindow", u"Polygon", None))
+        self.phasorRoiShapeComboBox.setItemText(1, QCoreApplication.translate("MainWindow", u"Circle", None))
+        self.phasorRoiShapeComboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"Ellipse", None))
+        self.phasorRoiShapeComboBox.setItemText(3, QCoreApplication.translate("MainWindow", u"Polygon", None))
 
         self.phasorRoiAddButton.setText(QCoreApplication.translate("MainWindow", u"Add", None))
         self.phasorRoiRenameButton.setText(QCoreApplication.translate("MainWindow", u"Rename", None))

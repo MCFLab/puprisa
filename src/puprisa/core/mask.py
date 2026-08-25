@@ -1,7 +1,7 @@
 # puprisa/core/mask.py
 import numpy as np
 
-class PPSMaskManager:
+class PPSMask:
     """Manage analysis masks as ordered, toggleable exclude layers.
 
     Parameters
@@ -14,7 +14,6 @@ class PPSMaskManager:
         self.image_dimensions = tuple(int(v) for v in image_dimensions)
         self.masks: list[dict] = [] # Each dict has keys: "id", "label", "mask" (bool array), "enabled" (bool)
         self.effective_mask = np.ones(self.image_dimensions, dtype=bool)
-        self._listeners: list = []  # List of functions to call when the effective mask changes
 
     # ------------------------------------------------------------------
     # Mask management
@@ -84,7 +83,6 @@ class PPSMaskManager:
         """Set the label of an existing mask."""
         mask_entry = self._get_mask_or_raise(mask_id)
         mask_entry["label"] = str(label)
-        self._notify()
 
     def reverse_mask(self, mask_id: str) -> bool:
         """Reverse the boolean values of a mask. Returns True if successful."""
@@ -120,24 +118,6 @@ class PPSMaskManager:
         return not bool(np.any(self.effective_mask))
 
     # ------------------------------------------------------------------
-    # Change notification (callbacks only, Qt-free)
-    # ------------------------------------------------------------------
-    def add_change_listener(self, callback) -> None:
-        """Register a zero-argument callback fired after mask changes."""
-        if callback not in self._listeners:
-            self._listeners.append(callback)
-
-    def remove_change_listener(self, callback) -> None:
-        try:
-            self._listeners.remove(callback)
-        except ValueError:
-            pass
-
-    def _notify(self) -> None:
-        for cb in self._listeners:
-            cb()
-
-    # ------------------------------------------------------------------
     # Serialization
     # ------------------------------------------------------------------
     def to_serializable(self) -> dict:
@@ -157,17 +137,36 @@ class PPSMaskManager:
         """
         Restore state from a JSON-friendly dict. Raises ValueError if invalid.
         """
-        # Clear current masks without notifying listeners individually.
-        self.masks = []
-        self.effective_mask = np.ones(self.image_dimensions, dtype=bool)
-        for item in data.get("masks", []):
+        if not isinstance(data, dict):
+            raise ValueError("Mask data must be a dictionary")
+        items = data.get("masks", [])
+        if not isinstance(items, list):
+            raise ValueError("'masks' must be a list")
+
+        # Validate the complete payload before changing current state.  This
+        # makes failed loads atomic and prevents ambiguous duplicate IDs.
+        restored: list[dict] = []
+        seen_ids: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict) or "id" not in item or "mask" not in item:
+                raise ValueError("Every mask must contain 'id' and 'mask'")
+            mask_id = str(item["id"])
+            if not mask_id:
+                raise ValueError("Mask IDs must not be empty")
+            if mask_id in seen_ids:
+                raise ValueError(f"Duplicate mask ID in serialized data: {mask_id!r}")
+            seen_ids.add(mask_id)
             mask = self._validate_mask(item["mask"])
-            self.masks.append({
-                "id": str(item["id"]),
+            restored.append({
+                "id": mask_id,
                 "label": str(item.get("label", "")),
                 "mask": mask,
                 "enabled": bool(item.get("enabled", True)),
             })
+
+        # Commit only after successful validation.
+        self.masks = restored
+        self.effective_mask = np.ones(self.image_dimensions, dtype=bool)
         self._sync_effective_mask()
 
     # ------------------------------------------------------------------
@@ -180,7 +179,6 @@ class PPSMaskManager:
             if mask_entry.get("enabled", True):
                 out &= ~mask_entry["mask"]
         self.effective_mask = out
-        self._notify()
 
     def _validate_mask(self, mask: np.ndarray) -> np.ndarray:
         mask = np.asarray(mask, dtype=bool)

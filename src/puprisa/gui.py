@@ -1,12 +1,10 @@
-# puprisa/gui.py
 import sys
 from PySide6.QtWidgets import QApplication
-from puprisa.ui.main_window import MainWindow
-from puprisa.model.stack_manager import StackManager
+from puprisa.app_context import ApplicationContext
 
 def main():
     app = QApplication(sys.argv)
-    stack_manager = StackManager()
-    win = MainWindow(stack_manager)
-    win.show()
+    ctx = ApplicationContext()
+    main_win = ctx.create_main_window()
+    main_win.show()
     return app.exec()

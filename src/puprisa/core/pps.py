@@ -1,8 +1,6 @@
-# puprisa/core/stack.py
 import numpy as np
-from .data import PPSDataClass
-from .mask import PPSMaskManager
-from .io import load_stack, export_as_tiff, export_as_pickle
+from .mask import PPSMask
+from .io import PPSDataClass, load_stack, export_as_tiff, export_as_pickle
 
 
 class PPS:
@@ -24,18 +22,22 @@ class PPS:
         self.images = np.asarray(images, dtype=np.float64)
         if self.images.ndim != 3:
             raise ValueError(f"Expected 3D image stack [n_frames, h, w], got {self.images.shape}")
+        if self.images.shape[0] == 0 or self.images.shape[1] == 0 or self.images.shape[2] == 0:
+            raise ValueError("Image stack dimensions must all be non-zero")
         self.image_dimensions = self.images[0].shape
 
         self.axis_values = np.asarray(axis_values, dtype=np.float64)
         if len(self.axis_values) != len(self.images):
             raise ValueError("axis_values length must match number of frames")
+        if not np.all(np.isfinite(self.axis_values)):
+            raise ValueError("axis_values must contain only finite values")
         
         self.axis_type = axis_type
         if axis_type not in ("time", "z"):
             raise ValueError('axis_type must be "time" or "z"')
 
-        # Mask managers
-        self._mask_manager = PPSMaskManager(self.image_dimensions)
+        # Mask handler
+        self._mask_handler = PPSMask(self.image_dimensions)
 
         # Background subtraction state
         self._original_images = self.images.copy()
@@ -86,45 +88,43 @@ class PPS:
     @property
     def mask(self) -> np.ndarray:
         """Effective analysis mask."""
-        return self._mask_manager.get_effective_mask()
+        return self._mask_handler.get_effective_mask()
 
     def add_mask(self, mask, label="", enabled=True, mask_id=None):
-        return self._mask_manager.add_mask(
-            mask, label=label, enabled=enabled, mask_id=mask_id
-        )
+        return self._mask_handler.add_mask(mask, label=label, enabled=enabled, mask_id=mask_id)
 
     def remove_mask(self, mask_id):
-        return self._mask_manager.remove_mask(mask_id)
+        return self._mask_handler.remove_mask(mask_id)
 
     def set_mask_enabled(self, mask_id, enabled):
-        self._mask_manager.set_mask_enabled(mask_id, enabled)
+        self._mask_handler.set_mask_enabled(mask_id, enabled)
 
     def set_mask_label(self, mask_id, label):
-        self._mask_manager.set_mask_label(mask_id, label)
+        self._mask_handler.set_mask_label(mask_id, label)
 
     def get_mask(self, mask_id):
-        return self._mask_manager.get_mask(mask_id)
+        return self._mask_handler.get_mask(mask_id)
 
     def reverse_mask(self, mask_id):
-        return self._mask_manager.reverse_mask(mask_id)
+        return self._mask_handler.reverse_mask(mask_id)
 
     def get_all_mask_ids(self):
-        return self._mask_manager.get_all_mask_ids()
+        return self._mask_handler.get_all_mask_ids()
 
     def get_all_masks(self):
-        return self._mask_manager.get_all_masks()
+        return self._mask_handler.get_all_masks()
 
     def get_effective_mask(self):
-        return self._mask_manager.get_effective_mask()
+        return self._mask_handler.get_effective_mask()
 
-    def get_mask_manager(self) -> PPSMaskManager:
-        return self._mask_manager
+    def get_mask_handler(self) -> PPSMask:
+        return self._mask_handler
 
     def clear_all_masks(self):
-        self._mask_manager.clear_all_masks()
+        self._mask_handler.clear_all_masks()
 
     def save_mask(self, path, format="json"):
-        data = self._mask_manager.to_serializable()
+        data = self._mask_handler.to_serializable()
         if format == "json":
             import json
             with open(path, "w") as f:
@@ -141,16 +141,20 @@ class PPS:
     # ------------------------------------------------------------------
     def total(self, mask_on=True):
         """Compute the sum of all stack frames, optionally applying the mask."""
-        total = np.sum(self.images, axis=0)
+        total = np.sum(np.nan_to_num(self.images, nan=0.0, posinf=0.0, neginf=0.0), axis=0)
         if mask_on:
             total = np.where(self.mask, total, 0)
         return total
 
     def avg(self, mask_on: bool = True):
-        """Compute the average curve of the stack, optionally applying the mask."""
+        finite_images = np.where(np.isfinite(self.images), self.images, np.nan)
         if mask_on:
-            return [float(np.mean(img[self.mask])) for img in self.images]
-        return [float(np.mean(img)) for img in self.images]
+            if not np.any(self.mask):
+                return [0.0] * len(self.images)
+            return [float(np.nanmean(img[self.mask])) if np.any(np.isfinite(img[self.mask])) else 0.0
+                    for img in finite_images]
+        return [float(np.nanmean(img)) if np.any(np.isfinite(img)) else 0.0
+                for img in finite_images]
 
     def project(self, mask_on: bool = True):
         """Compute the projection of the stack, optionally applying the mask. Projection is defined as the sum of absolute values across frames."""
@@ -174,6 +178,10 @@ class PPS:
         else:
             all_pixels = self.images.flatten()
 
+        all_pixels = all_pixels[np.isfinite(all_pixels)]
+        if not all_pixels.size:
+            return {"min": 0.0, "max": 0.0, "mean": 0.0, "std": 0.0}
+
         return {
             "min": float(np.min(all_pixels)),
             "max": float(np.max(all_pixels)),
@@ -193,10 +201,9 @@ class PPS:
         :return: A new PPS instance with resampled images and analysis masks.
         """
         from .process import downsample_mean, downsample_mask
-
+        from skimage.transform import downscale_local_mean
         new_images = downsample_mean(self.images, factor)
         new_pps = PPS(new_images, self.axis_values, axis_type=self.axis_type)
-
         # --- Migrate mask layers individually, preserving IDs/labels ---
         for mask_id in self.get_all_mask_ids():
             mask = self.get_mask(mask_id)
@@ -209,14 +216,13 @@ class PPS:
                 enabled=mask.get("enabled", True),
                 mask_id=mask_id,
             )
-
         # --- Migrate background subtraction state ---
         if self._original_images is not None:
             new_pps._original_images = downsample_mean(self._original_images, factor)
         if self._background_map is not None:
-            new_pps._background_map = downsample_mean(self._background_map, factor)
-
-        # Metadata
+            new_pps._background_map = downscale_local_mean(
+                self._background_map.astype(np.float64), (factor, factor)
+            )
         new_pps.filename = self.filename
         return new_pps
 
@@ -285,29 +291,12 @@ class PPS:
             Columns are ``g`` and ``s``. When ``remove_zero=False``, row order
             matches ``flatten_stack(images)``.
         """
+        if self.axis_type != "time":
+            raise ValueError("Phasor computation is only valid for time-delay stacks")
         from .phasor import compute_phasor
         return compute_phasor(
             self.images, self.axis_values, freq=freq, remove_zero=remove_zero
         )
-
-    # ------------------------------------------------------------------
-    # Classification
-    # ------------------------------------------------------------------
-
-    def classify(self, classifier, downsample_factor=1, norm="minmax"):
-        """Classify pixels and store the result matrix in ``self.results``."""
-        from .ml import classify_pixels
-
-        matrix, stats = classify_pixels(
-            self.images,
-            self.mask,
-            classifier,
-            downsample_factor=downsample_factor,
-            norm=norm,
-        )
-        self.results["class_matrix"] = matrix
-        self.results["class_stats"] = stats
-        return matrix, stats
 
     # ------------------------------------------------------------------
     # Serialization helpers
@@ -318,7 +307,7 @@ class PPS:
         
         # Restore masks
         if data.masks:
-            pps._mask_manager.from_serializable(data.masks)
+            pps._mask_handler.from_serializable(data.masks)
         
         # Background & original images
         pps._original_images = data.original_images if data.original_images is not None else pps.images.copy()
@@ -335,7 +324,7 @@ class PPS:
             image_dimensions=self.image_dimensions,
             axis_values=self.axis_values.copy(),
             axis_type=self.axis_type,
-            masks=self._mask_manager.to_serializable(),
+            masks=self._mask_handler.to_serializable(),
             original_images=self._original_images.copy(),
             background_map=self._background_map.copy(),
             results=self.results.copy(),

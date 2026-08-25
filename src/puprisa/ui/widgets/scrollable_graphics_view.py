@@ -11,6 +11,7 @@ class ScrollableGraphicsView(QGraphicsView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
 
     def wheelEvent(self, event: QWheelEvent):
         """Handle mouse wheel events to change the displayed slice."""

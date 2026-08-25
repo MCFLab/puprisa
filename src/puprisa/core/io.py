@@ -1,11 +1,25 @@
-import numpy as np
 import os
-import pandas as pd
-from skimage import io
 import re
+import pickle
 from pathlib import Path
-from .data import PPSDataClass
+from dataclasses import dataclass, field
+
+import numpy as np
+import pandas as pd
 import tifffile
+
+
+@dataclass
+class PPSDataClass:
+    images: np.ndarray
+    axis_values: np.ndarray
+    axis_type: str
+    image_dimensions: tuple | None = None
+    masks: dict = field(default_factory=dict)
+    original_images: np.ndarray | None = None
+    background_map: np.ndarray | None = None
+    results: dict = field(default_factory=dict)
+    filename: str = ""
 
 def load_stack(path, axis_type, dataType=None) -> PPSDataClass:
     if dataType is None:
@@ -13,6 +27,8 @@ def load_stack(path, axis_type, dataType=None) -> PPSDataClass:
     if dataType == "DukeScan":
         if axis_type is None:
             axis_type = tiff_page285_axis_hint(path)
+        if axis_type is None:
+            raise ValueError(f"Cannot infer axis_type from {path}. ")
         return load_dukescan_stack(path, axis_type=axis_type)
     elif dataType == "pickle":
         return load_pickle_stack(path, axis_type=axis_type)
@@ -68,15 +84,12 @@ def load_dukescan_stack(path, axis_type):
     )
 
 def load_mathematica_stack(path, axis_type) -> PPSDataClass:
-    if isinstance(path, str):
-        temp = _import_mathematica_binary(path)
-        images = np.array(temp[0], dtype=np.float64)
-        axis_values = np.array(temp[1])
-        filename = Path(path).name
-        image_dimensions = images[0].shape
-    else:
-        raise ValueError("path must be a string")
-    axis_type = axis_type
+    temp = _import_mathematica_binary(path)
+    images = np.array(temp[0], dtype=np.float64)
+    axis_values = np.array(temp[1])
+    filename = Path(path).name
+    image_dimensions = images[0].shape
+    
     return PPSDataClass(
         images=images,
         image_dimensions=image_dimensions,
@@ -86,7 +99,6 @@ def load_mathematica_stack(path, axis_type) -> PPSDataClass:
     )
 
 def load_pickle_stack(path, axis_type):
-    import pickle
     with open(path, "rb") as f:
         save_object = pickle.load(f)
 
@@ -103,7 +115,6 @@ def load_pickle_stack(path, axis_type):
     )
 
 def export_as_pickle(path, data: PPSDataClass):
-    import pickle
     save_object = {
         "images": data.images,
         "image_dimensions": data.image_dimensions,
@@ -412,8 +423,6 @@ def extract_pos_z_from_log(path):
         p_log = str(p.with_suffix(".log"))
     else:
         p_log = str(p) + ".log"
-    if not os.path.isfile(p_log):
-        return np.array([], dtype=np.float64)
     try:
         with open(p_log, "r", encoding="utf-8") as f:
             log = f.read()
@@ -470,26 +479,21 @@ def _import_mathematica_binary(path):
         List containing [images, time_axis] where images is a list of 2D arrays
         and time_axis is a 1D array of time delays.
     """
-    # open file as read-binary with no buffering
-    f = open(path, "rb", buffering=0)
+    with open(path, "rb", buffering=0) as f:
+        # import first three int16 which are the time, x and y dimension
+        # convert dim to int64, because int16 is not big enougth for
+        # multiplications
+        dim = np.fromfile(f, dtype=np.int16, count=3)
+        dim = dim.astype(np.int64)
 
-    # import first three int16 which are the time, x and y dimension
-    # convert dim to int64, because int16 is not big enougth for
-    # multiplications
-    dim = np.fromfile(f, dtype=np.int16, count=3)
-    dim = dim.astype(np.int64)
+        # import the time axis
+        time = np.fromfile(f, dtype=np.float64, count=dim[0])
 
-    # import the time axis
-    time = np.fromfile(f, dtype=np.float64, count=dim[0])
-
-    # import stack, loop over time dimension dim[0] and reshape to image
-    # dimensions
-    images = []
-    for i in range(dim[0]):
-        temp = np.fromfile(f, dtype=np.float64, count=dim[1] * dim[2])
-        images.append(temp.reshape((dim[1], dim[2])))
-
-    # close file
-    f.close()
-
-    return [images, time]
+        # import stack, loop over time dimension dim[0] and reshape to image
+        # dimensions
+        images = []
+        for i in range(dim[0]):
+            temp = np.fromfile(f, dtype=np.float64, count=dim[1] * dim[2])
+            images.append(temp.reshape((dim[1], dim[2])))
+        
+        return [images, time]

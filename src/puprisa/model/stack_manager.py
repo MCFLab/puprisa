@@ -1,236 +1,154 @@
 # puprisa/model/stack_manager.py
-"""Pure model for managing a collection of pump-probe stacks.
-
-This module provides :class:`StackManager`, a Qt-free model that owns the
-list of loaded stacks and exposes signals for UI synchronisation.
-
-The class does **not** interact with any widgets.  All user-initiated
-actions (open, delete, rename, colour change) are performed by the view
-adapter, which calls the methods defined here and receives change
-notifications via Qt signals.
-"""
-
-from pathlib import Path
-
-from PySide6.QtCore import QObject, Signal
+"""Qt-free model for managing a collection of pump-probe stacks."""
+from dataclasses import dataclass
+from typing import Callable
 
 from puprisa.core.pps import PPS
+from puprisa.model.entities import StackItem
 from puprisa.utils.color_utils import PHASOR_COLORS
 
 
-class StackManager(QObject):
-    """Central store for all stack items.
+@dataclass(frozen=True)
+class StackEvent:
+    """Emitted whenever stack collection or metadata changes."""
 
-    Each stack item is a dictionary with the following keys:
+    event: str                   # "added" / "removed" / "renamed" / "color_changed" /
+                                # "visibility_changed" / "current_changed"
+    stack_id: str | None = None
+    stack_item: StackItem | None = None
 
-    - ``id``             : unique string identifier
-    - ``pps``            : :class:`~puprisa.core.pps.PPS` instance
-    - ``name``           : display name
-    - ``visible``        : boolean indicating whether the stack is enabled
-    - ``color``          : hex colour string used for phasor overlays
 
-    Signals
-    -------
-    stackChanged(object)
-        Emitted with the current stack item (dict) or ``None`` when the
-        selection is cleared.
-    stackVisibilityChanged(str, bool)
-        Emitted with ``(stack_id, visible)`` when a stack's visibility is
-        toggled.
-    stackItemsChanged()
-        Emitted whenever the list contents or metadata (name, colour) change.
-    stackDeleted(str)
-        Emitted with the deleted stack's ``id``.
-    """
-
-    stackChanged = Signal(object)
-    stackVisibilityChanged = Signal(str, bool)
-    stackItemsChanged = Signal()
-    stackDeleted = Signal(str)
+class StackManager:
+    """Central store for all stack items. Qt-free, callback-based."""
 
     def __init__(self):
-        super().__init__()
-        self.stack_items: list[dict] = []
-        self.current_index = -1
-        self._id_counter = 0
-        self._color_index = 0
+        self._items: list[StackItem] = []
+        self._listeners: list[Callable[[StackEvent], None]] = []
+        self._current_index: int = -1
+        self._id_counter: int = 0
+        self._color_index: int = 0
 
     # ------------------------------------------------------------------
-    # Public API for adding / removing stacks
+    # Listener management
     # ------------------------------------------------------------------
-    def add_existing_stack(self, pps: PPS, name: str | None = None) -> str:
-        """Add an already-loaded :class:`PPS` object.
+    def add_listener(self, callback: Callable[[StackEvent], None]) -> None:
+        if callback not in self._listeners:
+            self._listeners.append(callback)
 
-        Parameters
-        ----------
-        pps : PPS
-            The stack object to add.
-        name : str, optional
-            Display name.  If omitted, the filename stem is used, or
-            ``"Untitled"`` if no filename is set.
+    def remove_listener(self, callback: Callable[[StackEvent], None]) -> None:
+        if callback in self._listeners:
+            self._listeners.remove(callback)
 
-        Returns
-        -------
-        str
-            The unique ID of the newly added stack.
-        """
-        if name is None:
-            name = Path(pps.filename).stem if pps.filename else "Untitled"
+    def _notify(self, event: StackEvent) -> None:
+        for cb in list(self._listeners):
+            cb(event)
 
-        item = {
-            "id": self._generate_stack_id(),
-            "pps": pps,
-            "name": name,
-            "visible": True,
-            "color": self._next_color(),
-        }
-        self.stack_items.append(item)
-        self.current_index = len(self.stack_items) - 1
-        self.stackItemsChanged.emit()
-        self.stackChanged.emit(item)
-        return item["id"]
+    # ------------------------------------------------------------------
+    # Collection mutation
+    # ------------------------------------------------------------------
+    def add_stack(self, pps: PPS, name: str | None = None) -> str:
+        """Add an already-loaded PPS and return its ID."""
+        stack_id = self._generate_stack_id()
+        item = StackItem.from_pps(
+            stack_id, pps, name=name, color=self._next_color()
+        )
+        self._items.append(item)
+        self._current_index = len(self._items) - 1
 
-    def delete_stack(self, index: int) -> bool:
-        """Delete a stack by its list index.
+        self._notify(StackEvent(event="added", stack_id=stack_id, stack_item=item))
+        self._notify(StackEvent(event="current_changed", stack_id=stack_id, stack_item=item))
+        return stack_id
 
-        Parameters
-        ----------
-        index : int
-            Index of the stack to remove.
+    def delete_stack(self, index: int) -> str:
+        """Delete a stack by list index."""
+        if not 0 <= index < len(self._items):
+            raise IndexError(f"Index out of range: {index}")
 
-        Returns
-        -------
-        bool
-            ``True`` if a stack was deleted, otherwise ``False``.
-        """
-        if not 0 <= index < len(self.stack_items):
-            return False
-
-        stack = self.stack_items.pop(index)
-        was_current = (self.current_index == index)
+        item = self._items.pop(index)
+        was_current = self._current_index == index
 
         if was_current:
-            self.current_index = min(index, len(self.stack_items) - 1)
-        elif self.current_index > index:
-            self.current_index -= 1
+            self._current_index = min(index, len(self._items) - 1)
+        elif self._current_index > index:
+            self._current_index -= 1
 
-        self.stackDeleted.emit(stack["id"])
-        self.stackItemsChanged.emit()
+        self._notify(StackEvent(event="removed", stack_id=item.id, stack_item=item))
 
         if was_current:
-            if 0 <= self.current_index < len(self.stack_items):
-                self.stackChanged.emit(self.stack_items[self.current_index])
-            else:
-                self.stackChanged.emit(None)
-        return True
+            current = self.get_current_item()
+            self._notify(StackEvent(event="current_changed", stack_id=current.id if current else None, stack_item=current))
+        return item.id
 
-    def rename_stack(self, index: int, new_name: str) -> bool:
-        """Rename a stack.
-
-        Parameters
-        ----------
-        index : int
-            Index of the stack.
-        new_name : str
-            New display name.  Leading/trailing whitespace is stripped.
-
-        Returns
-        -------
-        bool
-            ``True`` if the rename succeeded, ``False`` otherwise.
-        """
-        if not 0 <= index < len(self.stack_items):
-            return False
-
+    def rename_stack(self, index: int, new_name: str) -> None:
+        if not 0 <= index < len(self._items):
+            raise IndexError(f"Index out of range: {index}")
         new_name = new_name.strip()
         if not new_name:
-            return False
+            raise ValueError("Stack name cannot be empty")
+        item = self._items[index]
+        item.name = new_name
+        self._notify(StackEvent(event="renamed", stack_id=item.id, stack_item=item))
 
-        self.stack_items[index]["name"] = new_name
-        self.stackItemsChanged.emit()
-        return True
-
-    def set_stack_color(self, stack_id: str, color_hex: str) -> bool:
-        """Change the colour associated with a stack.
-
-        Parameters
-        ----------
-        stack_id : str
-            ID of the stack.
-        color_hex : str
-            New hex colour string (e.g. ``"#ff0000"``).
-
-        Returns
-        -------
-        bool
-            ``True`` if the stack was found and the colour updated.
-        """
-        stack = self.get_item_by_id(stack_id)
-        if stack is None:
-            return False
-
-        stack["color"] = color_hex
-        self.stackItemsChanged.emit()
-        return True
-
-    # ------------------------------------------------------------------
-    # Query API
-    # ------------------------------------------------------------------
-    def switch_stack(self, index: int) -> None:
-        """Switch the current stack by index.
-
-        Emits ``stackChanged`` with the selected item, or ``None`` if the
-        index is out of range.
-        """
-        if 0 <= index < len(self.stack_items):
-            self.current_index = index
-            self.stackChanged.emit(self.stack_items[index])
-        else:
-            self.current_index = -1
-            self.stackChanged.emit(None)
+    def set_stack_color(self, stack_id: str, color_hex: str) -> None:
+        item = self.get_item_by_id(stack_id)
+        if item is None:
+            raise KeyError(f"Unknown stack_id: {stack_id!r}")
+        item.color = color_hex
+        self._notify(StackEvent(event="color_changed", stack_id=stack_id, stack_item=item))
 
     def set_stack_visible(self, stack_id: str, visible: bool) -> None:
-        """Set the visibility of a stack.
-
-        Parameters
-        ----------
-        stack_id : str
-            ID of the stack.
-        visible : bool
-            Desired visibility state.
-        """
-        stack = self.get_item_by_id(stack_id)
-        if stack is None:
+        item = self.get_item_by_id(stack_id)
+        if item is None:
+            raise KeyError(f"Unknown stack_id: {stack_id!r}")
+        if item.visible == visible:
             return
-        if stack["visible"] != visible:
-            stack["visible"] = visible
-            self.stackVisibilityChanged.emit(stack_id, visible)
+        item.visible = visible
+        self._notify(StackEvent(event="visibility_changed", stack_id=stack_id, stack_item=item))
 
-    def get_current_item(self) -> dict | None:
-        """Return the currently selected stack item, or ``None``."""
-        if 0 <= self.current_index < len(self.stack_items):
-            return self.stack_items[self.current_index]
+    def switch_stack(self, index: int) -> None:
+        if 0 <= index < len(self._items):
+            if self._current_index == index:
+                return
+            self._current_index = index
+            item = self._items[index]
+        else:
+            self._current_index = -1
+            item = None
+        self._notify(StackEvent(event="current_changed", stack_id=item.id if item else None, stack_item=item))
+
+    # ------------------------------------------------------------------
+    # Queries
+    # ------------------------------------------------------------------
+    def get_current_item(self) -> StackItem | None:
+        if 0 <= self._current_index < len(self._items):
+            return self._items[self._current_index]
         return None
 
     def get_current_pps(self) -> PPS | None:
-        """Return the :class:`PPS` object of the current stack, or ``None``."""
         item = self.get_current_item()
-        return item["pps"] if item else None
+        return item.pps if item else None
 
-    def get_item_by_id(self, stack_id: str) -> dict | None:
-        """Return a stack item by its unique ID, or ``None``."""
-        return next((s for s in self.stack_items if s["id"] == stack_id), None)
+    def get_current_stack_id(self) -> str | None:
+        item = self.get_current_item()
+        return item.id if item else None
 
-    def get_all_items(self) -> list[dict]:
-        """Return a copy of the internal stack list."""
-        return list(self.stack_items)
+    def get_item_by_id(self, stack_id: str) -> StackItem | None:
+        return next((s for s in self._items if s.id == stack_id), None)
+
+    def get_all_items(self) -> list[StackItem]:
+        return list(self._items)
+
+    def get_visible_items(self) -> list[StackItem]:
+        return [i for i in self._items if i.visible]
+
+    def __len__(self) -> int:
+        return len(self._items)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
     def _generate_stack_id(self) -> str:
-        """Create a unique stack ID."""
-        existing = {s["id"] for s in self.stack_items}
+        existing = {i.id for i in self._items}
         while True:
             self._id_counter += 1
             candidate = f"stack_{self._id_counter}"
@@ -238,7 +156,6 @@ class StackManager(QObject):
                 return candidate
 
     def _next_color(self) -> str:
-        """Return the next colour from the phasor palette."""
         color = PHASOR_COLORS[self._color_index % len(PHASOR_COLORS)]
         self._color_index += 1
         return color

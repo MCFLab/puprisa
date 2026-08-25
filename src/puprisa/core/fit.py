@@ -5,78 +5,83 @@ Created on Wed Jun 25 11:25:37 2025
 @author: dg208
 """
 import numpy as np
-import pandas as pd
-import re
-from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
-from . import ta
+from scipy.special import erf
 
-def fit_xcorr(filename, delay_stage_passes=4, dt_default=0.077):
+def decay_single(t, tau, t_pump, t_probe):
     """
-    Fit pulse width of cross-correlation measurement.
+    Compute transient absorption of single exponential decay.
 
     Parameters
     ----------
-    filename : str
-        Full path of xcorr measurement.
-    delay_stage_passes : int, optional
-        Multiplier for path length difference intruduced by delay stage. The
-        default is 4.
-    dt_default : float, optional
-        If fit does not converge, this value is returned. The defaut is 0.077
+    t : float
+        time variable [ps].
+    tau : float
+        Lifetime of the process [ps].
+    t_pump : float
+        Pulse width of pump pulse [ps].
+    t_probe : float
+        Pulse width of probe pulse [ps].
 
     Returns
     -------
-    TYPE
-        DESCRIPTION.
+    float
+        Transient absorbtion value.
 
     """
-    # what are the units of this zscan: mm or ps?
-    with open(filename, "r") as f:
-        data = f.read()
-    match = re.search(r"xUnits = (mm|ps)", data)
-    if match:
-        units = match.group(1)
-    else:
-        units = "mm"
-        print(f"don't know units of xcorr file {filename}, assumed mm")
+    tp_squared = t_pump**2 + t_probe**2
+    tp = np.sqrt(tp_squared)
+    error_fu = erf(t / (np.sqrt(2) * tp) - tp / (np.sqrt(2) * tau))
+    exp_fu = np.exp(-t / tau + tp_squared / (2 * tau**2))
 
-    # import data from filename and drop first data point, which is typically
-    # bad from lock-in settle time
-    df = pd.read_csv(filename, sep="\t", comment="#")
-    if units == "mm":
-        # assuming 4-pass delay stage
-        time = df["pos"].iloc[1:] * 10 / 3 * delay_stage_passes
-        xcorr = df["xsig"].iloc[1:]
-    if units == "ps":
-        time = df["pos"].iloc[1:]
-        xcorr = df["xsig"].iloc[1:]
+    return 1 / 2 * exp_fu * (1 + error_fu)
 
-    # correct for offset
-    xcorr = xcorr - np.mean(xcorr[:5])
-    xcorr = xcorr / np.max(xcorr)
-    time = time - time.iloc[0]
 
-    # initial guess for fitting
-    guess_t0 = time[np.argmax(xcorr)]
+def decay_infinite(t, t_pump, t_probe):
+    """
+    Compute transient absorption value of process with infinite lifetime.
 
-    # fitting
-    try:
+    ----------
+    t : float
+        time variable [ps].
+    t_pump : float
+        Pulse width of pump pulse [ps].
+    t_probe : float
+        Pulse width of probe pulse [ps].
 
-        def fit_function(t, t0, a0, dt, a1):
-            return a0 * ta.decay_instantaneous(
-                t - t0, dt, dt
-            ) + a1 * ta.decay_infinite(t - t0, dt, dt)
+    Returns
+    -------
+    float
+        Transient absorbtion value.
 
-        popt, pcov = curve_fit(
-            fit_function, time, xcorr, p0=[guess_t0, 1, 0.5, 0]
-        )
-    except (RuntimeError, TypeError, ValueError) as e:
-        print(f"Fit {filename} failed: {e}")
+    """
+    tp_squared = t_pump**2 + t_probe**2
+    tp = np.sqrt(tp_squared)
+    error_fu = erf(t / (np.sqrt(2) * tp))
 
-        figure, ax = plt.subplots(1, 1, figsize=(4, 3))
-        ax.scatter(time, xcorr)
-        ax.plot(time, fit_function(time, *popt))
-        popt = [0, 0, dt_default, 0]
+    return 1 / 2 * (1 + error_fu)
 
-    return np.abs(popt[2])
+
+def decay_instantaneous(t, t_pump, t_probe):
+    """
+    Compute transient absorption value of an instantaneous process.
+
+    Parameters
+    ----------
+    t : float
+        time variable [ps].
+    t_pump : float
+        Pulse width of pump pulse [ps].
+    t_probe : float
+        Pulse width of probe pulse [ps].
+
+    Returns
+    -------
+    float
+        Transient absorbtion value.
+
+    """
+    tp_squared = t_pump**2 + t_probe**2
+    return (
+        1 / np.sqrt(2 * np.pi * tp_squared) * np.exp(-(t**2) / 2 / tp_squared)
+    )

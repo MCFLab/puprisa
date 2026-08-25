@@ -118,13 +118,11 @@ def shape_to_patch(shape: str, params: dict, **kwargs):
     ----------
     shape : str
         One of ``"rectangle"``, ``"circle"``, ``"ellipse"``, or
-        ``"polygon"``.  (``"square"`` is also accepted and treated as a
-        rectangle with equal width and height).
+        ``"polygon"``.
     params : dict
         Geometry parameters matching the shape type:
 
         - rectangle: ``{"x", "y", "width", "height"}``
-        - square:    ``{"x", "y", "width"}``
         - circle:    ``{"center_x", "center_y", "radius"}``
         - ellipse:   ``{"center_x", "center_y", "radius_x", "radius_y"}``
         - polygon:   ``{"vertices": [[x1,y1], [x2,y2], ...]}``
@@ -145,15 +143,6 @@ def shape_to_patch(shape: str, params: dict, **kwargs):
             (params["x"], params["y"]),
             params["width"],
             params["height"],
-            **kwargs,
-        )
-
-    if shape == "square":
-        side = params.get("width", params.get("height", 0))
-        return Rectangle(
-            (params["x"], params["y"]),
-            side,
-            side,
             **kwargs,
         )
 

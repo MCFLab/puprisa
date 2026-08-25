@@ -3,10 +3,11 @@ from PySide6.QtWidgets import QGraphicsRectItem, QGraphicsPolygonItem, QGraphics
 from PySide6.QtCore import Qt, QRectF, QPointF
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QPolygonF
 
+from contextlib import contextmanager
 from puprisa.utils.color_utils import _matplotlib_color_to_qt
 
 class DraggableROI(QGraphicsRectItem):
-    """Base draggable ROI: rectangle by default; supports square/circle/ellipse."""
+    """Base draggable ROI: rectangle by default; supports circle/ellipse."""
 
     SHAPE_TYPE = "rectangle"
 
@@ -23,14 +24,15 @@ class DraggableROI(QGraphicsRectItem):
             50,
         )))
 
-        self.setFlag(QGraphicsRectItem.ItemIsMovable, True)
-        self.setFlag(QGraphicsRectItem.ItemIsSelectable, True)
-        self.setFlag(QGraphicsRectItem.ItemSendsGeometryChanges, True)
-
         self._resizing = False
         self._resize_handle = None
         self._roi_changed_callback = None
+        self._silent = False
         self._movement_bounds = None
+
+        self.setFlag(QGraphicsRectItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsRectItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsRectItem.ItemSendsGeometryChanges, True)
 
     # ------------------------------------------------------------------
     # Public API
@@ -40,7 +42,7 @@ class DraggableROI(QGraphicsRectItem):
         self._roi_changed_callback = callback
 
     def get_shape_type(self):
-        """Return ROI shape type: rectangle, square, circle, or ellipse."""
+        """Return ROI shape type: rectangle, circle, or ellipse."""
         return self._shape_type
 
     def get_scene_rect(self):
@@ -55,7 +57,7 @@ class DraggableROI(QGraphicsRectItem):
     # Painting
     # ------------------------------------------------------------------
     def paint(self, painter: QPainter, option, widget=None):
-        """Draw the ROI shape (rect for rectangle/square, ellipse for circle/ellipse)."""
+        """Draw the ROI shape (rect for rectangle, ellipse for circle/ellipse)."""
         r = self.rect()
         painter.setPen(self.pen())
         painter.setBrush(self.brush())
@@ -91,8 +93,21 @@ class DraggableROI(QGraphicsRectItem):
     # ------------------------------------------------------------------
     # Change notification
     # ------------------------------------------------------------------
+    @contextmanager
+    def silent_geometry_change(self):
+        """Temporarily suppress change notifications.
+        Use this when geometry is updated from the model side; user
+        interactions must never run inside this context.
+        """
+        previous = self._silent
+        self._silent = True
+        try:
+            yield
+        finally:
+            self._silent = previous
+
     def _notify_changed(self):
-        if self._roi_changed_callback:
+        if not self._silent and self._roi_changed_callback:
             self._roi_changed_callback()
 
     def itemChange(self, change, value):
@@ -186,8 +201,8 @@ class DraggableROI(QGraphicsRectItem):
             else:
                 return
 
-            # Circle and square: keep equal width/height and keep center fixed
-            if self._shape_type in ("circle", "square"):
+            # Circle: keep equal width/height and keep center fixed
+            if self._shape_type in ("circle"):
                 s = min(new_rect.width(), new_rect.height())
                 if s > 5:
                     scene_center = self.pos() + self.rect().center()
@@ -211,7 +226,7 @@ class DraggablePolygonROI(QGraphicsPolygonItem):
     """Draggable polygon ROI with vertex editing (add/remove via double-click)."""
 
     SHAPE_TYPE = "polygon"
-    _vertexHitRadius = 10
+    _vertexHitRadius = 8
     _vertexDrawSize = 4
 
     def __init__(self, polygon, parent=None, color=None):
@@ -227,14 +242,15 @@ class DraggablePolygonROI(QGraphicsPolygonItem):
             50,
         )))
 
-        self.setFlag(QGraphicsPolygonItem.ItemIsMovable, True)
-        self.setFlag(QGraphicsPolygonItem.ItemIsSelectable, True)
-        self.setFlag(QGraphicsPolygonItem.ItemSendsGeometryChanges, True)
-
+        self._silent = False
         self._roi_changed_callback = None
         self._dragging_vertex_index = None
         self._movement_bounds = None
 
+        self.setFlag(QGraphicsPolygonItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsPolygonItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsPolygonItem.ItemSendsGeometryChanges, True)
+        
         self.setAcceptHoverEvents(True)
         self.setCacheMode(QGraphicsItem.NoCache)
 
@@ -387,8 +403,10 @@ class DraggablePolygonROI(QGraphicsPolygonItem):
     # Change notification
     # ------------------------------------------------------------------
     def itemChange(self, change, value):
+        if self._silent:
+            return super().itemChange(change, value)
         if change == QGraphicsPolygonItem.ItemPositionChange and self._movement_bounds is not None:
-            new_pos = value
+            new_pos = QPointF(value)
             scene_rect = self.mapToScene(self.boundingRect()).boundingRect()
             b = self._movement_bounds
             if scene_rect.left() + new_pos.x() - self.pos().x() < b.left():
@@ -406,6 +424,19 @@ class DraggablePolygonROI(QGraphicsPolygonItem):
             self._notify_changed()
         return result
 
+    @contextmanager
+    def silent_geometry_change(self):
+        """Temporarily suppress change notifications.
+        Use this when geometry is updated from the model side; user
+        interactions must never run inside this context.
+        """
+        previous = self._silent
+        self._silent = True
+        try:
+            yield
+        finally:
+            self._silent = previous
+
     def _notify_changed(self):
-        if self._roi_changed_callback:
+        if not self._silent and self._roi_changed_callback:
             self._roi_changed_callback()

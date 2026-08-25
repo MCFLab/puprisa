@@ -141,11 +141,6 @@
           </item>
           <item>
            <property name="text">
-            <string>Square</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
             <string>Circle</string>
            </property>
           </item>
