@@ -6,26 +6,601 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>1000</width>
+    <height>469</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <widget class="QWidget" name="centralwidget"/>
+  <property name="tabShape">
+   <enum>QTabWidget::TabShape::Rounded</enum>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="3,1">
+    <item>
+     <widget class="QSplitter" name="splitter">
+      <property name="orientation">
+       <enum>Qt::Orientation::Horizontal</enum>
+      </property>
+      <widget class="QWidget" name="layoutWidget">
+       <layout class="QVBoxLayout" name="sliceViewVLayout">
+        <item>
+         <widget class="ScrollableGraphicsView" name="ppsGraphicsView">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="verticalScrollBarPolicy">
+           <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+          </property>
+          <property name="horizontalScrollBarPolicy">
+           <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="MatplotlibFigureCanvas" name="colorbar" native="true">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>80</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="sliderLayout">
+          <item>
+           <widget class="QLabel" name="sliceNumberLabel">
+            <property name="text">
+             <string>Slice</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSlider" name="sliceSlider">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="axisLabel">
+            <property name="text">
+             <string>AxisLabel</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="MatplotlibFigureCanvas" name="plotCanvas" native="true">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
+       </property>
+      </widget>
+     </widget>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="managerVLayout">
+      <item>
+       <widget class="QLabel" name="stackMgrLabel">
+        <property name="text">
+         <string>Multi Stack Manager</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QListWidget" name="stackListWidget"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="stackHLayout">
+        <item>
+         <widget class="QPushButton" name="stackAddButton">
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="stackRenameButton">
+          <property name="text">
+           <string>Rename</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="stackDeleteButton">
+          <property name="text">
+           <string>Delete</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="roiMgrLabel">
+        <property name="text">
+         <string>ROI Manager</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QListWidget" name="roiListWidget"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="QLabel" name="roiShapeLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Shape:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="roiShapeComboBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <item>
+           <property name="text">
+            <string>Rectangle</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Circle</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Ellipse</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string>Polygon</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="roiAddButton">
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_3"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QPushButton" name="roiRenameButton">
+          <property name="text">
+           <string>Rename</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="roiDeleteButton">
+          <property name="text">
+           <string>Delete</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="roiConvertToMaskButton">
+          <property name="text">
+           <string>Convert to Mask</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="maskMgrLabel">
+        <property name="text">
+         <string>Mask Manager</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QListWidget" name="maskListWidget"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_5">
+        <item>
+         <widget class="QPushButton" name="maskReverseButton">
+          <property name="text">
+           <string>Reverse</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="maskRenameButton">
+          <property name="text">
+           <string>Rename</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="maskDeleteButton">
+          <property name="text">
+           <string>Delete</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>1000</width>
      <height>33</height>
     </rect>
    </property>
+   <property name="defaultUp">
+    <bool>false</bool>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionOpenStack"/>
+    <addaction name="separator"/>
+    <addaction name="actionSaveStackTIFF"/>
+    <addaction name="actionSaveStackPickle"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <widget class="QMenu" name="menuColorbarScale">
+     <property name="title">
+      <string>Colorbar Scale</string>
+     </property>
+     <addaction name="actionStandardDeviation"/>
+     <addaction name="actionFullRange"/>
+     <addaction name="actionCustomRange"/>
+    </widget>
+    <widget class="QMenu" name="menuColormap">
+     <property name="title">
+      <string>Colormap</string>
+     </property>
+     <addaction name="actionDefault"/>
+     <addaction name="actionRdBuR"/>
+     <addaction name="actionViridis"/>
+     <addaction name="actionGray"/>
+    </widget>
+    <addaction name="menuColormap"/>
+    <addaction name="menuColorbarScale"/>
+    <addaction name="separator"/>
+    <addaction name="actionSaveView"/>
+   </widget>
+   <widget class="QMenu" name="menuProcess">
+    <property name="title">
+     <string>Process</string>
+    </property>
+    <widget class="QMenu" name="menuBackground_Subtraction">
+     <property name="title">
+      <string>Background Subtraction</string>
+     </property>
+     <addaction name="actionSubNegativeTime"/>
+     <addaction name="actionSubFirstLastNFrames"/>
+     <addaction name="actionSubFixedValue"/>
+     <addaction name="separator"/>
+     <addaction name="actionResetBackgroundSubtraction"/>
+    </widget>
+    <addaction name="menuBackground_Subtraction"/>
+    <addaction name="actionDownsample"/>
+    <addaction name="actionStack_Math"/>
+   </widget>
+   <widget class="QMenu" name="menuROI">
+    <property name="title">
+     <string>ROI</string>
+    </property>
+    <addaction name="actionConfigure_Selected_ROI"/>
+    <addaction name="actionClearAllROIs"/>
+   </widget>
+   <widget class="QMenu" name="menuMask">
+    <property name="title">
+     <string>Mask</string>
+    </property>
+    <addaction name="actionImportMask"/>
+    <addaction name="actionExportSelectedMask"/>
+    <addaction name="actionExportMask"/>
+    <addaction name="separator"/>
+    <addaction name="actionMaskAllZeroPixels"/>
+    <addaction name="actionMaskIntensityThreshold"/>
+    <addaction name="separator"/>
+    <addaction name="actionMaskMath"/>
+    <addaction name="actionClearAllMasks"/>
+   </widget>
+   <widget class="QMenu" name="menuPhasor">
+    <property name="title">
+     <string>Phasor</string>
+    </property>
+    <addaction name="actionPhasor"/>
+   </widget>
+   <widget class="QMenu" name="menuNoise">
+    <property name="title">
+     <string>Noise</string>
+    </property>
+    <addaction name="actionNoise"/>
+   </widget>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <widget class="QMenu" name="menuCurve">
+    <property name="title">
+     <string>Curve</string>
+    </property>
+    <addaction name="actionNormalizeCurve"/>
+    <addaction name="actionCurveFit"/>
+    <addaction name="separator"/>
+    <addaction name="actionViewCurve"/>
+    <addaction name="actionExportCurve"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuView"/>
+   <addaction name="menuProcess"/>
+   <addaction name="menuROI"/>
+   <addaction name="menuMask"/>
+   <addaction name="menuCurve"/>
+   <addaction name="menuPhasor"/>
+   <addaction name="menuNoise"/>
+   <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionOpenStack">
+   <property name="text">
+    <string>Open Stack</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionStandardDeviation">
+   <property name="text">
+    <string>Standard Deviation</string>
+   </property>
+  </action>
+  <action name="actionFullRange">
+   <property name="text">
+    <string>Full Range</string>
+   </property>
+  </action>
+  <action name="actionCustomRange">
+   <property name="text">
+    <string>Custom Range...</string>
+   </property>
+  </action>
+  <action name="actionDefault">
+   <property name="text">
+    <string>Default</string>
+   </property>
+  </action>
+  <action name="actionRdBuR">
+   <property name="text">
+    <string>RdBu_r</string>
+   </property>
+  </action>
+  <action name="actionViridis">
+   <property name="text">
+    <string>Viridis</string>
+   </property>
+  </action>
+  <action name="actionGray">
+   <property name="text">
+    <string>Gray</string>
+   </property>
+  </action>
+  <action name="actionSubNegativeTime">
+   <property name="text">
+    <string>Subtract Negative Time Frames</string>
+   </property>
+  </action>
+  <action name="actionSubFirstLastNFrames">
+   <property name="text">
+    <string>Subtract First/Last N Frames...</string>
+   </property>
+  </action>
+  <action name="actionSaveStackTIFF">
+   <property name="text">
+    <string>Save Stack as TIFF</string>
+   </property>
+  </action>
+  <action name="actionImportROI">
+   <property name="text">
+    <string>Import ROI...</string>
+   </property>
+  </action>
+  <action name="actionExportROI">
+   <property name="text">
+    <string>Export ROI...</string>
+   </property>
+  </action>
+  <action name="actionClearAllROIs">
+   <property name="text">
+    <string>Clear All ROIs</string>
+   </property>
+  </action>
+  <action name="actionImportMask">
+   <property name="text">
+    <string>Import Mask...</string>
+   </property>
+  </action>
+  <action name="actionExportMask">
+   <property name="text">
+    <string>Export Mask...</string>
+   </property>
+  </action>
+  <action name="actionClearAllMasks">
+   <property name="text">
+    <string>Clear All Masks</string>
+   </property>
+  </action>
+  <action name="actionCurveFit">
+   <property name="text">
+    <string>Curve Fit...</string>
+   </property>
+  </action>
+  <action name="actionExportCurve">
+   <property name="text">
+    <string>Export Curve...</string>
+   </property>
+  </action>
+  <action name="actionSaveStackPickle">
+   <property name="text">
+    <string>Save Stack as Pickle</string>
+   </property>
+  </action>
+  <action name="actionDownsample">
+   <property name="text">
+    <string>Downsample...</string>
+   </property>
+  </action>
+  <action name="actionMaskMath">
+   <property name="text">
+    <string>Mask Math...</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
+  <action name="actionPhasor">
+   <property name="text">
+    <string>Phasor Analysis</string>
+   </property>
+  </action>
+  <action name="actionNormalizeCurve">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Normalize Curve</string>
+   </property>
+  </action>
+  <action name="actionNoise">
+   <property name="text">
+    <string>Noise Analysis</string>
+   </property>
+  </action>
+  <action name="actionViewCurve">
+   <property name="text">
+    <string>View Curve...</string>
+   </property>
+  </action>
+  <action name="actionSaveView">
+   <property name="text">
+    <string>Save View...</string>
+   </property>
+  </action>
+  <action name="actionResetBackgroundSubtraction">
+   <property name="text">
+    <string>Reset Background Subtraction</string>
+   </property>
+  </action>
+  <action name="actionSubFixedValue">
+   <property name="text">
+    <string>Subtract Fixed Value</string>
+   </property>
+  </action>
+  <action name="actionMaskAllZeroPixels">
+   <property name="text">
+    <string>Mask all-zero pixels</string>
+   </property>
+  </action>
+  <action name="actionMaskIntensityThreshold">
+   <property name="text">
+    <string>Mask from threshold...</string>
+   </property>
+  </action>
+  <action name="actionExportSelectedMask">
+   <property name="text">
+    <string>Export Selected Mask...</string>
+   </property>
+  </action>
+  <action name="actionStack_Math">
+   <property name="text">
+    <string>Stack Math...</string>
+   </property>
+  </action>
+  <action name="actionConfigure_Selected_ROI">
+   <property name="text">
+    <string>Edit Selected ROI...</string>
+   </property>
+  </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MatplotlibFigureCanvas</class>
+   <extends>QWidget</extends>
+   <header>puprisa.ui.widgets.mpl_canvas</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ScrollableGraphicsView</class>
+   <extends>QGraphicsView</extends>
+   <header>puprisa.ui.widgets.scrollable_graphics_view</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

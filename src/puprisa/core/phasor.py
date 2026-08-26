@@ -39,7 +39,7 @@ def compute_phasor(
     freq : float, default 0.25
         Modulation frequency used to build the harmonic basis.
     mask : np.ndarray | None, optional
-        Boolean array of shape (h, w) or broadcastable to it. Only pixels
+        Boolean array of shape (h, w). Only pixels
         where ``mask`` is True are processed; excluded pixels receive
         ``np.nan`` coordinates. If None, every pixel is processed.
 

@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QDialog, QMessageBox, QWidget, QInputDialog
 from puprisa.model.processing_manager import ProcessingManager
 from puprisa.model.stack_manager import StackManager
 from puprisa.ui.dialogs.background_subtraction import BackgroundSubtractionDialog
+from puprisa.ui.dialogs.stack_math import StackMathDialog
 
 
 class ProcessingController(QObject):
@@ -76,6 +77,41 @@ class ProcessingController(QObject):
             self._processing_manager.reset_background_subtraction(stack_id)
         except ValueError as exc:
             QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
+
+    def show_svd_denoise_dialog(self) -> None:
+        """Ask the user for the number of SVD components and apply SVD denoising."""
+        stack_id = self._stack_manager.get_current_stack_id()
+        if stack_id is None:
+            QMessageBox.warning(self._parent, "SVD Denoising", "Please select a stack first.")
+            return
+        n_components, ok = QInputDialog.getInt(self._parent, "SVD Denoising", "Number of components:", 3, 1, 1000, 1)
+        if not ok:
+            return
+        try:
+            self._processing_manager.svd_reconstruct(stack_id, n_components)
+        except (ValueError, TypeError) as exc:
+            QMessageBox.critical(self._parent, "SVD Denoising", str(exc))
+
+    def show_stack_math_dialog(self) -> None:
+        """Combine two registered stacks and add the result as a new stack."""
+        items = self._stack_manager.get_all_items()
+        if not items:
+            QMessageBox.warning(self._parent, "Stack Math", "Please open a stack first.")
+            return
+
+        dialog = StackMathDialog(
+            items,
+            current_stack_id=self._stack_manager.get_current_stack_id(),
+            parent=self._parent,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        try:
+            parameters = dialog.get_parameters()
+            self._processing_manager.combine_stacks(**parameters)
+        except (ValueError, TypeError, KeyError) as exc:
+            QMessageBox.critical(self._parent, "Stack Math", str(exc))
 
     def show_downsample_dialog(self) -> None:
         """Ask the user for a downsampling factor and create a derived stack."""

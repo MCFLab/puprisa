@@ -211,8 +211,15 @@ class PPS:
         classification) are not copied because they become invalid after
         resampling.
 
-        :param factor: Integer downsampling factor along both spatial axes.
-        :return: A new PPS instance with resampled images and analysis masks.
+        Parameters
+        ----------
+        factor : int
+            Integer downsampling factor along both spatial axes.
+
+        Returns
+        -------
+        PPS
+            A new PPS instance with resampled images and analysis masks.
         """
         from .process import downsample_mean, downsample_mask
         from skimage.transform import downscale_local_mean
@@ -247,9 +254,16 @@ class PPS:
         curve. The background-subtraction state is scaled by the same factor
         to remain consistent.
 
-        :param norm: 'minmax' or None.
-        :param mask_on: Whether to use the effective mask when computing
-                        the average curve.
+        Parameters
+        ----------
+        norm : str or None.
+            The normalization method to use.
+        mask_on : bool
+            Whether to use the effective mask when computing the average curve.
+        Returns
+        -------
+        PPS
+            The current PPS instance with normalized images.
         """
         from .process import normalize_minmax
 
@@ -285,6 +299,24 @@ class PPS:
         self._background_map = np.zeros(self.image_dimensions, dtype=np.float64)
         self.images = self._original_images.copy()
 
+    def svd_reconstruct(self, n_components: int):
+        """
+        Reconstruct the stack using only the leading singular components.
+        The images are replaced in place.
+
+        Parameters
+        ----------
+        n_components : int
+            Number of leading singular components to retain. Must be between 1
+            and min(n_frames, h*w).
+        """
+        from .process import svd_reconstruct
+        try:
+            reconstructed_images = svd_reconstruct(self.images, n_components)
+        except Exception as e:
+            raise ValueError(f"Error occurred while reconstructing images: {e}")
+        self.images = reconstructed_images
+
     # ------------------------------------------------------------------
     # Phasor
     # ------------------------------------------------------------------
@@ -311,6 +343,70 @@ class PPS:
         from .phasor import compute_phasor
         return compute_phasor(self.images, self.axis_values, freq=freq, mask=mask)
 
+    # ------------------------------------------------------------------
+    # Operator Overloading
+    # ------------------------------------------------------------------
+    def __add__(self, other):
+        if isinstance(other, PPS):
+            self._validate_computable(other, "add")            
+            new_images = self.images + other.images
+            new_axis_values = self.axis_values
+            new_axis_type = self.axis_type
+            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            return new_pps
+        raise TypeError("Unsupported operand type for +")
+
+    def __sub__(self, other):
+        if isinstance(other, PPS):
+            self._validate_computable(other, "subtract")
+            new_images = self.images - other.images
+            new_axis_values = self.axis_values
+            new_axis_type = self.axis_type
+            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            return new_pps
+        raise TypeError("Unsupported operand type for -")
+
+    def __mul__(self, other):
+        if isinstance(other, (int, float)):
+            new_images = self.images * other
+            new_axis_values = self.axis_values
+            new_axis_type = self.axis_type
+            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            return new_pps
+        raise TypeError("Unsupported operand type for *")
+
+    def __truediv__(self, other):
+        if isinstance(other, (int, float)):
+            if other == 0:
+                raise ValueError("Cannot divide by zero!")
+            new_images = self.images / other
+            new_axis_values = self.axis_values
+            new_axis_type = self.axis_type
+            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            return new_pps
+        elif isinstance(other, PPS):
+            self._validate_computable(other, "divide")
+
+            from .process import nan_inf_to_zero
+            with np.errstate(divide='ignore', invalid='ignore'):
+                new_images = np.true_divide(self.images, other.images)
+                new_images = nan_inf_to_zero(new_images)  # Replace inf/nan with 0
+
+            new_axis_values = self.axis_values
+            new_axis_type = self.axis_type
+            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            return new_pps
+        raise TypeError("Unsupported operand type for /")
+
+    def _validate_computable(self, other: 'PPS', operation: str) -> None:
+        """Raise ValueError when two PPS stacks cannot be combined."""
+        if self.images.shape != other.images.shape:
+            raise ValueError(f"Cannot {operation} PPS instances with different image shapes.")
+        if self.axis_type != other.axis_type:
+            raise ValueError(f"Cannot {operation} PPS instances with different axis types.")
+        if not np.allclose(self.axis_values, other.axis_values):
+            raise ValueError(f"Cannot {operation} PPS instances with different axis values.")
+    
     # ------------------------------------------------------------------
     # Serialization helpers
     # ------------------------------------------------------------------

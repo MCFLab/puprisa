@@ -339,7 +339,8 @@
     </widget>
     <addaction name="menuBackground_Subtraction"/>
     <addaction name="actionDownsample"/>
-    <addaction name="actionStack_Math"/>
+    <addaction name="actionSVDDenoise"/>
+    <addaction name="actionStackMath"/>
    </widget>
    <widget class="QMenu" name="menuROI">
     <property name="title">
@@ -577,7 +578,7 @@
     <string>Export Selected Mask...</string>
    </property>
   </action>
-  <action name="actionStack_Math">
+  <action name="actionStackMath">
    <property name="text">
     <string>Stack Math...</string>
    </property>
@@ -585,6 +586,11 @@
   <action name="actionConfigure_Selected_ROI">
    <property name="text">
     <string>Edit Selected ROI...</string>
+   </property>
+  </action>
+  <action name="actionSVDDenoise">
+   <property name="text">
+    <string>SVD Denoise...</string>
    </property>
   </action>
  </widget>

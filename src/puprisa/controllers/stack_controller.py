@@ -7,8 +7,6 @@ from puprisa.model.entities import StackItem
 from puprisa.model.stack_manager import StackManager
 from puprisa.core.pps import PPS
 
-
-
 class StackController(QObject):
     def __init__(self, manager: StackManager, parent_widget: QWidget):
         super().__init__()

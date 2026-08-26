@@ -4,8 +4,6 @@
 Thin assembly shell: creates viewmodels and controllers from the
 ApplicationContext and wires UI widgets to them.  No business logic here.
 """
-from __future__ import annotations
-
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMainWindow
 
@@ -55,7 +53,7 @@ class MainWindow(QMainWindow):
         self.ui.actionSaveStackTIFF.triggered.connect(lambda: self.stack_controller.save_selected_stack(index=self.stack_view_model._selected_stack_index(), format="tiff"))
         self.ui.actionSaveStackPickle.triggered.connect(lambda: self.stack_controller.save_selected_stack(index=self.stack_view_model._selected_stack_index(), format="pickle"))
         self.ui.actionExit.triggered.connect(self.close)
-        
+
         # --------------------------------------------------------------
         # Mask list: ViewModel + Controller  (creates before ROI because
         # ROI controller needs mask manager through context, not the view)
@@ -181,6 +179,8 @@ class MainWindow(QMainWindow):
         self.ui.actionSubFirstLastNFrames.triggered.connect(self.processing_controller.show_background_subtraction_dialog)
         self.ui.actionResetBackgroundSubtraction.triggered.connect(self.processing_controller.reset_background_subtraction)
         self.ui.actionDownsample.triggered.connect(self.processing_controller.show_downsample_dialog)
+        self.ui.actionSVDDenoise.triggered.connect(self.processing_controller.show_svd_denoise_dialog)
+        self.ui.actionStackMath.triggered.connect(self.processing_controller.show_stack_math_dialog)
 
         # Phasor window
         self.ui.actionPhasor.triggered.connect(self._open_phasor_window)

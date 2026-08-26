@@ -108,6 +108,16 @@ class ProcessingManager:
         return stack_item.id
 
     # ------------------------------------------------------------------
+    # SVD denoising
+    # ------------------------------------------------------------------
+    def svd_reconstruct(self, stack_id: str, n_components: int) -> str:
+        stack_item = self._get_stack_item(stack_id)
+        stack_item.pps.svd_reconstruct(n_components)
+        stack_item.phasor_coords = None
+        self._notify(ProcessingEvent(event="data_changed", stack_id=stack_item.id))
+        return stack_item.id
+
+    # ------------------------------------------------------------------
     # Downsampling (creates a new stack)
     # ------------------------------------------------------------------
 
@@ -123,6 +133,66 @@ class ProcessingManager:
         else:
             if not isinstance(name, str):
                 raise TypeError("name must be a string")
+            new_name = name.strip()
+            if not new_name:
+                raise ValueError("Derived stack name must not be empty")
+
+        new_id = self._stack_manager.add_stack(new_pps, name=new_name)
+        self._notify(ProcessingEvent(event="stack_created", stack_id=new_id))
+        return new_id
+
+    # ------------------------------------------------------------------
+    # Math (creates a new stack)
+    # ------------------------------------------------------------------
+    def combine_stacks(
+        self,
+        first_stack_id: str,
+        second_stack_id: str | None,
+        operation: str,
+        first_coefficient: float = 1.0,
+        second_coefficient: float | None = 1.0,
+        name: str | None = None,
+    ) -> str:
+        """Create a stack from a linear combination or scalar multiplication.
+
+        ``multiply`` means ``first_coefficient * first`` only.  The other
+        operations use ``first_coefficient * first operation
+        second_coefficient * second``.  The two input stacks for those
+        operations must have identical image shapes and compatible axes.
+        Masks, background-subtraction state, and analysis results are not
+        transferred, because there is no unambiguous way to combine them.
+        """
+        first = self._get_stack_item(first_stack_id)
+        first_coefficient = float(first_coefficient)
+        if not np.isfinite(first_coefficient):
+            raise ValueError("Stack 1 coefficient must be finite")
+
+        if operation == "multiply":
+            new_pps = first.pps * first_coefficient
+            generated_name = f"{first_coefficient:.2f} x {first.name}"
+        else:
+            if second_stack_id is None:
+                raise ValueError("Select Stack 2")
+            second = self._get_stack_item(second_stack_id)
+            second_coefficient = float(second_coefficient)
+            operations = {
+                "add": ("+", lambda left, right: left + right),
+                "subtract": ("-", lambda left, right: left - right),
+                "divide": ("/", lambda left, right: left / right),
+            }
+            try:
+                symbol, combine = operations[operation]
+            except KeyError as exc:
+                raise ValueError(f"Unsupported stack operation: {operation!r}") from exc
+            new_pps = combine(first.pps * first_coefficient, second.pps * second_coefficient)
+            generated_name = (
+                f"{first_coefficient:.2f} x {first.name} {symbol} "
+                f"{second_coefficient:.2f} x {second.name}"
+            )
+
+        if name is None:
+            new_name = generated_name
+        else:
             new_name = name.strip()
             if not new_name:
                 raise ValueError("Derived stack name must not be empty")

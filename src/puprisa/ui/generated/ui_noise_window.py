@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'main_window.ui'
+## Form generated from reading UI file 'noise_window.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.11.2
 ##
@@ -101,12 +101,10 @@ class Ui_MainWindow(object):
         self.actionMaskIntensityThreshold.setObjectName(u"actionMaskIntensityThreshold")
         self.actionExportSelectedMask = QAction(MainWindow)
         self.actionExportSelectedMask.setObjectName(u"actionExportSelectedMask")
-        self.actionStackMath = QAction(MainWindow)
-        self.actionStackMath.setObjectName(u"actionStackMath")
+        self.actionStack_Math = QAction(MainWindow)
+        self.actionStack_Math.setObjectName(u"actionStack_Math")
         self.actionConfigure_Selected_ROI = QAction(MainWindow)
         self.actionConfigure_Selected_ROI.setObjectName(u"actionConfigure_Selected_ROI")
-        self.actionSVDDenoise = QAction(MainWindow)
-        self.actionSVDDenoise.setObjectName(u"actionSVDDenoise")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout_6 = QHBoxLayout(self.centralwidget)
@@ -367,8 +365,7 @@ class Ui_MainWindow(object):
         self.menuColormap.addAction(self.actionGray)
         self.menuProcess.addAction(self.menuBackground_Subtraction.menuAction())
         self.menuProcess.addAction(self.actionDownsample)
-        self.menuProcess.addAction(self.actionSVDDenoise)
-        self.menuProcess.addAction(self.actionStackMath)
+        self.menuProcess.addAction(self.actionStack_Math)
         self.menuBackground_Subtraction.addAction(self.actionSubNegativeTime)
         self.menuBackground_Subtraction.addAction(self.actionSubFirstLastNFrames)
         self.menuBackground_Subtraction.addAction(self.actionSubFixedValue)
@@ -435,9 +432,8 @@ class Ui_MainWindow(object):
         self.actionMaskAllZeroPixels.setText(QCoreApplication.translate("MainWindow", u"Mask all-zero pixels", None))
         self.actionMaskIntensityThreshold.setText(QCoreApplication.translate("MainWindow", u"Mask from threshold...", None))
         self.actionExportSelectedMask.setText(QCoreApplication.translate("MainWindow", u"Export Selected Mask...", None))
-        self.actionStackMath.setText(QCoreApplication.translate("MainWindow", u"Stack Math...", None))
+        self.actionStack_Math.setText(QCoreApplication.translate("MainWindow", u"Stack Math...", None))
         self.actionConfigure_Selected_ROI.setText(QCoreApplication.translate("MainWindow", u"Edit Selected ROI...", None))
-        self.actionSVDDenoise.setText(QCoreApplication.translate("MainWindow", u"SVD Denoise...", None))
         self.sliceNumberLabel.setText(QCoreApplication.translate("MainWindow", u"Slice", None))
         self.axisLabel.setText(QCoreApplication.translate("MainWindow", u"AxisLabel", None))
         self.stackMgrLabel.setText(QCoreApplication.translate("MainWindow", u"Multi Stack Manager", None))

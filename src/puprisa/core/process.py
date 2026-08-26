@@ -10,7 +10,7 @@ from skimage.transform import downscale_local_mean
 from skimage import filters
 
 
-def _finite_values(values: np.ndarray) -> np.ndarray:
+def nan_inf_to_zero(values: np.ndarray) -> np.ndarray:
     """Return floating data with non-finite samples replaced by zero.
 
     Invalid detector samples must not poison an entire projection, fit input,
@@ -33,7 +33,7 @@ def compute_projection(images: np.ndarray, mask: np.ndarray | None = None) -> np
     -------
     projection : shape (h, w)
     """
-    projection = np.sum(np.abs(_finite_values(images)), axis=0)
+    projection = np.sum(np.abs(nan_inf_to_zero(images)), axis=0)
     if mask is not None:
         projection = projection * mask
     return projection
@@ -166,6 +166,7 @@ def gaussian_threshold_mask(
     Parameters
     ----------
     projection : shape (h, w)
+        The projection to smooth and threshold.
     threshold : float or "Li"
         Numeric threshold or Li auto-threshold.
     sigma : float
@@ -179,7 +180,7 @@ def gaussian_threshold_mask(
     """
     if sigma < 0:
         raise ValueError("sigma must be non-negative")
-    smoothed = filters.gaussian(_finite_values(projection), sigma=sigma)
+    smoothed = filters.gaussian(nan_inf_to_zero(projection), sigma=sigma)
 
     if threshold == "Li":
         cutoff = filters.threshold_li(smoothed) if np.ptp(smoothed) > 0 else float(smoothed.flat[0])
@@ -192,3 +193,50 @@ def gaussian_threshold_mask(
     if mask is not None:
         result = result & mask
     return result
+
+def svd_reconstruct(images: np.ndarray, n_components: int) -> np.ndarray:
+    """Denoise an image stack with a rank-n_components truncated SVD.
+
+    No mean-centering is applied, matching the original MATLAB workflow.
+
+    Parameters
+    ----------
+    images : np.ndarray
+        Shape: (n_frames, height, width).
+    n_components : int
+        Number of leading singular components to retain.
+
+    Returns
+    -------
+    np.ndarray
+        Reconstructed stack with the same shape as ``images``.
+    """
+    images = np.asarray(images, dtype=np.float64)
+
+    if images.ndim != 3:
+        raise ValueError(
+            f"Expected images with shape (n_frames, h, w), got {images.shape}."
+        )
+    if not np.all(np.isfinite(images)):
+        raise ValueError("SVD reconstruction requires finite image values.")
+
+    n_frames, h, w = images.shape
+    max_components = min(n_frames, h * w)
+
+    if not isinstance(n_components, (int, np.integer)):
+        raise TypeError("n_components must be an integer.")
+    if not 1 <= n_components <= max_components:
+        raise ValueError(
+            f"n_components must be between 1 and {max_components}, "
+            f"got {n_components}."
+        )
+
+    delay_by_pixel = images.reshape(n_frames, h * w)
+
+    # Perform SVD
+    u, singular_values, vt = np.linalg.svd(delay_by_pixel, full_matrices=False)
+
+    # Reconstruct the stack using only the leading n_components
+    reconstructed = (u[:, :n_components] * singular_values[:n_components]) @ vt[:n_components, :]
+
+    return reconstructed.reshape(n_frames, h, w)
