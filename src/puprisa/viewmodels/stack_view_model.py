@@ -124,3 +124,9 @@ class StackViewModel(QObject):
         item.setIcon(QIcon(pixmap))
 
         return item
+
+    # ------------------------------------------------------------------
+    # Widget query helpers
+    # ------------------------------------------------------------------
+    def _selected_stack_index(self) -> int:
+        return self._list_widget.currentRow()

@@ -29,12 +29,18 @@ class StackController(QObject):
             self._manager.add_stack(pps, name=Path(path).stem)
 
     def delete_selected_stack(self, index: int):
+        if index < 0:
+            QMessageBox.warning(self._parent, "Delete Stack", "No stack selected.")
+            return
         try:
             self._manager.delete_stack(index)
         except IndexError as exc:
             QMessageBox.warning(self._parent, "Delete Stack", str(exc))
 
     def rename_selected_stack(self, index: int):
+        if index < 0:
+            QMessageBox.warning(self._parent, "Rename Stack", "No stack selected.")
+            return
         item = self._manager.get_all_items()[index]
         text, ok = QInputDialog.getText(self._parent, "Rename Stack", "Enter new name:", text=item.name)
         if ok:

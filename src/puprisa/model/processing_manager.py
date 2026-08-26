@@ -11,6 +11,7 @@ from typing import Callable, Iterable
 import numpy as np
 
 from puprisa.core.pps import PPS
+from puprisa.core.process import subtract_background
 from puprisa.model.entities import StackItem
 from puprisa.model.stack_manager import StackManager
 
@@ -75,6 +76,19 @@ class ProcessingManager:
             raise ValueError("The selected time-axis stack has no negative-delay frames")
         return self.apply_background_subtraction(stack_id=stack_item.id, indices=indices, pixelwise=pixelwise)
 
+    def apply_background_subtraction_fixed_value(self, stack_id: str, value: float) -> str:
+        value = float(value)
+        if not np.isfinite(value):
+            raise ValueError("Background value must be finite")
+        stack_item = self._get_stack_item(stack_id)
+        pps = stack_item.pps
+        bg_map = np.full(pps.image_dimensions, value, dtype=np.float64)
+        pps._background_map = bg_map
+        pps.images = subtract_background(pps._original_images, bg_map)
+        stack_item.phasor_coords = None
+        self._notify(ProcessingEvent(event="data_changed", stack_id=stack_item.id))
+        return stack_item.id
+
     def reset_background_subtraction(self, stack_id: str) -> str:
         stack_item = self._get_stack_item(stack_id)
         stack_item.pps.reset_background_subtraction()
@@ -105,7 +119,7 @@ class ProcessingManager:
         new_pps: PPS = stack_item.pps.downsample(int(factor))
 
         if name is None:
-            new_name = f"{stack_item.name} (downsampled ×{factor})"
+            new_name = f"{stack_item.name} (downsampled x{factor})"
         else:
             if not isinstance(name, str):
                 raise TypeError("name must be a string")

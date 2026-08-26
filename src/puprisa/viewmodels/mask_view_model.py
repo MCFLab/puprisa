@@ -87,3 +87,10 @@ class MaskViewModel(QObject):
             Qt.CheckState.Checked if entry.get("enabled", True) else Qt.CheckState.Unchecked
         )
         return item
+
+    # ------------------------------------------------------------------
+    # Widget query helpers
+    # ------------------------------------------------------------------
+    def selected_mask_id(self) -> str | None:
+        item = self._list_widget.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None

@@ -16,9 +16,12 @@ import numpy as np
 import matplotlib.colors as mcolors
 
 from puprisa.model.entities import RoiItem
-from puprisa.model.processing_manager import ProcessingManager
+from puprisa.model.mask_manager import MaskEvent, MaskManager
+from puprisa.model.processing_manager import ProcessingEvent, ProcessingManager
 from puprisa.model.stack_manager import StackEvent, StackManager
-from puprisa.model.roi_manager import RoiManager
+from puprisa.model.roi_manager import RoiEvent, RoiManager
+from puprisa.model.curve_manager import CurveManager
+from puprisa.utils.geometry_utils import shape_to_patch
 
 
 class PhasorPlotViewModel(QObject):
@@ -28,11 +31,24 @@ class PhasorPlotViewModel(QObject):
     G_LIM = (-1.0, 1.0)
     S_LIM = (-1.0, 1.0)
 
-    def __init__(self, stack_manager: StackManager, processing_manager: ProcessingManager, roi_manager: RoiManager, phasor_graphics_view, spatial_graphics_view, parent: QObject | None = None):
+    def __init__(
+        self,
+        stack_manager: StackManager, 
+        processing_manager: ProcessingManager, 
+        roi_manager: RoiManager, 
+        mask_manager: MaskManager, 
+        curve_manager: CurveManager,
+        phasor_graphics_view, 
+        spatial_graphics_view, 
+        parent: QObject | None = None
+    ):
+
         super().__init__(parent)
         self._stack_manager = stack_manager
         self._processing_manager = processing_manager
         self._roi_manager = roi_manager
+        self._mask_manager = mask_manager
+        self._curve_manager = curve_manager
         self._phasor_view = phasor_graphics_view
         self._spatial_view = spatial_graphics_view
 
@@ -57,6 +73,7 @@ class PhasorPlotViewModel(QObject):
         self._stack_manager.add_listener(self._on_stack_event)
         self._processing_manager.add_listener(self._on_processing_event)
         self._roi_manager.add_listener(self._on_roi_event)
+        self._mask_manager.add_listener(self._on_mask_event)
 
     # ------------------------------------------------------------------
     # Model event handlers
@@ -67,18 +84,27 @@ class PhasorPlotViewModel(QObject):
                 self.refresh_spatial_view()
             self.refresh_density()
 
-    def _on_processing_event(self, event) -> None:
+    def _on_processing_event(self, event: ProcessingEvent) -> None:
         if event.event == "data_changed":
             # Invalidate phasor cache and re-render both views.
             self._invalidate_all_phasor_coords()
             self.refresh_density()
             self.refresh_spatial_view()
 
-    def _on_roi_event(self, event) -> None:
+    def _on_roi_event(self, event: RoiEvent) -> None:
         if event.roi is None or event.roi.space != "phasor":
             return
         current_item = self._stack_manager.get_current_item()
         if current_item is not None and event.roi.stack_id == current_item.id:
+            self.refresh_spatial_view()
+
+    def _on_mask_event(self, event: MaskEvent) -> None:
+        if event.event == "effective_changed" and event.stack_id:
+            # Invalidate phasor cache for the affected stack and re-render both views.
+            stack_item = self._stack_manager.get_item_by_id(event.stack_id)
+            if stack_item is not None:
+                stack_item.phasor_coords = None
+            self.refresh_density()
             self.refresh_spatial_view()
 
     # ------------------------------------------------------------------
@@ -185,9 +211,9 @@ class PhasorPlotViewModel(QObject):
         for stack_item in self._stack_manager.get_all_items():
             stack_item.phasor_coords = None
 
-    def _get_or_compute_phasor_coords(self, stack_item):
+    def _get_or_compute_phasor_coords(self, stack_item)-> np.ndarray | None:
         if stack_item.phasor_coords is None:
-            stack_item.phasor_coords = stack_item.pps.phasor(freq=self.frequency, remove_zero=False)
+            stack_item.phasor_coords = stack_item.pps.phasor(freq=self.frequency, use_mask=True)
         return stack_item.phasor_coords
 
     # ------------------------------------------------------------------
@@ -299,3 +325,247 @@ class PhasorPlotViewModel(QObject):
         x = (g - self.G_LIM[0]) / (self.G_LIM[1] - self.G_LIM[0]) * self.DENSITY_SIZE
         y = (self.S_LIM[1] - s) / (self.S_LIM[1] - self.S_LIM[0]) * self.DENSITY_SIZE
         return QPointF(x, y)
+
+    # ------------------------------------------------------------------
+    # Standalone view
+    # ------------------------------------------------------------------
+    def view_phasor(self) -> None:
+        """Open a standalone Matplotlib figure containing only the phasor plot."""
+        import matplotlib.pyplot as plt
+
+        fig, ax_phasor = plt.subplots(
+            1, 1,
+            figsize=(5, 5),
+            layout="constrained",
+        )
+
+        self._draw_phasor_plot(ax_phasor)
+        fig.show()
+
+
+    def view_standalone(self, normalize: bool = False) -> None:
+        """Open a standalone Matplotlib figure with phasor, spatial, and ROI curves.
+
+        Layout
+        ------
+        Top-left:
+            Phasor density plot.
+        Top-right:
+            Spatial projection view.
+        Bottom:
+            ROI average curves for phasor-space ROIs.
+
+        Parameters
+        ----------
+        normalize : bool, optional
+            Whether to normalize the ROI average curves. The default is False.
+        """
+        import matplotlib.pyplot as plt
+
+        current_item = self._stack_manager.get_current_item()
+        if current_item is None:
+            return
+
+        fig = plt.figure(figsize=(10, 8), layout="constrained")
+        gs = fig.add_gridspec(
+            2, 2,
+            height_ratios=[1.0, 1.0],
+            width_ratios=[1.0, 1.0],
+        )
+
+        ax_phasor = fig.add_subplot(gs[0, 0])
+        ax_spatial = fig.add_subplot(gs[0, 1])
+        ax_curve = fig.add_subplot(gs[1, :])
+
+        self._draw_phasor_plot(ax_phasor)
+        self._draw_spatial_projection(ax_spatial)
+        self._draw_roi_curves(ax_curve, normalize=normalize)
+
+        fig.show()
+
+
+    def _draw_phasor_plot(self, ax) -> None:
+        """Draw visible-stack phasor density overlays into a Matplotlib axis."""
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Circle
+
+        ax.set_title("Phasor Plot")
+        ax.set_xlabel("g")
+        ax.set_ylabel("s")
+        ax.set_xlim(self.G_LIM)
+        ax.set_ylim(self.S_LIM)
+        ax.set_aspect("equal", adjustable="box")
+        ax.grid(True, alpha=0.25)
+
+        # Universal circle / semicircle guide.
+        theta = np.linspace(0.0, np.pi, 400)
+        g_upper = 0.5 * (1.0 + np.cos(theta))
+        s_upper = 0.5 * np.sin(theta)
+        g_lower = -g_upper
+        s_lower = -0.5 * np.sin(theta)
+
+        ax.plot(g_upper, s_upper, color="gray", linestyle="--", linewidth=1.0)
+        ax.plot(g_lower, s_lower, color="gray", linestyle="--", linewidth=1.0)
+
+        # Density overlays for all visible stacks.
+        for stack_item in self._stack_manager.get_all_items():
+            if not stack_item.visible:
+                continue
+
+            coords = self._get_or_compute_phasor_coords(stack_item)
+            if coords is None or len(coords) == 0:
+                continue
+
+            self._draw_density_overlay(ax, coords, stack_item.color)
+
+        # ROI outlines for current stack's phasor-space ROIs.
+        current_item = self._stack_manager.get_current_item()
+        if current_item is not None:
+            rois = [
+                roi for roi in self._roi_manager.get_rois_for_stack(current_item.id)
+                if roi.space == "phasor" and roi.visible
+            ]
+
+            for roi in rois:
+                patch = shape_to_patch(
+                    roi.shape,
+                    roi.params,
+                    fill=False,
+                    edgecolor=roi.color,
+                    linewidth=1.5,
+                )
+                if patch is not None:
+                    ax.add_patch(patch)
+
+
+    def _draw_spatial_projection(self, ax) -> None:
+        """Draw current stack spatial projection with phasor-ROI overlay."""
+        current_item = self._stack_manager.get_current_item()
+        if current_item is None:
+            return
+
+        pps = current_item.pps
+        projection = pps.project(mask_on=False)
+        projection = np.nan_to_num(projection, nan=0.0, posinf=0.0, neginf=0.0)
+
+        mask_2d = np.asarray(pps.mask, dtype=bool)
+        valid_proj = projection[mask_2d] if np.any(mask_2d) else projection
+
+        vmin = float(valid_proj.min())
+        vmax = float(valid_proj.max())
+        if vmax <= vmin:
+            vmax = vmin + 1.0
+
+        gray = np.clip((projection - vmin) / (vmax - vmin), 0.0, 1.0)
+        gray_u8 = (gray * 255).astype(np.uint8)
+        rgb = np.stack([gray_u8] * 3, axis=-1).astype(np.float64)
+
+        coords = self._get_or_compute_phasor_coords(current_item)
+        if coords is not None:
+            phasor_rois = [
+                roi for roi in self._roi_manager.get_rois_for_stack(current_item.id)
+                if roi.space == "phasor" and roi.visible
+            ]
+
+            for roi in phasor_rois:
+                keep_mask = self._roi_manager.build_roi_mask(roi)
+                if keep_mask is None:
+                    continue
+
+                color = np.array(mcolors.to_rgb(roi.color)) * 255.0
+                rgb[keep_mask, 0] = color[0]
+                rgb[keep_mask, 1] = color[1]
+                rgb[keep_mask, 2] = color[2]
+
+        rgb[~mask_2d] = [200, 200, 200]
+        rgb = np.clip(rgb, 0, 255).astype(np.uint8)
+
+        ax.imshow(rgb)
+        ax.set_title("Spatial View")
+        ax.axis("off")
+
+    def _draw_density_overlay(self, ax, coords: np.ndarray, color_hex: str) -> None:
+        """Draw a Matplotlib density overlay matching the Qt phasor view."""
+        size = self.DENSITY_SIZE
+
+        g = coords[:, 0]
+        s = coords[:, 1]
+
+        bins_g = np.linspace(self.G_LIM[0], self.G_LIM[1], size + 1)
+        bins_s = np.linspace(self.S_LIM[0], self.S_LIM[1], size + 1)
+
+        hist, _, _ = np.histogram2d(g, s, bins=[bins_g, bins_s])
+        hist = hist.T[::-1, :]
+
+        if np.any(hist > 0):
+            hist = hist / hist.max()
+
+        rgb_color = np.array(mcolors.to_rgb(color_hex))
+        rgba = np.zeros((size, size, 4), dtype=float)
+        rgba[..., 0] = rgb_color[0]
+        rgba[..., 1] = rgb_color[1]
+        rgba[..., 2] = rgb_color[2]
+        rgba[..., 3] = hist * (180.0 / 255.0)
+
+        ax.imshow(
+            rgba,
+            extent=[
+                self.G_LIM[0],
+                self.G_LIM[1],
+                self.S_LIM[0],
+                self.S_LIM[1],
+            ],
+            origin="upper",
+            interpolation="nearest",
+            aspect="equal",
+        )
+
+
+    def _draw_roi_curves(self, ax, normalize: bool = False) -> None:
+        """Draw ROI average curves for phasor-space ROIs."""
+        current_item = self._stack_manager.get_current_item()
+        if current_item is None:
+            return
+
+        pps = current_item.pps
+
+        curves = []
+        if self._curve_manager is not None:
+            curves = self._curve_manager.compute_curves(
+                space="phasor",
+                normalize=normalize,
+            )
+
+            for curve in curves:
+                ax.plot(
+                    curve.x,
+                    curve.y,
+                    color=curve.color,
+                    label=curve.label,
+                )
+
+        ax.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
+        ax.set_ylabel(
+            "Normalized signal (a.u.)"
+            if normalize
+            else "Average signal (a.u.)"
+        )
+        ax.set_title("ROI Average Curves")
+        ax.grid(True, alpha=0.3)
+
+        if curves:
+            ax.legend(fontsize=8, loc="best")
+
+
+    def _single_color_cmap(self, color_hex: str):
+        """Build a transparent-to-color colormap for phasor density plotting."""
+        from matplotlib.colors import LinearSegmentedColormap
+
+        rgb = mcolors.to_rgb(color_hex)
+        return LinearSegmentedColormap.from_list(
+            "phasor_density",
+            [
+                (rgb[0], rgb[1], rgb[2], 0.0),
+                (rgb[0], rgb[1], rgb[2], 0.75),
+            ],
+        )

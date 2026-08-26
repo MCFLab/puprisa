@@ -45,7 +45,7 @@ class RoiController(QObject):
             self._roi_manager.delete_roi(roi_id)
             return True
         except KeyError as exc:
-            QMessageBox.warning(self._parent, "Delete ROI", str(exc))
+            QMessageBox.warning(self._parent, "Delete ROI", "ROI not found.")
             return False
 
     def rename_roi(self, roi_id: str) -> bool:

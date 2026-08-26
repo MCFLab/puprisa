@@ -46,6 +46,29 @@ class RoiSceneBridge():
         if item is not None:
             item.set_roi_color(color)
 
+    @staticmethod
+    def _scene_polygon_to_local(scene_polygon: QPolygonF) -> tuple[QPolygonF, QPointF]:
+        """Split scene-space polygon geometry into local points and item position."""
+        origin = scene_polygon.boundingRect().topLeft()
+        local_polygon = QPolygonF([
+            QPointF(point.x() - origin.x(), point.y() - origin.y())
+            for point in scene_polygon
+        ])
+        return local_polygon, origin
+
+    def _create_polygon_item(self, scene_polygon: QPolygonF, color: str) -> DraggablePolygonROI:
+        """Create a polygon item with local vertices and a scene-space position."""
+        local_polygon, origin = self._scene_polygon_to_local(scene_polygon)
+        item = DraggablePolygonROI(local_polygon, color=color)
+        item.setPos(origin)
+        return item
+
+    def _sync_polygon_item(self, item: DraggablePolygonROI, scene_polygon: QPolygonF) -> None:
+        """Update a polygon item while preserving the local-geometry convention."""
+        local_polygon, origin = self._scene_polygon_to_local(scene_polygon)
+        item.setPolygon(local_polygon)
+        item.setPos(origin)
+
 
 # ----------------------------------------------------------------------
 # Phasor space
@@ -136,16 +159,7 @@ class PhasorRoiSceneBridge(RoiSceneBridge):
     def create_item(self, roi: RoiItem) -> QGraphicsItem:
         if roi.shape == "polygon":
             scene_poly = self._vertices_to_scene_polygon(roi.params.get("vertices", []))
-            origin = scene_poly.boundingRect().topLeft()
-
-            local_poly = QPolygonF([
-                QPointF(point.x() - origin.x(), point.y() - origin.y())
-                for point in scene_poly
-            ])
-
-            item = DraggablePolygonROI(local_poly, color=roi.color)
-            item.setPos(origin)
-            return item
+            return self._create_polygon_item(scene_poly, roi.color)
 
         scene_rect = self._params_to_scene_rect(roi.shape, roi.params)
         if scene_rect is None:
@@ -163,22 +177,12 @@ class PhasorRoiSceneBridge(RoiSceneBridge):
         with item.silent_geometry_change():
             if roi.shape == "polygon":
                 scene_poly = self._vertices_to_scene_polygon(roi.params.get("vertices", []))
-                origin = scene_poly.boundingRect().topLeft()
-
-                local_poly = QPolygonF([
-                    QPointF(point.x() - origin.x(), point.y() - origin.y())
-                    for point in scene_poly
-                ])
-
-                item.prepareGeometryChange()
-                item.setPolygon(local_poly)
-                item.setPos(origin)
+                self._sync_polygon_item(item, scene_poly)
             else:
                 scene_rect = self._params_to_scene_rect(roi.shape, roi.params)
                 if scene_rect is None:
                     return
                 item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
-                item.prepareGeometryChange()
                 item.setRect(item_rect)
                 item.setPos(scene_rect.topLeft())
 
@@ -282,16 +286,7 @@ class PixelRoiSceneBridge(RoiSceneBridge):
     def create_item(self, roi: RoiItem) -> QGraphicsItem:
         if roi.shape == "polygon":
             scene_poly = self._vertices_to_scene_polygon(roi.params.get("vertices", []))
-            origin = scene_poly.boundingRect().topLeft()
-
-            local_poly = QPolygonF([
-                QPointF(point.x() - origin.x(), point.y() - origin.y())
-                for point in scene_poly
-            ])
-
-            item = DraggablePolygonROI(local_poly, color=roi.color)
-            item.setPos(origin)
-            return item
+            return self._create_polygon_item(scene_poly, roi.color)
 
         scene_rect = self._params_to_scene_rect(roi.shape, roi.params)
         if scene_rect is None:
@@ -310,22 +305,12 @@ class PixelRoiSceneBridge(RoiSceneBridge):
         with item.silent_geometry_change():
             if roi.shape == "polygon":
                 scene_poly = self._vertices_to_scene_polygon(roi.params.get("vertices", []))
-                origin = scene_poly.boundingRect().topLeft()
-
-                local_poly = QPolygonF([
-                    QPointF(point.x() - origin.x(), point.y() - origin.y())
-                    for point in scene_poly
-                ])
-
-                item.prepareGeometryChange()
-                item.setPolygon(local_poly)
-                item.setPos(origin)
+                self._sync_polygon_item(item, scene_poly)
             else:
                 scene_rect = self._params_to_scene_rect(roi.shape, roi.params)
                 if scene_rect is None:
                     return
                 item_rect = QRectF(0, 0, scene_rect.width(), scene_rect.height())
-                item.prepareGeometryChange()
                 item.setRect(item_rect)
                 item.setPos(scene_rect.topLeft())
 

@@ -86,7 +86,8 @@ class MaskController(QObject):
         stack_id = self._current_stack_id()
         if stack_id is None:
             return False
-
+        if mask_id is None:
+            return False
         try:
             self._mask_manager.remove_mask(stack_id, mask_id)
             return True
@@ -98,7 +99,8 @@ class MaskController(QObject):
         stack_id = self._current_stack_id()
         if stack_id is None:
             return False
-
+        if mask_id is None:
+            return False
         try:
             self._mask_manager.reverse_mask(stack_id, mask_id)
             return True

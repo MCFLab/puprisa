@@ -138,7 +138,7 @@ class RoiViewModel(QObject):
     # ------------------------------------------------------------------
     def _rebuild(self) -> None:
         with QSignalBlocker(self._list_widget):
-            selected_id = self._selected_roi_id()
+            selected_id = self.selected_roi_id()
             self._list_widget.clear()
             for roi in self._roi_manager.get_all_rois():
                 if roi.space != self._space:
@@ -148,10 +148,6 @@ class RoiViewModel(QObject):
                 if roi.id == selected_id:
                     self._list_widget.setCurrentItem(item)
         self.roiSelectionChanged.emit(selected_id or "")
-
-    def _selected_roi_id(self) -> str | None:
-        item = self._list_widget.currentItem()
-        return item.data(Qt.ItemDataRole.UserRole) if item else None
 
     @staticmethod
     def _make_item(roi: RoiItem) -> QListWidgetItem:
@@ -171,3 +167,10 @@ class RoiViewModel(QObject):
         pixmap.fill(qcolor)
         item.setIcon(QIcon(pixmap))
         return item
+
+    # ------------------------------------------------------------------
+    # Widget query helpers
+    # ------------------------------------------------------------------
+    def selected_roi_id(self) -> str | None:
+        item = self._list_widget.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None

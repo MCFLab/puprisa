@@ -29,6 +29,7 @@ class CurveViewModel(QObject):
         self._canvas = canvas
         self._space = space
         self._normalize = False
+        self._current_slice_index = 0
 
         if self._canvas is not None:
             self._canvas.figure.set_constrained_layout(True)
@@ -49,6 +50,11 @@ class CurveViewModel(QObject):
             self._normalize = enabled
             self.refresh()
 
+    def set_current_slice(self, index: int) -> None:
+        if self._current_slice_index != index:
+            self._current_slice_index = index
+            self.refresh()
+
     @property
     def normalize(self) -> bool:
         return self._normalize
@@ -67,6 +73,11 @@ class CurveViewModel(QObject):
         if current_item is not None:
             pps = current_item.pps
             ax.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
+            if self._space == "pixel":
+                axis_values = pps.get_axis_values()
+                if 0 <= self._current_slice_index < len(axis_values):
+                    slice_x = axis_values[self._current_slice_index]
+                    ax.axvline(slice_x, color="gray", linestyle="--", linewidth=1.2, alpha=0.8)
         else:
             ax.set_xlabel("Time delay (ps)")
 
@@ -76,10 +87,10 @@ class CurveViewModel(QObject):
 
         for curve in curves:
             ax.plot(curve.x, curve.y, color=curve.color, label=curve.label)
-
+        
         if curves:
             ax.legend(fontsize=8, loc="best")
-
+        
         ax.relim()
         ax.autoscale_view(tight=True)
         self._canvas.draw_idle()

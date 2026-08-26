@@ -338,8 +338,7 @@
      <addaction name="actionResetBackgroundSubtraction"/>
     </widget>
     <addaction name="menuBackground_Subtraction"/>
-    <addaction name="actionIntensityThreshold"/>
-    <addaction name="actionDownsampling"/>
+    <addaction name="actionDownsample"/>
    </widget>
    <widget class="QMenu" name="menuROI">
     <property name="title">
@@ -356,6 +355,9 @@
     </property>
     <addaction name="actionImportMask"/>
     <addaction name="actionExportMask"/>
+    <addaction name="separator"/>
+    <addaction name="actionMaskAllZeroPixels"/>
+    <addaction name="actionMaskIntensityThreshold"/>
     <addaction name="separator"/>
     <addaction name="actionUnionAllMasks"/>
     <addaction name="actionClearAllMasks"/>
@@ -444,11 +446,6 @@
     <string>Gray</string>
    </property>
   </action>
-  <action name="actionIntensityThreshold">
-   <property name="text">
-    <string>Intensity Threshold...</string>
-   </property>
-  </action>
   <action name="actionSubNegativeTime">
    <property name="text">
     <string>Subtract Negative Time Frames</string>
@@ -509,9 +506,9 @@
     <string>Save Stack as Pickle</string>
    </property>
   </action>
-  <action name="actionDownsampling">
+  <action name="actionDownsample">
    <property name="text">
-    <string>Downsampling...</string>
+    <string>Downsample...</string>
    </property>
   </action>
   <action name="actionUnionAllMasks">
@@ -563,6 +560,21 @@
   <action name="actionSubFixedValue">
    <property name="text">
     <string>Subtract Fixed Value</string>
+   </property>
+  </action>
+  <action name="actionMaskAllZeroPixels">
+   <property name="text">
+    <string>Mask all-zero pixels</string>
+   </property>
+  </action>
+  <action name="actionMaskIntensityThreshold">
+   <property name="text">
+    <string>Mask from threshold...</string>
+   </property>
+  </action>
+  <action name="actionExport_Selected_Mask">
+   <property name="text">
+    <string>Export Selected Mask...</string>
    </property>
   </action>
  </widget>

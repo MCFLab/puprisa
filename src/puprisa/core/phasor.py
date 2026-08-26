@@ -19,38 +19,46 @@ def flatten_stack(images: np.ndarray) -> np.ndarray:
     n_frames = images.shape[0]
     return images.reshape(n_frames, -1).T
 
-
 def compute_phasor(
     images: np.ndarray,
     axis_values: np.ndarray,
     freq: float = 0.25,
-    remove_zero: bool = False,
+    mask: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Compute (g, s) phasor coordinates for every pixel.
+    """
+    Compute (g, s) phasor coordinates for every pixel.
+
+    Pixels excluded by ``mask`` get ``np.nan`` coordinates.
 
     Parameters
     ----------
-    images : shape (n_frames, h, w)
-    axis_values : 1D array of length n_frames
-        Time delays in ps. For Z stacks this function does not apply.
-    freq : float
-        Phasor frequency in THz.
-    remove_zero : bool
-        If True, pixels whose TA curve is exactly zero everywhere are
-        removed. Their corresponding rows would otherwise be undefined.
+    images : np.ndarray, shape (n_frames, h, w)
+        Image stack with time as the leading axis.
+    axis_values : np.ndarray, shape (n_frames,)
+        1D array giving the independent (time) value for each frame.
+    freq : float, default 0.25
+        Modulation frequency used to build the harmonic basis.
+    mask : np.ndarray | None, optional
+        Boolean array of shape (h, w) or broadcastable to it. Only pixels
+        where ``mask`` is True are processed; excluded pixels receive
+        ``np.nan`` coordinates. If None, every pixel is processed.
 
     Returns
     -------
-    coords : shape (n_pixels, 2) or (n_valid_pixels, 2)
-        Columns are ``g`` and ``s``. When ``remove_zero=False``, row order
-        matches ``flatten_stack(images)``.
+    np.ndarray, shape (h * w, 2)
+        Row-major phasor coordinates ``(g, s)`` per pixel. Pixels excluded
+        by ``mask`` are ``np.nan``.
+
+    Raises
+    ------
+    ValueError
+        If ``axis_values`` is not 1D, does not match the number of frames,
+        or contains non-finite values.
     """
     ta_curves = np.nan_to_num(flatten_stack(images), nan=0.0, posinf=0.0, neginf=0.0)
+    h, w = images.shape[1], images.shape[2]
 
-    if remove_zero:
-        valid = np.any(ta_curves != 0, axis=1)
-        ta_curves = ta_curves[valid]
-
+    # Validate axis and prepare basis (common to all branches)
     omega = 2.0 * np.pi * float(freq)
     axis_values = np.asarray(axis_values, dtype=np.float64)
     if axis_values.ndim != 1 or axis_values.size != images.shape[0]:
@@ -60,14 +68,33 @@ def compute_phasor(
     sin_basis = np.sin(axis_values * omega)
     cos_basis = np.cos(axis_values * omega)
 
-    # |I| normalization avoids division by zero.
-    norm = np.sum(np.abs(ta_curves), axis=1, keepdims=True)
+    # Determine which curves to compute
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
+        valid_flat = mask.ravel()
+        valid_indices = np.nonzero(valid_flat)[0]
+        if valid_indices.size == 0:
+            return np.full((h * w, 2), np.nan)
+        curves = ta_curves[valid_indices]          # (n_valid, n_frames)
+        result_indices = valid_indices
+    else:
+        curves = ta_curves
+        result_indices = None
+
+    # Normalization (per curve)
+    norm = np.sum(np.abs(curves), axis=1, keepdims=True)
     norm = np.where(norm == 0, 1.0, norm)
 
-    g = (ta_curves @ cos_basis) / norm.ravel()
-    s = (ta_curves @ sin_basis) / norm.ravel()
-    return np.column_stack((g, s))
+    g = (curves @ cos_basis) / norm.ravel()
+    s = (curves @ sin_basis) / norm.ravel()
+    coords_valid = np.column_stack((g, s))
 
+    if result_indices is None:
+        return coords_valid
+    else:
+        coords = np.full((h * w, 2), np.nan)
+        coords[result_indices] = coords_valid
+        return coords
 
 def universal_semicircle(n_points: int = 400) -> tuple[np.ndarray, np.ndarray]:
     """Return (g, s) coordinates of the universal semicircle.

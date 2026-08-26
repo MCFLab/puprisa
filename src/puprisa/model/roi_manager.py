@@ -7,7 +7,7 @@ import numpy as np
 
 from puprisa.model.entities import RoiItem, StackItem
 from puprisa.model.mask_manager import MaskManager
-from puprisa.model.stack_manager import StackManager
+from puprisa.model.stack_manager import StackEvent, StackManager
 from puprisa.utils.color_utils import MATLAB_COLORS
 from puprisa.utils.geometry_utils import shape_to_mask
 
@@ -16,7 +16,7 @@ from puprisa.utils.geometry_utils import shape_to_mask
 class RoiEvent:
     """Emitted whenever ROI collection or metadata changes."""
     event: str                  # "added" / "removed" / "params_changed" / "label_changed" /
-                                # "color_changed" / "visibility_changed" / "stack_deleted"
+                                # "color_changed" / "visibility_changed"
     roi_id: str | None = None
     roi: RoiItem | None = None
     stack_id: str | None = None
@@ -72,6 +72,12 @@ class RoiManager:
                 stack_id=stack_id,
             ))
         return len(to_remove)
+
+    def handle_stack_event(self, event: StackEvent) -> None:
+        if event.event == "removed":
+            self.handle_stack_deleted(event.stack_id)
+        elif event.event == "visibility_changed":
+            self.handle_stack_visibility_changed(event.stack_id, event.stack_item.visible)
 
     # ------------------------------------------------------------------
     # Queries
@@ -198,11 +204,12 @@ class RoiManager:
                 return None
             g = coords[:, 0]
             s = coords[:, 1]
-            mask_1d = shape_to_mask(roi.shape, roi.params, g, s)
-            if mask_1d is None:
-                return None
+            valid = ~np.isnan(g) & ~np.isnan(s)
+            mask_1d = np.zeros(valid.shape, dtype=bool)
+            if np.any(valid):
+                mask_1d[valid] = shape_to_mask(roi.shape, roi.params, g[valid], s[valid])
             return mask_1d.reshape(h, w)
-
+        
         raise ValueError(f"Unsupported ROI space: {roi.space!r}")
 
     def convert_roi_to_mask(self, roi_id: str) -> str:

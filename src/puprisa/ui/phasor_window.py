@@ -47,8 +47,8 @@ class PhasorWindow(QMainWindow):
         )
 
         self.ui.stackAddButton.clicked.connect(self.stack_controller.open_stack_dialog)
-        self.ui.stackRenameButton.clicked.connect(self._rename_selected_stack)
-        self.ui.stackDeleteButton.clicked.connect(self._delete_selected_stack)
+        self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model._selected_stack_index()))
+        self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model._selected_stack_index()))
         self.ui.actionOpenStack.triggered.connect(self.stack_controller.open_stack_dialog)
 
         # --------------------------------------------------------------
@@ -66,9 +66,9 @@ class PhasorWindow(QMainWindow):
             parent_widget=self,
         )
 
-        self.ui.maskReverseButton.clicked.connect(self._reverse_selected_mask)
-        self.ui.maskRenameButton.clicked.connect(self._rename_selected_mask)
-        self.ui.maskDeleteButton.clicked.connect(self._delete_selected_mask)
+        self.ui.maskReverseButton.clicked.connect(lambda: self.mask_controller.reverse_mask(self.mask_view_model.selected_mask_id()))
+        self.ui.maskRenameButton.clicked.connect(lambda: self.mask_controller.rename_mask(self.mask_view_model.selected_mask_id()))
+        self.ui.maskDeleteButton.clicked.connect(lambda: self.mask_controller.delete_mask(self.mask_view_model.selected_mask_id()))
 
         # --------------------------------------------------------------
         # Phasor plot / spatial view
@@ -77,6 +77,8 @@ class PhasorWindow(QMainWindow):
             stack_manager=ctx.stack_manager,
             processing_manager=ctx.processing_manager,
             roi_manager=ctx.roi_manager,
+            mask_manager=ctx.mask_manager,
+            curve_manager=ctx.curve_manager,
             phasor_graphics_view=self.ui.phasorGraphicsView,
             spatial_graphics_view=self.ui.ppsGraphicsView,
             parent=self,
@@ -110,11 +112,10 @@ class PhasorWindow(QMainWindow):
             space="phasor",
         )
 
-        self.ui.phasorRoiAddButton.clicked.connect(self._add_roi)
-        self.ui.phasorRoiRenameButton.clicked.connect(self._rename_selected_roi)
-        self.ui.phasorRoiDeleteButton.clicked.connect(self._delete_selected_roi)
-        if hasattr(self.ui, "phasorRoiConvertToMaskButton"):
-            self.ui.phasorRoiConvertToMaskButton.clicked.connect(self._convert_selected_roi_to_mask)
+        self.ui.phasorRoiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.phasorRoiShapeComboBox.currentText().lower()))
+        self.ui.phasorRoiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.phasorRoiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.phasorRoiConvertToMaskButton.clicked.connect(lambda: self.roi_controller.convert_roi_to_mask(self.roi_view_model.selected_roi_id()))
 
         # --------------------------------------------------------------
         # Curve: ViewModel + Controller
@@ -141,76 +142,8 @@ class PhasorWindow(QMainWindow):
         # --------------------------------------------------------------
         # View menu / fit on show and resize
         # --------------------------------------------------------------
-        self.ui.actionSavePhasorView.triggered.connect(self._save_phasor_view)
-        self.ui.actionSaveView.triggered.connect(self._save_combined_view)
-    
-    # ------------------------------------------------------------------
-    # Stack / mask / ROI action helpers
-    # ------------------------------------------------------------------
-    def _selected_stack_index(self) -> int:
-        return self.ui.stackListWidget.currentRow()
-
-    def _rename_selected_stack(self) -> None:
-        index = self._selected_stack_index()
-        if index >= 0:
-            self.stack_controller.rename_selected_stack(index)
-
-    def _delete_selected_stack(self) -> None:
-        index = self._selected_stack_index()
-        if index >= 0:
-            self.stack_controller.delete_selected_stack(index)
-
-    def _selected_mask_id(self) -> str | None:
-        item = self.ui.maskListWidget.currentItem()
-        return item.data(Qt.ItemDataRole.UserRole) if item else None
-
-    def _reverse_selected_mask(self) -> None:
-        mask_id = self._selected_mask_id()
-        if mask_id:
-            self.mask_controller.reverse_mask(mask_id)
-
-    def _rename_selected_mask(self) -> None:
-        mask_id = self._selected_mask_id()
-        if mask_id:
-            self.mask_controller.rename_mask(mask_id)
-
-    def _delete_selected_mask(self) -> None:
-        mask_id = self._selected_mask_id()
-        if mask_id:
-            self.mask_controller.delete_mask(mask_id)
-
-    def _selected_roi_id(self) -> str | None:
-        item = self.ui.phasorRoiListWidget.currentItem()
-        return item.data(Qt.ItemDataRole.UserRole) if item else None
-
-    def _add_roi(self) -> None:
-        shape = self.ui.phasorRoiShapeComboBox.currentText().lower()
-        self.roi_controller.add_roi(shape)
-
-    def _rename_selected_roi(self) -> None:
-        roi_id = self._selected_roi_id()
-        if roi_id:
-            self.roi_controller.rename_roi(roi_id)
-
-    def _delete_selected_roi(self) -> None:
-        roi_id = self._selected_roi_id()
-        if roi_id:
-            self.roi_controller.delete_roi(roi_id)
-
-    def _convert_selected_roi_to_mask(self) -> None:
-        roi_id = self._selected_roi_id()
-        if roi_id:
-            self.roi_controller.convert_roi_to_mask(roi_id)
-
-    # ------------------------------------------------------------------
-    # Phasor view export helpers (placeholder, can be moved to controller)
-    # ------------------------------------------------------------------
-    def _save_phasor_view(self) -> None:
-        self.phasor_plot_view_model.fit_phasor_view()
-
-    def _save_combined_view(self) -> None:
-        self.phasor_plot_view_model.fit_phasor_view()
-        self.phasor_plot_view_model.fit_spatial_view()
+        self.ui.actionSavePhasorView.triggered.connect(self.phasor_plot_view_model.view_phasor)
+        self.ui.actionSaveView.triggered.connect(self.phasor_plot_view_model.view_standalone)
 
     # ------------------------------------------------------------------
     # Fit views on show / resize

@@ -1,9 +1,9 @@
 # puprisa/viewmodels/pps_plot_view_model.py
 """Qt view model for pump-probe image display and colorbar.
 
-Subscribes to StackManager / MaskManager / ProcessingManager events and
-automatically renders the current slice.  No user-action handling lives
-here — that belongs to controllers.
+Subscribes to StackManager / MaskManager / PlotManager events and
+automatically renders the current slice.  Rendering uses the centralized
+plot state from PlotManager; this class does not own or modify that state.
 """
 
 from PySide6.QtCore import QObject, Qt
@@ -13,25 +13,28 @@ from PySide6.QtWidgets import QGraphicsScene
 import numpy as np
 
 from puprisa.model.mask_manager import MaskEvent, MaskManager
+from puprisa.model.plot_manager import PlotEvent, PlotManager
 from puprisa.model.processing_manager import ProcessingManager
 from puprisa.model.stack_manager import StackEvent, StackManager
+from puprisa.model.roi_manager import RoiManager
+from puprisa.model.curve_manager import CurveManager
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
 from puprisa.ui.widgets.scrollable_graphics_view import ScrollableGraphicsView
 from puprisa.utils.color_utils import apply_colormap
+from puprisa.utils.geometry_utils import shape_to_patch
 
 
 class PPSPlotViewModel(QObject):
     """Render the current stack slice into a graphics scene and manage colorbar."""
-
-    MODE_STD_DEV = "std_dev"
-    MODE_FULL_RANGE = "full_range"
-    MODE_CUSTOM = "custom"
 
     def __init__(
         self,
         stack_manager: StackManager,
         mask_manager: MaskManager,
         processing_manager: ProcessingManager,
+        plot_manager: PlotManager,
+        roi_manager: RoiManager,
+        curve_manager: CurveManager,
         graphics_view: ScrollableGraphicsView,
         colorbar: MatplotlibFigureCanvas | None = None,
         parent: QObject | None = None,
@@ -40,6 +43,9 @@ class PPSPlotViewModel(QObject):
         self._stack_manager = stack_manager
         self._mask_manager = mask_manager
         self._processing_manager = processing_manager
+        self._plot_manager = plot_manager
+        self._roi_manager = roi_manager
+        self._curve_manager = curve_manager
         self._graphics_view = graphics_view
         self._colorbar = colorbar
 
@@ -48,18 +54,15 @@ class PPSPlotViewModel(QObject):
 
         self._pixmap_item = None
         self._current_slice = 0
-        self._colormap = "pumpprobe"
-        self._color_scale_mode = self.MODE_STD_DEV
-        self._vmin = None
-        self._vmax = None
-        self._custom_vmin = None
-        self._custom_vmax = None
         self._last_pixmap_size = None
 
         # Model -> View
         self._stack_manager.add_listener(self._on_stack_event)
         self._mask_manager.add_listener(self._on_mask_event)
         self._processing_manager.add_listener(self._on_processing_event)
+
+        if self._plot_manager is not None:
+            self._plot_manager.add_listener(self._on_plot_event)
 
         self._initialize_from_current_stack()
 
@@ -77,9 +80,7 @@ class PPSPlotViewModel(QObject):
             return
         self._current_slice = 0
         self._last_pixmap_size = None
-        self._custom_vmin = None
-        self._custom_vmax = None
-        self.set_color_scale_mode(self.MODE_STD_DEV)
+        self.display_slice(0)
 
     # ------------------------------------------------------------------
     # Model event handlers
@@ -100,7 +101,11 @@ class PPSPlotViewModel(QObject):
         if current_item is None:
             return
         if event.stack_id == current_item.id and event.event == "data_changed":
-            self.set_color_scale_mode(self._color_scale_mode)  # 重算色标并重绘
+            self.display_slice(self._current_slice)
+
+    def _on_plot_event(self, event: PlotEvent) -> None:
+        if self._current_pps() is not None:
+            self.display_slice(self._current_slice)
 
     # ------------------------------------------------------------------
     # Public rendering API
@@ -119,71 +124,18 @@ class PPSPlotViewModel(QObject):
             )
 
     # ------------------------------------------------------------------
-    # Colormap / color scale
-    # ------------------------------------------------------------------
-    def set_colormap(self, name: str) -> None:
-        self._colormap = name
-        if self._current_pps() is not None:
-            self.display_slice(self._current_slice)
-
-    def set_color_scale_mode(self, mode: str) -> None:
-        self._color_scale_mode = mode
-        self._recalculate_color_scale()
-        if self._current_pps() is not None:
-            self.display_slice(self._current_slice)
-
-    def set_colorbar_range(self, vmin: float, vmax: float) -> None:
-        self._custom_vmin = float(vmin)
-        self._custom_vmax = float(vmax)
-        if self._color_scale_mode == self.MODE_CUSTOM:
-            self._recalculate_color_scale()
-            if self._current_pps() is not None:
-                self.display_slice(self._current_slice)
-
-    def get_reference_ranges(self) -> dict:
-        pps = self._current_pps()
-        if pps is None:
-            return {"std_min": None, "std_max": None, "full_min": None, "full_max": None}
-
-        stats = pps.statistics(mask_on=False)
-        mean = stats["mean"]
-        std = stats["std"]
-        abs_max = max(abs(mean - 4 * std), abs(mean + 4 * std))
-        return {
-            "std_min": -abs_max,
-            "std_max": abs_max,
-            "full_min": stats["min"],
-            "full_max": stats["max"],
-        }
-
-    def _recalculate_color_scale(self) -> None:
-        ref = self.get_reference_ranges()
-        if self._color_scale_mode == self.MODE_FULL_RANGE:
-            self._vmin = ref["full_min"]
-            self._vmax = ref["full_max"]
-        elif self._color_scale_mode == self.MODE_CUSTOM:
-            if self._custom_vmin is not None and self._custom_vmax is not None:
-                self._vmin = self._custom_vmin
-                self._vmax = self._custom_vmax
-            else:
-                self._vmin = ref["std_min"]
-                self._vmax = ref["std_max"]
-        else:  # MODE_STD_DEV
-            self._vmin = ref["std_min"]
-            self._vmax = ref["std_max"]
-
-    # ------------------------------------------------------------------
     # Internal rendering
     # ------------------------------------------------------------------
-    def _clear(self) -> None:
-        self._current_slice = 0
-        if self._pixmap_item is not None:
-            self._scene.removeItem(self._pixmap_item)
-            self._pixmap_item = None
-
     def _render_image(self, image_data: np.ndarray) -> None:
+        if self._plot_manager is not None:
+            colormap = self._plot_manager.colormap
+            vmin, vmax = self._plot_manager.vmin, self._plot_manager.vmax
+        else:
+            colormap = "pumpprobe"
+            vmin, vmax = None, None
+
         rgb, vmin_used, vmax_used = apply_colormap(
-            image_data, vmin=self._vmin, vmax=self._vmax, cmap=self._colormap
+            image_data, vmin=vmin, vmax=vmax, cmap=colormap
         )
 
         pps = self._current_pps()
@@ -207,15 +159,15 @@ class PPSPlotViewModel(QObject):
             self.fit_view()
 
         if self._colorbar is not None:
-            self._update_colorbar(vmin_used, vmax_used)
+            self._update_colorbar(vmin_used, vmax_used, colormap)
 
-    def _update_colorbar(self, vmin: float, vmax: float) -> None:
+    def _update_colorbar(self, vmin_used: float, vmax_used: float, colormap: str) -> None:
         if self._colorbar is None:
             return
 
-        gradient = np.linspace(vmin, vmax, 256).reshape(1, -1)
+        gradient = np.linspace(vmin_used, vmax_used, 256).reshape(1, -1)
         rgb_gradient, vmin_used, vmax_used = apply_colormap(
-            gradient, vmin=vmin, vmax=vmax, cmap=self._colormap
+            gradient, vmin=vmin_used, vmax=vmax_used, cmap=colormap
         )
         rgb_gradient = rgb_gradient.reshape(1, 256, 3)
 
@@ -237,3 +189,106 @@ class PPSPlotViewModel(QObject):
 
         self._colorbar.figure.subplots_adjust(left=0.1, right=0.9, bottom=0.45, top=0.9)
         self._colorbar.draw_idle()
+
+    def _clear(self) -> None:
+        self._current_slice = 0
+        if self._pixmap_item is not None:
+            self._scene.removeItem(self._pixmap_item)
+            self._pixmap_item = None
+
+    # ------------------------------------------------------------------
+    # Standalone view
+    # ------------------------------------------------------------------
+
+    def view_standalone(self, normalize: bool = False) -> None:
+        """Open a standalone Matplotlib figure for the current view.
+
+        Parameters
+        ----------
+        normalize : bool, optional
+            Whether to normalize the ROI average curves in the right panel.
+            The default is False.
+        """
+        pps = self._current_pps()
+        if pps is None:
+            return
+
+        if self._plot_manager is not None:
+            colormap = self._plot_manager.colormap
+            vmin, vmax = self._plot_manager.vmin, self._plot_manager.vmax
+            if vmin is None or vmax is None:
+                ref = self._plot_manager.get_reference_ranges()
+                vmin, vmax = ref["std_min"], ref["std_max"]
+        else:
+            colormap = "pumpprobe"
+            vmin, vmax = None, None
+
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize
+        from matplotlib.cm import ScalarMappable
+
+        current_slice = self._current_slice
+
+        fig, (ax_img, ax_curve) = plt.subplots(
+            1, 2,
+            figsize=(9, 4),
+            gridspec_kw={'width_ratios': [1, 1]},
+            layout='constrained'
+        )
+
+        # --- Image panel ---
+        image_data = pps.images[current_slice]
+        rgb, _, _ = apply_colormap(image_data, vmin=vmin, vmax=vmax, cmap=colormap)
+        mask = np.asarray(pps.mask, dtype=bool)
+        rgb[~mask] = [200, 200, 200]
+        rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
+
+        ax_img.imshow(rgb)
+        stack_item = self._stack_manager.get_current_item()
+        ax_img.set_title(stack_item.name if stack_item else pps.filename)
+        ax_img.axis('off')
+
+        # ROI outlines
+        if self._roi_manager is not None:
+            for roi in self._roi_manager.get_scene_visible_rois():
+                patch = shape_to_patch(
+                    roi.shape,
+                    roi.params,
+                    fill=False,
+                    edgecolor=roi.color,
+                    linewidth=1.5,
+                )
+                if patch is not None:
+                    ax_img.add_patch(patch)
+
+        # Colorbar
+        if vmin is not None and vmax is not None:
+            norm = Normalize(vmin=vmin, vmax=vmax)
+            sm = ScalarMappable(cmap=colormap, norm=norm)
+            sm.set_array([])
+            fig.colorbar(sm, ax=ax_img, fraction=0.046, pad=0.04)
+
+        # --- Curve panel ---
+        curves = []
+        if self._curve_manager is not None:
+            curves = self._curve_manager.compute_curves(
+                space="pixel", normalize=normalize
+            )
+            for curve in curves:
+                ax_curve.plot(curve.x, curve.y, color=curve.color, label=curve.label)
+
+            axis_values = pps.get_axis_values()
+            if 0 <= current_slice < len(axis_values):
+                ax_curve.axvline(
+                    axis_values[current_slice],
+                    color="gray", linestyle="--", linewidth=1.2, alpha=0.8,
+                )
+
+        ax_curve.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
+        ax_curve.set_ylabel("Normalized signal (a.u.)" if normalize else "Average signal (a.u.)")
+        ax_curve.set_title("ROI Average Curves")
+        ax_curve.grid(True, alpha=0.3)
+        if curves:
+            ax_curve.legend(fontsize=8, loc="best")
+
+        fig.show()

@@ -52,6 +52,7 @@ class PPSSliceController(QObject):
             self._slice_label.setText("Slice")
             self._axis_label.setText("")
             self._current_slice = 0
+            self.sliceChanged.emit(0)
             return
 
         with QSignalBlocker(self._slider):

@@ -274,17 +274,17 @@ class PPS:
     # ------------------------------------------------------------------
     # Phasor
     # ------------------------------------------------------------------
-    def phasor(self, freq=0.25, remove_zero=False):
-        """Compute (g,s) phasor coordinates for every pixel.
+    def phasor(self, freq=0.25, use_mask=True):
+        """
+        Compute (g,s) phasor coordinates for every pixel.
 
         Parameters
         ----------
         freq : float
             Phasor frequency in THz.
-        remove_zero : bool
-            If True, pixels whose TA curve is exactly zero everywhere are
-            removed. Their corresponding rows would otherwise be undefined.
-        
+        use_mask : bool
+            If True, apply the effective mask to the computation. Pixels outside
+            the mask will have NaN coordinates.
         Returns
         -------
         coords : shape (n_pixels, 2) or (n_valid_pixels, 2)
@@ -293,10 +293,9 @@ class PPS:
         """
         if self.axis_type != "time":
             raise ValueError("Phasor computation is only valid for time-delay stacks")
+        mask = self.mask if use_mask else None
         from .phasor import compute_phasor
-        return compute_phasor(
-            self.images, self.axis_values, freq=freq, remove_zero=remove_zero
-        )
+        return compute_phasor(self.images, self.axis_values, freq=freq, mask=mask)
 
     # ------------------------------------------------------------------
     # Serialization helpers

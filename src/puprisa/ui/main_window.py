@@ -10,9 +10,11 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QMainWindow
 
 from puprisa.app_context import ApplicationContext
+from puprisa.controllers.plot_controller import PlotController
 from puprisa.controllers.curve_controller import CurveController
 from puprisa.controllers.mask_controller import MaskController
 from puprisa.controllers.pps_slice_controller import PPSSliceController
+from puprisa.controllers.processing_controller import ProcessingController
 from puprisa.controllers.roi_controller import RoiController
 from puprisa.controllers.stack_controller import StackController
 from puprisa.ui.generated.ui_main_window import Ui_MainWindow
@@ -47,9 +49,8 @@ class MainWindow(QMainWindow):
         )
 
         self.ui.stackAddButton.clicked.connect(self.stack_controller.open_stack_dialog)
-        self.ui.stackRenameButton.clicked.connect(self._rename_selected_stack)
-        self.ui.stackDeleteButton.clicked.connect(self._delete_selected_stack)
-
+        self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model._selected_stack_index()))
+        self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model._selected_stack_index()))
         self.ui.actionOpenStack.triggered.connect(self.stack_controller.open_stack_dialog)
 
         # --------------------------------------------------------------
@@ -68,14 +69,14 @@ class MainWindow(QMainWindow):
             parent_widget=self,
         )
 
-        self.ui.maskReverseButton.clicked.connect(self._reverse_selected_mask)
-        self.ui.maskRenameButton.clicked.connect(self._rename_selected_mask)
-        self.ui.maskDeleteButton.clicked.connect(self._delete_selected_mask)
+        self.ui.maskReverseButton.clicked.connect(lambda: self.mask_controller.reverse_mask(self.mask_view_model.selected_mask_id()))
+        self.ui.maskRenameButton.clicked.connect(lambda: self.mask_controller.rename_mask(self.mask_view_model.selected_mask_id()))
+        self.ui.maskDeleteButton.clicked.connect(lambda: self.mask_controller.delete_mask(self.mask_view_model.selected_mask_id()))
 
         self.ui.actionImportMask.triggered.connect(self.mask_controller.import_masks_from_json)
         self.ui.actionExportMask.triggered.connect(self.mask_controller.export_all_masks)
         self.ui.actionClearAllMasks.triggered.connect(self.mask_controller.clear_all_masks)
-        self.ui.actionIntensityThreshold.triggered.connect(self.mask_controller.show_intensity_threshold_dialog)
+        self.ui.actionMaskIntensityThreshold.triggered.connect(self.mask_controller.show_intensity_threshold_dialog)
 
         # --------------------------------------------------------------
         # Image plot / slice: ViewModel + Controller
@@ -84,6 +85,9 @@ class MainWindow(QMainWindow):
             stack_manager=ctx.stack_manager,
             mask_manager=ctx.mask_manager,
             processing_manager=ctx.processing_manager,
+            plot_manager=ctx.plot_manager,
+            roi_manager=ctx.roi_manager,
+            curve_manager=ctx.curve_manager,
             graphics_view=self.ui.ppsGraphicsView,
             colorbar=self.ui.colorbar,
             parent=self,
@@ -96,6 +100,19 @@ class MainWindow(QMainWindow):
             axis_label=self.ui.axisLabel,
             parent=self,
         )
+        self.plot_controller = PlotController(
+            plot_manager=ctx.plot_manager,
+            parent_widget=self,
+        )
+
+        self.ui.actionStandardDeviation.triggered.connect(lambda: self.plot_controller.set_std_dev())
+        self.ui.actionFullRange.triggered.connect(lambda: self.plot_controller.set_full_range())
+        self.ui.actionCustomRange.triggered.connect(lambda: self.plot_controller.show_custom_range_dialog())
+        self.ui.actionDefault.triggered.connect(lambda: self.plot_controller.set_colormap("pumpprobe"))
+        self.ui.actionRdBuR.triggered.connect(lambda: self.plot_controller.set_colormap("RdBu_r"))
+        self.ui.actionViridis.triggered.connect(lambda: self.plot_controller.set_colormap("viridis"))
+        self.ui.actionGray.triggered.connect(lambda: self.plot_controller.set_colormap("gray"))
+        self.ui.actionSaveView.triggered.connect(self.plot_view_model.view_standalone)
 
         self.ui.ppsGraphicsView.wheelSliceChanged.connect(self.slice_controller.change_slice_by_delta)
 
@@ -119,10 +136,10 @@ class MainWindow(QMainWindow):
             space="pixel",
         )
 
-        self.ui.roiAddButton.clicked.connect(self._add_roi)
-        self.ui.roiRenameButton.clicked.connect(self._rename_selected_roi)
-        self.ui.roiDeleteButton.clicked.connect(self._delete_selected_roi)
-        self.ui.roiConvertToMaskButton.clicked.connect(self._convert_selected_roi_to_mask)
+        self.ui.roiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.roiShapeComboBox.currentText().lower()))
+        self.ui.roiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.roiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.roiConvertToMaskButton.clicked.connect(lambda: self.roi_controller.convert_roi_to_mask(self.roi_view_model.selected_roi_id()))
 
         # --------------------------------------------------------------
         # Curve: ViewModel + Controller
@@ -145,85 +162,24 @@ class MainWindow(QMainWindow):
         self.ui.actionNormalizeCurve.toggled.connect(self.curve_view_model.set_normalize)
         self.ui.actionViewCurve.triggered.connect(lambda: self.curve_controller.view_standalone(space="pixel", normalize=self.curve_view_model.normalize))
         self.ui.actionExportCurve.triggered.connect(lambda: self.curve_controller.export_curve_dialog(space="pixel", normalize=self.curve_view_model.normalize))
+        self.slice_controller.sliceChanged.connect(self.curve_view_model.set_current_slice)
 
         # --------------------------------------------------------------
-        # View menu
+        # Processing: Controller only (no viewmodel, no UI widgets)
         # --------------------------------------------------------------
-        self.ui.actionStandardDeviation.triggered.connect(lambda: self.plot_view_model.set_color_scale_mode(PPSPlotViewModel.MODE_STD_DEV))
-        self.ui.actionFullRange.triggered.connect(lambda: self.plot_view_model.set_color_scale_mode(PPSPlotViewModel.MODE_FULL_RANGE))
-        self.ui.actionDefault.triggered.connect(lambda: self.plot_view_model.set_colormap("pumpprobe"))
-        self.ui.actionRdBuR.triggered.connect(lambda: self.plot_view_model.set_colormap("RdBu_r"))
-        self.ui.actionViridis.triggered.connect(lambda: self.plot_view_model.set_colormap("viridis"))
-        self.ui.actionGray.triggered.connect(lambda: self.plot_view_model.set_colormap("gray"))
+        self.processing_controller = ProcessingController(
+            stack_manager=ctx.stack_manager,
+            processing_manager=ctx.processing_manager,
+            parent_widget=self,
+        )
+        self.ui.actionSubNegativeTime.triggered.connect(self.processing_controller.apply_background_subtraction_negative_delays)
+        self.ui.actionSubFixedValue.triggered.connect(self.processing_controller.show_fixed_value_background_subtraction_dialog)
+        self.ui.actionSubFirstLastNFrames.triggered.connect(self.processing_controller.show_background_subtraction_dialog)
+        self.ui.actionResetBackgroundSubtraction.triggered.connect(ctx.processing_manager.reset_background_subtraction)
+        self.ui.actionDownsample.triggered.connect(self.processing_controller.show_downsample_dialog)
 
         # Phasor window
         self.ui.actionPhasor.triggered.connect(self._open_phasor_window)
-
-    # ------------------------------------------------------------------
-    # Stack action helpers
-    # ------------------------------------------------------------------
-    def _selected_stack_index(self) -> int:
-        return self.ui.stackListWidget.currentRow()
-
-    def _rename_selected_stack(self) -> None:
-        index = self._selected_stack_index()
-        if index < 0:
-            return
-        self.stack_controller.rename_selected_stack(index)
-
-    def _delete_selected_stack(self) -> None:
-        index = self._selected_stack_index()
-        if index < 0:
-            return
-        self.stack_controller.delete_selected_stack(index)
-
-    # ------------------------------------------------------------------
-    # Mask action helpers
-    # ------------------------------------------------------------------
-    def _selected_mask_id(self) -> str | None:
-        item = self.ui.maskListWidget.currentItem()
-        return item.data(Qt.ItemDataRole.UserRole) if item else None
-
-    def _reverse_selected_mask(self) -> None:
-        mask_id = self._selected_mask_id()
-        if mask_id:
-            self.mask_controller.reverse_mask(mask_id)
-
-    def _rename_selected_mask(self) -> None:
-        mask_id = self._selected_mask_id()
-        if mask_id:
-            self.mask_controller.rename_mask(mask_id)
-
-    def _delete_selected_mask(self) -> None:
-        mask_id = self._selected_mask_id()
-        if mask_id:
-            self.mask_controller.delete_mask(mask_id)
-
-    # ------------------------------------------------------------------
-    # ROI action helpers
-    # ------------------------------------------------------------------
-    def _selected_roi_id(self) -> str | None:
-        item = self.ui.roiListWidget.currentItem()
-        return item.data(Qt.ItemDataRole.UserRole) if item else None
-
-    def _add_roi(self) -> None:
-        shape = self.ui.roiShapeComboBox.currentText().lower()
-        self.roi_controller.add_roi(shape)
-
-    def _rename_selected_roi(self) -> None:
-        roi_id = self._selected_roi_id()
-        if roi_id:
-            self.roi_controller.rename_roi(roi_id)
-
-    def _delete_selected_roi(self) -> None:
-        roi_id = self._selected_roi_id()
-        if roi_id:
-            self.roi_controller.delete_roi(roi_id)
-
-    def _convert_selected_roi_to_mask(self) -> None:
-        roi_id = self._selected_roi_id()
-        if roi_id:
-            self.roi_controller.convert_roi_to_mask(roi_id)
 
     # ------------------------------------------------------------------
     # Phasor window

@@ -3,6 +3,7 @@
 
 from puprisa.model.curve_manager import CurveManager
 from puprisa.model.mask_manager import MaskManager
+from puprisa.model.plot_manager import PlotManager
 from puprisa.model.processing_manager import ProcessingManager
 from puprisa.model.roi_manager import RoiManager
 from puprisa.model.stack_manager import StackEvent, StackManager
@@ -23,21 +24,14 @@ class ApplicationContext:
         self.processing_manager = ProcessingManager(
             stack_manager=self.stack_manager,
         )
+        self.plot_manager = PlotManager(
+            stack_manager=self.stack_manager,
+            processing_manager=self.processing_manager,
+        )
 
-        # 2. Cross-manager wiring.
-        self._connect_stack_lifecycle()
-
-    def _connect_stack_lifecycle(self):
-        def on_stack_event(event: StackEvent):
-            if event.event == "removed":
-                assert event.stack_id is not None
-                self.roi_manager.handle_stack_deleted(event.stack_id)
-            elif event.event == "visibility_changed":
-                assert event.stack_id is not None and event.stack_item is not None
-                self.roi_manager.handle_stack_visibility_changed(
-                    event.stack_id, event.stack_item.visible
-                )
-        self.stack_manager.add_listener(on_stack_event)
+        self.stack_manager.add_listener(self.roi_manager.handle_stack_event)
+        self.stack_manager.add_listener(self.plot_manager.handle_stack_event)
+        self.processing_manager.add_listener(self.plot_manager.handle_processing_event)
 
     def create_main_window(self):
         from puprisa.ui.main_window import MainWindow
