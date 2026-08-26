@@ -1,7 +1,7 @@
 # docs/mkdocs.yml
 site_name: Puprisa
-site_description: A documentation site for the puprisa project.
-site_author: Xiaotian Feng
+site_description: Desktop and Python tools for pump-probe microscopy analysis.
+site_author: Puprisa contributors
 
 theme:
   name: material
@@ -44,14 +44,17 @@ markdown_extensions:
       generic: true
 
 nav:
-  - Index: index.md
-  - Architecture: architecture.md
+  - Home: index.md
+  - Getting Started: getting_started.md
   - User Guide: user_guide.md
+  - Architecture: architecture.md
   - Developer Documentation:
       - Data Flow: dev/data_flow.md
       - Testing: dev/testing.md
   - API Reference:
-      - core: api/core.md
-      - controllers: api/controllers.md
-      - ui: api/ui.md
-      - utils: api/utils.md
+      - Core: api/core.md
+      - Model: api/model.md
+      - Controllers: api/controllers.md
+      - View Models: api/viewmodels.md
+      - UI: api/ui.md
+      - Utilities: api/utils.md

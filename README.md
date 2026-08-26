@@ -1,535 +1,130 @@
-# Pump-Probe Spectroscopy Analysis
+# Puprisa
 
-A comprehensive Python package for analyzing pump-probe imaging data, with a focus on time-resolved transient absorption microscopy.
+**Puprisa** is a desktop and Python toolkit for analysing pump-probe microscopy image stacks. It combines stack loading, preprocessing, spatial and phasor-region analysis, and curve export in one PySide6 application, while keeping the numerical `PPS` API available for notebooks and scripts.
 
-## Overview
+The package is designed for time-resolved transient-absorption data and also supports Z stacks. Time-axis stacks can be analysed in phasor space; Z stacks retain the same loading, masking, plotting, and basic-processing workflow.
 
-This package provides end-to-end analysis tools for pump-probe spectroscopy experiments, enabling researchers to process, analyze, and visualize time-resolved optical data. The toolkit supports multiple data formats, advanced processing techniques, and sophisticated visualization methods including phasor analysis.
+## What it provides
 
-Here is a link to a google doc to show the roadmap of future features/bugfixes and for test users to leave feedback:
+- Load DukeScan TIFF stacks, saved Puprisa pickle stacks, and Mathematica binary stacks.
+- Recover time delays or Z positions from DukeScan metadata when possible.
+- Work with several open stacks and derive new ones through downsampling or stack arithmetic.
+- Subtract backgrounds, normalize signals, run truncated-SVD denoising, and control image display ranges.
+- Create layered exclusion masks from intensity thresholds or ROI selections.
+- Draw rectangular, circular, elliptical, or polygonal ROIs in pixel space.
+- Compute phasor coordinates for time-axis stacks, select phasor-space ROIs, and inspect their spatial locations.
+- Plot, normalize, and export ROI-average curves as CSV.
+- Save processed stacks as TIFF or pickle; save mask layers as JSON.
 
-https://docs.google.com/document/d/1uNBoRhGl6r8pxomQA-IgmFEcgjlpmZBz5Xu39qViVS8/edit?usp=sharing
+## Quick start
 
-## Features
-
-- **Multiple Data Format Support**: Import from DukeScan, Mathematica, and pickle formats with intelligent parsing
-- **Data Processing**: Background subtraction, normalization, spatial masking, and downsampling
-- **Phasor Analysis**: Frequency-domain visualization for identifying and classifying decay patterns
-- **Machine Learning Classification**: Pixel-wise classification of different material types
-- **Intensity Thresholding**: Automated (Li, etc.) and manual masking based on signal intensity
-- **Fitting Tools**: Cross-correlation fitting and transient absorption decay models
-- **Visualization Tools**: Interactive plotting of TA curves, projections, and phasor plots
-- **Linear Combinations**: Arithmetic operations on multiple stacks for comparative analysis
-
-## Installation
-
-### Prerequisites
-
-- **Python 3.10 or newer** (see `requires-python` in `pyproject.toml`)
-- **Git** (to clone the repository) or a copy of the `pump_probe_analysis` source tree
-- **pip** (bundled with recent Python installers)
-
-All steps below assume your shell’s working directory is the **repository root** — the folder that contains `pyproject.toml` and `src/` (i.e. `pump_probe_analysis/` after you clone or unpack the project).
-
-### Virtual environment: pick **one** (`venv` **or** Conda)
-
-Install this package into a **virtual environment** — a self-contained Python environment for this project only. That isolates dependencies from your **system Python** (the interpreter macOS/Linux ship or you installed globally), so upgrades here do not break other tools, and you can delete the env folder to remove the project cleanly. It also pins what you install for reproducible analysis.
-
-You need **some** virtual environment; you do **not** need both mechanisms below.
-
-| Use | If you… |
-|-----|--------|
-| **`venv`** | Want the standard library only—no Conda—and are fine with `python` + `pip`. |
-| **Conda** | Already use Conda/Mamba for science stacks, or prefer `conda` envs. |
-
-Follow **either** the `venv` tutorial **or** the Conda tutorial—not both. Creating a `.venv` beside the repo *and* a separate Conda env for the same checkout is unnecessary and easy to confuse; pick one workflow and stick with it.
-
----
-
-### Tutorial: get the code with Git (branch `pyprisa`)
-
-The active development line for this package lives on the **`pyprisa`** branch. Clone that branch so your checkout matches the instructions below.
-
-1. **Clone** the repository and check out `pyprisa` in one step (replace the URL with your fork or the upstream remote — HTTPS or SSH is fine):
-
-   Example with SSH:
-
-   ```bash
-   git clone -b pyprisa git@gitlab.oit.duke.edu:dg208/pump_probe_analysis.git
-   cd pump_probe_analysis
-   ```
-
-2. **If you already cloned** the default branch (e.g. `main`), switch to `pyprisa`:
-
-   ```bash
-   cd pump_probe_analysis
-   git fetch origin
-   git checkout pyprisa
-   ```
-
-3. **Confirm** you are on the right branch (optional):
-
-   ```bash
-   git branch --show-current
-   # should print: pyprisa
-   ```
-
-**Stay up to date (especially for testers):** Run **`git pull`** in your local clone often so you stay on the latest **`pyprisa`** commits. You do **not** need to activate your `venv` or Conda environment first—`git` uses your repo folder only. From the repository root:
+Puprisa requires Python 3.10 or later. From the repository root:
 
 ```bash
-cd /path/to/pump_probe_analysis
-git checkout pyprisa
-git pull
+python -m venv .venv
 ```
 
-If a pull changes dependencies (`pyproject.toml` or similar), reinstall in your environment (same commands as below), e.g. `pip install -e ".[gui]"` or `pip install -e .`.
+Activate the environment:
 
-You are now at the repository root. Continue with **one** of the installation tutorials below: **install with `venv`** or **install with Conda** (pick a single path—not both).
+```powershell
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
 
----
+```bash
+# macOS or Linux
+source .venv/bin/activate
+```
 
-### Tutorial: install with `venv` (standard library)
+Install the project in editable mode:
 
-**If you are using Conda for this project, skip this section** and use the Conda tutorial below instead.
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
 
-`venv` creates an isolated Python environment next to your project. No extra tools are required beyond Python itself.
+Launch the desktop application:
 
-1. **Create the virtual environment** (the name `.venv` is conventional; you can pick another directory name):
+```bash
+puprisa
+```
 
-   ```bash
-   python3 -m venv .venv
-   ```
+The checked-in example data can be opened directly from `data/example_stack_DS_CH1.tif`. Its companion log file supplies the time-delay axis.
 
-   On Windows, if `python3` is not on your PATH, use:
+## Typical workflow
 
-   ```bat
-   py -3.10 -m venv .venv
-   ```
+1. Open one or more stacks with **File → Open Stack**.
+2. Select a stack, browse frames with the slice control, and choose an appropriate colour scale.
+3. Apply background subtraction, normalization, or SVD denoising if required. These operations modify the selected stack; downsampling and stack math instead create a new derived stack.
+4. Build an exclusion mask with **Mask → Mask from threshold**, or draw a pixel ROI and convert it to a mask.
+5. Add pixel-space ROIs to calculate spatially resolved average curves. Use **Curve → Export Curve** to write CSV output.
+6. For a time-axis stack, open **Phasor → Phasor Analysis**. Choose a modulation frequency, draw phasor-space ROIs, and inspect their spatial projections and average curves.
 
-2. **Activate** the environment so `python` and `pip` point inside `.venv`:
+For detailed operating instructions, see the [user guide](docs/docs/user_guide.md). The complete MkDocs site lives under `docs/`.
 
-   - **macOS / Linux:**
-
-     ```bash
-     source .venv/bin/activate
-     ```
-
-   - **Windows (Command Prompt):**
-
-     ```bat
-     .venv\Scripts\activate.bat
-     ```
-
-   - **Windows (PowerShell):**
-
-     ```powershell
-     .venv\Scripts\Activate.ps1
-     ```
-
-   Your prompt will usually show `(.venv)` when activation succeeded.
-
-3. **Upgrade pip** (recommended before installing the package):
-
-   ```bash
-   python -m pip install -U pip setuptools wheel
-   ```
-
-4. **Install this package in editable mode** from the repo root:
-
-   ```bash
-   pip install -e ".[gui]"
-   ```
-
-   - **`.[gui]`** includes **PySide6** and console scripts for the GUI. Omit the extra to install only the analysis library:
-
-     ```bash
-     pip install -e .
-     ```
-
-5. **Verify** (optional):
-
-   ```bash
-   python -c "import pump_probe_analysis; print('OK')"
-   ```
-
-   With `[gui]` installed:
-
-   ```bash
-   pump-probe-gui --help
-   ```
-
-6. **Deactivate** when you are done (optional):
-
-   ```bash
-   deactivate
-   ```
-
----
-
-### Tutorial: install with Conda (Anaconda, Miniconda, or Mambaforge)
-
-**If you already installed with `venv` above, skip this entire section**—you already have an environment.
-
-Conda manages a separate Python and packages per environment. This package is installed **from your local checkout with pip** inside that environment (editable install is not published on conda-forge by default).
-
-1. **Install** [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/download) if you do not already have `conda`. Initialize your shell so `conda activate` works (the installer usually offers to do this).
-
-2. **Create** an environment with a compatible Python version:
-
-   ```bash
-   conda create -n pump-probe python=3.10 -y
-   ```
-
-   You can use `3.11` or `3.12` instead, as long as it satisfies `>=3.10`.
-
-3. **Activate** the environment:
-
-   ```bash
-   conda activate pump-probe
-   ```
-
-4. **Go to the repository root** (where `pyproject.toml` lives):
-
-   ```bash
-   cd /path/to/pump_probe_analysis
-   ```
-
-5. **Install the package with pip** (still inside the activated conda env):
-
-   ```bash
-   python -m pip install -U pip setuptools wheel
-   pip install -e ".[gui]"
-   ```
-
-   Use `pip install -e .` if you do not need the GUI.
-
-6. **Verify** as in the `venv` section above.
-
-7. **Leave** the environment when finished:
-
-   ```bash
-   conda deactivate
-   ```
-
-**Note:** Inside a **single** Conda environment, using `conda install` for some libraries and `pip install -e` for this repo is normal. That is not the same as using both a `.venv` and a Conda env for one checkout—avoid the latter. Prefer installing **this** project with `pip` from the local tree so the editable install tracks your edits to `src/`.
-
----
-
-### After installation: run the GUI or use the library in code
-
-Do these steps **inside the same environment** you chose (`venv` or Conda): activate it (`source .venv/bin/activate`, `conda activate pump-probe`, etc.) before running commands or Python.
-
-#### Open the GUI (PUPRISA)
-
-1. **Install the GUI extra** if you have not already (from the repository root, env activated):
-
-   ```bash
-   pip install -e ".[gui]"
-   ```
-
-   This pulls in **PySide6** and registers the `pump-probe-gui` command.
-
-2. **Launch** the application:
-
-   ```bash
-   pump-probe-gui
-   ```
-
-   Optional: open a file immediately:
-
-   ```bash
-   pump-probe-gui /path/to/stack.tif
-   ```
-
-   Equivalent entry point:
-
-   ```bash
-   python -m pump_probe_analysis
-   ```
-
-3. **In the app**, the launcher opens the **channel view** (one stack at a time). Use **File -> Open Stack…** to load data:
-
-   - **DukeScan**: any single-channel TIFF (e.g. `*_DS_CH1.tif` … `*_DS_CH4.tif`, `.tif` or `.TIF`)
-   - **Pickle**: a stack saved with `PPS.save` (`.pkl` / `.pickle`)
-   - **Mathematica**: binary stack path (choose format when the extension is ambiguous)
-
-   **File -> Open Stack…** auto-detects format from the extension; if it cannot, you are prompted. Opening a new file resets the session (ROIs, masks, plots, phasor window).
-
-#### Use the package without the GUI (scripts, notebooks, REPL)
-
-You do **not** need PySide6 or `pump-probe-gui` for programmatic analysis.
-
-1. **Install** the core package only (no GUI), from the repo root with your env activated:
-
-   ```bash
-   pip install -e .
-   ```
-
-   If you already ran `pip install -e ".[gui]"`, you can keep that install—the library imports the same; the GUI extra only adds optional dependencies and the launcher.
-
-2. **Use Python** anywhere your environment is active: scripts, Jupyter, or `python` in a terminal. Minimal example (paths relative to your current working directory):
-
-   ```python
-   from pathlib import Path
-   from pump_probe_analysis.pps import PPS
-
-   stack = PPS(Path("data/example_stack_DS_CH1.tif"), dataType="DukeScan")
-   stack.subtractFirst(n=3)
-   stack.normalize(norm="minmax")
-   stack.avg_show()
-   ```
-
-3. **Go deeper** with [Quick Start](#quick-start) below and the notebook `examples/example.ipynb`. Example data paths in the docs assume a `data/` folder at the **repository root** when you run code from that tree.
-
-### Legacy `requirements.txt`
-
-You can still `pip install -r requirements.txt` for a loose dependency list, but **`pip install -e ".[gui]"`** (from the repo root, inside your chosen environment) is the supported way to install this package.
-
-## Quick Start
-
-### Basic Usage
+## Using Puprisa from Python
 
 ```python
-from pathlib import Path
-from pump_probe_analysis.pps import PPS
+from puprisa.core.pps import PPS
 
-# Load a pump-probe stack from DukeScan format (path relative to your cwd)
-filename = Path("data/example_stack_DS_CH1.tif")
-stack = PPS(filename, dataType="DukeScan")
+stack = PPS.load("data/example_stack_DS_CH1.tif")
+stack.apply_background_subtraction(
+    indices=[i for i, delay in enumerate(stack.axis_values) if delay < 0]
+)
 
-# Subtract background (average of first 3 frames)
-stack.subtractFirst(n=3)
-
-# Normalize the data
-stack.normalize(norm="minmax")
-
-# View average transient absorption curve
-stack.avg_show()
-
-# View projection (sum of absolute values)
-stack.project_show()
+projection = stack.project()
+phasor_coordinates = stack.phasor(freq=0.25)
+stack.save("processed_stack.pkl", format="pickle")
 ```
 
-### Phasor Analysis
+`images` use the shape `(n_frames, height, width)`. Time values are expressed in picoseconds and Z positions in micrometres.
 
-```python
-# Perform phasor analysis at 0.25 THz
-phasor_data = stack.phasor(freq=0.25, remove_zero=True)
+## Data formats
 
-# Visualize phasor plot
-stack.phasor_show(freq=0.25)
+| Format | Extensions | Notes |
+| --- | --- | --- |
+| DukeScan TIFF | `.tif`, `.tiff` | Time (`t = … ps`) or Z (`z = …`) axis is inferred from TIFF tag 285 when available. Time delay loading also falls back to a companion `_xaxis.txt` or `.log` file. |
+| Puprisa pickle | `.pkl`, `.pickle` | Preserves images, axis data, masks, background-subtraction state, results, and filename metadata. |
+| Mathematica binary | `.m`, `.mathematica` | Supported by the Python loader when the axis type is supplied programmatically. The current desktop file dialog exposes TIFF and pickle files. |
+
+## Documentation site
+
+The documentation is written for MkDocs Material and uses `mkdocstrings` to render API reference pages from `src/`.
+
+```bash
+python -m pip install mkdocs-material mkdocstrings[python]
+mkdocs serve -f docs/mkdocs.yml
 ```
 
-### Intensity Thresholding
+Build a static site with:
 
-```python
-# Apply automatic Li threshold
-stack.intensity_threshold(threshold="Li", sigma=5)
-
-# Or use manual threshold
-stack.intensity_threshold(threshold=0.1, sigma=5)
-
-# View the mask
-stack.mask_show()
+```bash
+mkdocs build -f docs/mkdocs.yml
 ```
 
-### Time Delay Selection
+## Project layout
 
-```python
-# Select specific time delays
-delays = [-1.0, 0.0, 0.5, 1.0, 5.0, 10.0, 50.0]
-stack.select_delays(delays=delays)
-
-# Or use predefined melanoma preset
-stack.select_delays(delays="melanoma1")
+```text
+src/puprisa/       Package source
+  core/            Numerical data, I/O, processing, masking, and phasor functions
+  model/           Application state and event-driven managers
+  controllers/     Qt action handlers
+  viewmodels/      Qt presentation and scene coordination
+  ui/              Windows, dialogs, forms, and custom widgets
+docs/              MkDocs configuration and source pages
+data/              Example DukeScan stack and associated metadata
+examples/          Notebook example
 ```
 
-### Downsampling
+## Important analysis semantics
 
-```python
-# Downsample by factor of 2 to improve SNR
-stack_ds = stack.downsample(size=2)
-```
+- A mask layer uses `True` for pixels to **exclude**. The effective `PPS.mask` uses `True` for pixels that remain in the analysis.
+- A processing operation acts on the selected stack and invalidates its cached phasor coordinates. Background reset restores the stack's baseline image copy; it does not undo every later destructive operation.
+- ROI curves include both the selected ROI and the stack's effective analysis mask.
+- Phasor analysis is available only for stacks whose axis type is `time`.
 
-### Classification
+## Development
 
-```python
-from sklearn.ensemble import RandomForestClassifier
+The app is assembled by `ApplicationContext`: model managers are Qt-free and emit callback events; controllers perform user actions; view models keep Qt scenes and widgets current. See the [architecture guide](docs/docs/architecture.md) and [developer documentation](docs/docs/dev/data_flow.md).
 
-# Train your classifier (example)
-# classifier = train_classifier()  # Your training code
-
-# Classify pixels
-stack.classify_show(classifier, downsample=2, norm="minmax")
-```
-
-### Linear Combinations
-
-```python
-# Subtract two stacks
-difference = PPS.linear_combination(stack1, 1, stack2, -1)
-
-# Average two stacks
-average = PPS.linear_combination(stack1, 0.5, stack2, 0.5)
-```
-
-## Layout
-
-- **`src/pump_probe_analysis/`** — installable package (`import pump_probe_analysis`).
-- **`examples/`** — notebooks (e.g. `example.ipynb`).
-- **`data/`** — example inputs (e.g. logs); place companion `.tif` stacks here when available.
-
-## Module Structure
-
-### `pps.py` (under `src/pump_probe_analysis/`)
-Main module containing the `PPS` class for pump-probe stack analysis and visualization.
-
-**Key Methods:**
-- `__init__()`: Import data from DukeScan, Mathematica, or pickle formats
-- `save()`: Save stack to pickle format
-- `subtractFirst()`: Background subtraction using first n frames
-- `normalize()`: Data normalization (minmax, zscore, absmax)
-- `avg()`, `avg_show()`: Average transient absorption curves
-- `project()`, `project_show()`: Stack projections and visualization
-- `phasor()`, `phasor_show()`: Phasor analysis and visualization
-- `intensity_threshold()`: Automatic masking using various algorithms
-- `classify()`, `classify_show()`: Machine learning classification
-- `downsample()`: Spatial downsampling to improve signal-to-noise ratio
-- `substacks()`: Divide stack into spatial regions
-- `select_delays()`: Select or interpolate specific time delays
-- `linear_combination()`: Static method for arithmetic operations on stacks
-
-### `melanoma.py`
-Utilities for loading and managing melanoma patient sample data from pump-probe imaging experiments.
-
-**Key Functions:**
-- `get_elpis(path_elpis, path_georgia, wavelength, melanoma_only)`: Load and merge imaging metadata with patient clinical data (recurrence, SLNB)
-- `convert_windows_to_linux_path(win_path, linux_mnt)`: Convert Windows file paths to Linux mount paths for cross-platform compatibility
-- `adjust_roi(row)`: Adjust ROI identifiers to include slide numbers
-- `manual_positions_from_file(row, filename, ds)`: Extract manually annotated surgical ink mask positions from CSV files
-- `row_to_coordinates(row, ds)`: Convert mask position data from center/size format to numpy slice objects
-
-**Data Sources:**
-- **Elpis File**: Excel file with imaging experiment metadata (folders, identifiers, ROI information)
-- **Georgia File**: Excel file with patient clinical data (recurrence status, sentinel lymph node biopsy results)
-
-**Features:**
-- Automatic path conversion for Linux/Windows compatibility
-- Extraction of patient IDs from sample identifiers using regex patterns
-- Loading of surgical ink mask positions from Mathematica-generated CSV files
-- Merging of imaging and clinical datasets
-- Optional filtering for melanoma samples only
-
-### `ta.py`
-Transient absorption model functions for fitting decay dynamics.
-
-**Functions:**
-- `decay_single(t, tau, t_pump, t_probe)`: Single exponential decay model with Gaussian pulse convolution
-- `decay_infinite(t, t_pump, t_probe)`: Infinite lifetime (step function) model with Gaussian pulse convolution
-
-### `fit.py`
-Functions for fitting experimental data.
-
-**Functions:**
-- `fit_xcorr(filename, delay_stage_passes, dt_default)`: Fit pulse width from cross-correlation measurements with automatic unit detection
-
-## Data Formats
-
-### DukeScan Format
-TIFF stacks from DukeScan microscope software with time delay information extracted using cascading fallback logic.
-
-**Filename format**: `*_DS_CH1.tif`, `*_DS_CH2.tif`, `*_DS_CH3.tif`, or `*_DS_CH4.tif`
-
-**Time Delay Extraction** (in order of priority):
-1. **Legacy `*_xaxis.txt` file**: Older format with simple text file containing time delays
-2. **TIFF tag 285 (PageName)**: Embedded in each TIFF frame (format: `t = <value> ps`)
-3. **DukeScan `.log` file**: JSON-like log file with `delayArr_ps` field
-
-**Special Features**:
-- **Stitched Files**: ImageJ-stitched files (containing "stich" or "stitch" in filename) are handled automatically with special TIFF reading for hierarchical structures
-- **Encoding Support**: Log files support both UTF-8 and Latin-1 encodings for robust parsing
-- **Automatic Channel Detection**: Automatically detects channel number from filename
-
-### Mathematica Format
-Binary format with dimensions, time axis, and image data stored as float64 values.
-
-**Structure**:
-- Image dimensions (height, width, number of frames)
-- Time delay array
-- Raw image data as 3D array
-
-### Pickle Format
-Serialized Python dictionary containing all analysis state and metadata.
-
-**Dictionary Keys**:
-- `images`: NumPy array of images (3D: time × height × width)
-- `times`: Array of time delays in picoseconds
-- `filename`: Original filename for traceability
-- `image_dimensions`: Image shape tuple
-- `mask`: Boolean mask array (optional, if masking applied)
-
-This format allows for fast loading and preserves all preprocessing steps.
-
-## Example Notebook
-
-See [example.ipynb](example.ipynb) for a detailed walkthrough of the package functionality, including:
-- Data import from DukeScan format
-- Visualization of TA curves and projections
-- Phasor analysis workflow
-- Masking and thresholding techniques
-- Complete analysis pipeline examples
-
-## Dependencies
-
-Core dependencies:
-- **numpy**: Numerical array operations and linear algebra
-- **matplotlib**: Plotting and visualization
-- **scikit-image**: Image processing, filtering, and thresholding algorithms
-- **scipy**: Scientific computing, optimization, and special functions
-- **pandas**: Data import and manipulation
-- **pillow**: Image file I/O (TIFF support)
-- **scikit-learn**: Machine learning (optional, for classification features)
-
-See [requirements.txt](requirements.txt) for complete list with pinned versions.
-
-## Contributing
-
-Contributions are welcome! To contribute:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please ensure your code follows Python best practices and includes appropriate documentation.
-
-## License
-
-[Add your license information here]
-
-## Authors
-
-**David Grass**
-**Ryan Su** 
-
-Created: May 11, 2023  
-Last Updated: January 2026
-
-## Citation
-
-If you use this software in your research, please cite:
-
-```
-[Add citation information here]
-```
-
-## Support
-
-For questions, issues, or feature requests:
-- Open an issue on the repository
-- Contact: [Add contact information]
-
-## Acknowledgments
-
-Development supported by [Add acknowledgments here]
+There is no automated test suite in the current repository. The validation guidance in the documentation describes focused checks for contributors.
