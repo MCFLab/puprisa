@@ -339,14 +339,13 @@
     </widget>
     <addaction name="menuBackground_Subtraction"/>
     <addaction name="actionDownsample"/>
+    <addaction name="actionStack_Math"/>
    </widget>
    <widget class="QMenu" name="menuROI">
     <property name="title">
      <string>ROI</string>
     </property>
-    <addaction name="actionImportROI"/>
-    <addaction name="actionExportROI"/>
-    <addaction name="separator"/>
+    <addaction name="actionConfigure_Selected_ROI"/>
     <addaction name="actionClearAllROIs"/>
    </widget>
    <widget class="QMenu" name="menuMask">
@@ -354,12 +353,13 @@
      <string>Mask</string>
     </property>
     <addaction name="actionImportMask"/>
+    <addaction name="actionExportSelectedMask"/>
     <addaction name="actionExportMask"/>
     <addaction name="separator"/>
     <addaction name="actionMaskAllZeroPixels"/>
     <addaction name="actionMaskIntensityThreshold"/>
     <addaction name="separator"/>
-    <addaction name="actionUnionAllMasks"/>
+    <addaction name="actionMaskMath"/>
     <addaction name="actionClearAllMasks"/>
    </widget>
    <widget class="QMenu" name="menuPhasor">
@@ -511,9 +511,9 @@
     <string>Downsample...</string>
    </property>
   </action>
-  <action name="actionUnionAllMasks">
+  <action name="actionMaskMath">
    <property name="text">
-    <string>Union All Masks</string>
+    <string>Mask Math...</string>
    </property>
   </action>
   <action name="actionAbout">
@@ -572,9 +572,19 @@
     <string>Mask from threshold...</string>
    </property>
   </action>
-  <action name="actionExport_Selected_Mask">
+  <action name="actionExportSelectedMask">
    <property name="text">
     <string>Export Selected Mask...</string>
+   </property>
+  </action>
+  <action name="actionStack_Math">
+   <property name="text">
+    <string>Stack Math...</string>
+   </property>
+  </action>
+  <action name="actionConfigure_Selected_ROI">
+   <property name="text">
+    <string>Edit Selected ROI...</string>
    </property>
   </action>
  </widget>

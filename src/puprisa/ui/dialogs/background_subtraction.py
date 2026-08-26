@@ -1,4 +1,4 @@
-# puprisa/ui/dialogs/background_subtraction_dialog.py
+# puprisa/ui/dialogs/background_subtraction.py
 from PySide6.QtWidgets import QDialog
 from puprisa.ui.generated.dialog_background_subtraction import Ui_backgroundSubtractionDialog
 

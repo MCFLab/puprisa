@@ -6,7 +6,7 @@ automatically renders the current slice.  Rendering uses the centralized
 plot state from PlotManager; this class does not own or modify that state.
 """
 
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import QObject, Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QGraphicsScene
 
@@ -118,10 +118,23 @@ class PPSPlotViewModel(QObject):
         self._render_image(pps.images[self._current_slice])
 
     def fit_view(self) -> None:
-        if self._pixmap_item is not None:
-            self._graphics_view.fitInView(
-                self._pixmap_item, Qt.AspectRatioMode.KeepAspectRatio
-            )
+        if self._pixmap_item is None:
+            return
+
+        # After each stack switch, make the scene's bounds exactly equal to
+        # the current image; otherwise sceneRect only grows and never shrinks
+        # automatically, causing small stacks to be offset to the left/up.
+        image_rect = self._pixmap_item.sceneBoundingRect()
+        self._scene.setSceneRect(image_rect)
+
+        # Clear the pan/zoom left over from the previous image, then center
+        # the current image.
+        self._graphics_view.resetTransform()
+        self._graphics_view.fitInView(
+            image_rect,
+            Qt.AspectRatioMode.KeepAspectRatio,
+        )
+        self._graphics_view.centerOn(image_rect.center())
 
     # ------------------------------------------------------------------
     # Internal rendering

@@ -116,9 +116,16 @@ class StackManager:
             item = None
         self._notify(StackEvent(event="current_changed", stack_id=item.id if item else None, stack_item=item))
 
+    def save_stack(self, stack_id: str, path, format: str) -> None:
+        """Save the stack identified by ``stack_id`` using the requested format."""
+        item = self.get_item_by_id(stack_id)
+        if item is None:
+            raise KeyError(f"Unknown stack_id: {stack_id!r}")
+        item.pps.save(path, format=format)
+
     # ------------------------------------------------------------------
     # Queries
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------ 
     def get_current_item(self) -> StackItem | None:
         if 0 <= self._current_index < len(self._items):
             return self._items[self._current_index]

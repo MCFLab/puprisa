@@ -74,10 +74,7 @@ class MaskManager:
         return new_id
 
     def remove_mask(self, stack_id: str, mask_id: str) -> None:
-        pps = self._get_pps(stack_id)
-        removed = pps.remove_mask(mask_id)
-        if not removed:
-            raise KeyError(f"Unknown mask_id: {mask_id!r}")
+        self._get_pps(stack_id).remove_mask(mask_id)
         self._notify(MaskEvent(event="removed", stack_id=stack_id, mask_id=mask_id))
         self._notify(MaskEvent(event="effective_changed", stack_id=stack_id, mask_id=mask_id))
 
@@ -91,10 +88,7 @@ class MaskManager:
         self._notify(MaskEvent(event="label_changed", stack_id=stack_id, mask_id=mask_id))
 
     def reverse_mask(self, stack_id: str, mask_id: str) -> None:
-        pps = self._get_pps(stack_id)
-        reversed_ = pps.reverse_mask(mask_id)
-        if not reversed_:
-            raise KeyError(f"Unknown mask_id: {mask_id!r}")
+        self._get_pps(stack_id).reverse_mask(mask_id)
         self._notify(MaskEvent(event="reversed", stack_id=stack_id, mask_id=mask_id))
         self._notify(MaskEvent(event="effective_changed", stack_id=stack_id, mask_id=mask_id))
 
@@ -131,8 +125,10 @@ class MaskManager:
         self._get_pps(stack_id).save_mask(path, format="json")
 
     def load_masks_from_json(self, stack_id: str, path: str | Path) -> None:
-        import json
-        with open(path, "r") as f:
-            data = json.load(f)
-        self._get_pps(stack_id).get_mask_handler().from_serializable(data)
+        try:
+            self._get_pps(stack_id).load_mask(path, format="json")
+        except (OSError, UnicodeDecodeError, ValueError, TypeError) as exc:
+            raise ValueError(f"Could not import masks from {path!s}: {exc}") from exc
+
+        self._notify(MaskEvent(event="added", stack_id=stack_id))
         self._notify(MaskEvent(event="effective_changed", stack_id=stack_id))

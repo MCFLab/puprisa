@@ -45,136 +45,120 @@ class MaskController(QObject):
             threshold, sigma, mask_on = dialog.get_params()
             self.create_threshold_mask(threshold=threshold, sigma=sigma, mask_on=mask_on)
 
-    def create_threshold_mask(self, threshold="Li", sigma=5.0, mask_on=True, label=None) -> str | None:
+    def create_threshold_mask(self, threshold="Li", sigma=5.0, mask_on=True, label=None) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return None
+            return
 
         try:
             mask_id = self._mask_manager.create_threshold_mask(stack_id=stack_id, threshold=threshold, sigma=sigma, mask_on=mask_on, label=label)
             QMessageBox.information(self._parent, "Mask", f"Mask {mask_id} created.")
-            return mask_id
         except (ValueError, KeyError) as exc:
             QMessageBox.warning(self._parent, "Mask", str(exc))
-            return None
 
     # ------------------------------------------------------------------
     # Selected mask actions
     # ------------------------------------------------------------------
-    def rename_mask(self, mask_id: str) -> bool:
+    def rename_mask(self, mask_id: str) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return False
+            return
 
         entry = self._mask_manager.get_mask(stack_id, mask_id)
         if entry is None:
             QMessageBox.warning(self._parent, "Rename Mask", "Mask not found.")
-            return False
+            return
 
         current = entry.get("label") or mask_id
         text, ok = QInputDialog.getText(self._parent, "Rename Mask", "Label:", text=current)
         if ok and text.strip():
             try:
                 self._mask_manager.set_mask_label(stack_id, mask_id, text.strip())
-                return True
             except KeyError as exc:
                 QMessageBox.warning(self._parent, "Rename Mask", str(exc))
-                return False
-        return False
+        return
 
-    def delete_mask(self, mask_id: str) -> bool:
+    def delete_mask(self, mask_id: str) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return False
+            return
         if mask_id is None:
-            return False
+            return
         try:
             self._mask_manager.remove_mask(stack_id, mask_id)
-            return True
         except KeyError as exc:
             QMessageBox.warning(self._parent, "Delete Mask", str(exc))
-            return False
 
-    def reverse_mask(self, mask_id: str) -> bool:
+    def reverse_mask(self, mask_id: str) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return False
+            return
         if mask_id is None:
-            return False
+            return
         try:
             self._mask_manager.reverse_mask(stack_id, mask_id)
-            return True
         except KeyError as exc:
             QMessageBox.warning(self._parent, "Reverse Mask", str(exc))
-            return False
 
-    def clear_all_masks(self) -> bool:
+    def clear_all_masks(self) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return False
+            return
 
         try:
             self._mask_manager.clear_all_masks(stack_id)
-            return True
         except KeyError as exc:
             QMessageBox.warning(self._parent, "Clear Masks", str(exc))
-            return False
 
     # ------------------------------------------------------------------
     # Export / import
     # ------------------------------------------------------------------
-    def export_selected_mask(self, mask_id: str) -> bool:
+    def export_selected_mask(self, mask_id: str) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return False
+            return
 
         entry = self._mask_manager.get_mask(stack_id, mask_id)
         if entry is None:
             QMessageBox.warning(self._parent, "Export Mask", "Mask not found.")
-            return False
+            return
 
         default_name = f"mask_{mask_id}.npz"
         path, _ = QFileDialog.getSaveFileName(self._parent, "Export Mask", default_name, "NPZ (*.npz);;All Files (*)")
         if not path:
-            return False
+            return
 
         try:
             np.savez(path, mask=entry["mask"], shape=np.array(entry["mask"].shape), label=np.array(entry.get("label", "")), mask_id=np.array(mask_id))
             QMessageBox.information(self._parent, "Export Mask", f"Saved to {path}.")
-            return True
         except Exception as exc:
             QMessageBox.critical(self._parent, "Export Mask", f"Export failed:\n{exc}")
-            return False
 
-    def export_all_masks(self) -> bool:
+    def export_all_masks(self) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return False
+            return
 
         path, _ = QFileDialog.getSaveFileName(self._parent, "Export All Masks", "masks.json", "JSON (*.json)")
         if not path:
-            return False
+            return
 
         try:
             self._mask_manager.save_masks_to_json(stack_id, path)
             QMessageBox.information(self._parent, "Export Masks", f"Saved to {path}.")
-            return True
         except Exception as exc:
             QMessageBox.critical(self._parent, "Export Masks", f"Export failed:\n{exc}")
-            return False
 
-    def import_masks_from_json(self) -> bool:
+    def import_masks_from_json(self) -> None:
         stack_id = self._current_stack_id()
         if stack_id is None:
-            return False
+            return
 
         path, _ = QFileDialog.getOpenFileName(self._parent, "Import Masks", "", "JSON (*.json)")
         if not path:
-            return False
+            return
 
         try:
             self._mask_manager.load_masks_from_json(stack_id, path)
-            return True
         except Exception as exc:
             QMessageBox.critical(self._parent, "Import Masks", f"Import failed:\n{exc}")
-            return False

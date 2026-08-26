@@ -93,8 +93,8 @@ class PPS:
     def add_mask(self, mask, label="", enabled=True, mask_id=None):
         return self._mask_handler.add_mask(mask, label=label, enabled=enabled, mask_id=mask_id)
 
-    def remove_mask(self, mask_id):
-        return self._mask_handler.remove_mask(mask_id)
+    def remove_mask(self, mask_id) -> None:
+        self._mask_handler.remove_mask(mask_id)
 
     def set_mask_enabled(self, mask_id, enabled):
         self._mask_handler.set_mask_enabled(mask_id, enabled)
@@ -105,8 +105,8 @@ class PPS:
     def get_mask(self, mask_id):
         return self._mask_handler.get_mask(mask_id)
 
-    def reverse_mask(self, mask_id):
-        return self._mask_handler.reverse_mask(mask_id)
+    def reverse_mask(self, mask_id) -> None:
+        self._mask_handler.reverse_mask(mask_id)
 
     def get_all_mask_ids(self):
         return self._mask_handler.get_all_mask_ids()
@@ -123,7 +123,21 @@ class PPS:
     def clear_all_masks(self):
         self._mask_handler.clear_all_masks()
 
-    def save_mask(self, path, format="json"):
+    def load_mask(self, path, format="json") -> None:
+        """Load and replace this PPS instance's mask layers."""
+        if format == "json":
+            import json
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        elif format == "pickle":
+            import pickle
+            with open(path, "rb") as f:
+                data = pickle.load(f)
+        else:
+            raise ValueError(f"Unsupported format: {format!r}. Use 'json' or 'pickle'.")
+        self._mask_handler.from_serializable(data)
+
+    def save_mask(self, path, format="json") -> None:
         data = self._mask_handler.to_serializable()
         if format == "json":
             import json

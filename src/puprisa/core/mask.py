@@ -57,14 +57,14 @@ class PPSMask:
         self._sync_effective_mask()
         return mask_id
 
-    def remove_mask(self, mask_id: str) -> bool:
-        """Remove a mask by ID. Returns True if removed."""
+    def remove_mask(self, mask_id: str) -> None:
+        """Remove a mask by ID."""
         idx = self._find_mask_index(mask_id)
         if idx is None:
-            return False
+            raise KeyError(f"No mask with id {mask_id!r}")
+
         del self.masks[idx]
         self._sync_effective_mask()
-        return True
 
     def clear_all_masks(self) -> None:
         """Remove every mask. The effective mask returns to all-True."""
@@ -84,14 +84,11 @@ class PPSMask:
         mask_entry = self._get_mask_or_raise(mask_id)
         mask_entry["label"] = str(label)
 
-    def reverse_mask(self, mask_id: str) -> bool:
-        """Reverse the boolean values of a mask. Returns True if successful."""
-        mask_entry = self._get_mask(mask_id)
-        if mask_entry is None:
-            return False
+    def reverse_mask(self, mask_id: str) -> None:
+        """Reverse a mask by ID."""
+        mask_entry = self._get_mask_or_raise(mask_id)
         mask_entry["mask"] = ~mask_entry["mask"]
         self._sync_effective_mask()
-        return True
 
     # ------------------------------------------------------------------
     # Query

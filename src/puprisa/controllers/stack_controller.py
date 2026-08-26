@@ -45,3 +45,41 @@ class StackController(QObject):
         text, ok = QInputDialog.getText(self._parent, "Rename Stack", "Enter new name:", text=item.name)
         if ok:
             self._manager.rename_stack(index, text)
+
+    def save_selected_stack(self, index: int, format: str) -> None:
+        if format == "tiff":
+            title = "Save Stack as TIFF"
+            default_suffix = ".tiff"
+            file_filter = "TIFF (*.tif *.tiff)"
+            valid_suffixes = {".tif", ".tiff"}
+        elif format == "pickle":
+            title = "Save Stack as Pickle"
+            default_suffix = ".pkl"
+            file_filter = "Pickle (*.pkl *.pickle)"
+            valid_suffixes = {".pkl", ".pickle"}
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+
+        if index < 0:
+            QMessageBox.warning(self._parent, "Save Stack", "No stack selected.")
+            return
+        item = self._manager.get_all_items()[index]
+
+        path, _ = QFileDialog.getSaveFileName(
+            self._parent,
+            title,
+            f"{item.name}{default_suffix}",
+            file_filter,
+        )
+        if not path:
+            return
+
+        output_path = Path(path)
+        if output_path.suffix.lower() not in valid_suffixes:
+            output_path = output_path.with_suffix(default_suffix)
+
+        try:
+            self._manager.save_stack(item.id, output_path, format=format)
+            QMessageBox.information(self._parent, title, f"Saved to {output_path}.")
+        except (OSError, ValueError, TypeError) as exc:
+            QMessageBox.critical(self._parent, title, f"Save failed:\n{exc}")

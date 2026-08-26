@@ -27,18 +27,10 @@ class ProcessingController(QObject):
         stack_item = self._stack_manager.get_item_by_id(stack_id)
         frame_count = len(stack_item.pps.images)
 
-        dialog = BackgroundSubtractionDialog(self._parent)
-        dialog.ui.imgNumberSpinBox.setMaximum(frame_count)
+        dialog = BackgroundSubtractionDialog(frame_count, parent=self._parent)
 
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            n = dialog.image_count()
-            use_first = dialog.use_first()
-            pixelwise = dialog.pixelwise()
-
-            if use_first:
-                indices = list(range(n))
-            else:
-                indices = list(range(frame_count - n, frame_count))
+            indices, pixelwise = dialog.get_parameters()
 
             try:
                 self._processing_manager.apply_background_subtraction(
@@ -71,6 +63,17 @@ class ProcessingController(QObject):
             return
         try:
             self._processing_manager.apply_background_subtraction_negative_delays(stack_id)
+        except ValueError as exc:
+            QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
+
+    def reset_background_subtraction(self) -> None:
+        """Reset the background subtraction for the current stack."""
+        stack_id = self._stack_manager.get_current_stack_id()
+        if stack_id is None:
+            QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
+            return
+        try:
+            self._processing_manager.reset_background_subtraction(stack_id)
         except ValueError as exc:
             QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
 
