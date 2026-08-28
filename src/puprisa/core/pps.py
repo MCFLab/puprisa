@@ -1,5 +1,5 @@
 import numpy as np
-from .mask import PPSMask
+from .mask import PPSMask, MaskItem
 from .io import PPSDataClass, load_stack, export_as_tiff, export_as_pickle
 
 
@@ -19,14 +19,14 @@ class PPS:
 
     def __init__(self, images: np.ndarray, axis_values: np.ndarray, axis_type: str = "time"):
 
-        self.images = np.asarray(images, dtype=np.float64)
+        self.images = np.asarray(images, dtype=np.float64, copy=True)
         if self.images.ndim != 3:
             raise ValueError(f"Expected 3D image stack [n_frames, h, w], got {self.images.shape}")
         if self.images.shape[0] == 0 or self.images.shape[1] == 0 or self.images.shape[2] == 0:
             raise ValueError("Image stack dimensions must all be non-zero")
         self.image_dimensions = self.images[0].shape
 
-        self.axis_values = np.asarray(axis_values, dtype=np.float64)
+        self.axis_values = np.asarray(axis_values, dtype=np.float64, copy=True)
         if len(self.axis_values) != len(self.images):
             raise ValueError("axis_values length must match number of frames")
         if not np.all(np.isfinite(self.axis_values)):
@@ -161,14 +161,14 @@ class PPS:
         return total
 
     def avg(self, mask_on: bool = True):
-        finite_images = np.where(np.isfinite(self.images), self.images, np.nan)
+        """Compute the average of each frame, optionally applying the mask."""
         if mask_on:
             if not np.any(self.mask):
                 return [0.0] * len(self.images)
-            return [float(np.nanmean(img[self.mask])) if np.any(np.isfinite(img[self.mask])) else 0.0
-                    for img in finite_images]
-        return [float(np.nanmean(img)) if np.any(np.isfinite(img)) else 0.0
-                for img in finite_images]
+            # Compute the average of each frame using only the pixels within the mask.
+            return np.nanmean(self.images[:, self.mask], axis=1)
+        # Compute the average of each frame using all pixels.
+        return np.nanmean(self.images, axis=(1, 2))
 
     def project(self, mask_on: bool = True):
         """Compute the projection of the stack, optionally applying the mask. Projection is defined as the sum of absolute values across frames."""
@@ -221,30 +221,21 @@ class PPS:
         PPS
             A new PPS instance with resampled images and analysis masks.
         """
-        from .process import downsample_mean, downsample_mask
-        from skimage.transform import downscale_local_mean
-        new_images = downsample_mean(self.images, factor)
-        new_pps = PPS(new_images, self.axis_values, axis_type=self.axis_type)
-        # --- Migrate mask layers individually, preserving IDs/labels ---
-        for mask_id in self.get_all_mask_ids():
-            mask = self.get_mask(mask_id)
-            if mask is None:
-                continue
-            mask_downsampled = downsample_mask(mask["mask"], factor)
+        from .process import downsample_local_mean, downsample_mask
+
+        new_images = downsample_local_mean(self.images, factor)
+        new_pps = self.__class__(new_images, self.axis_values, axis_type=self.axis_type)
+
+        for mask_item in self.get_all_masks():
+            mask_downsampled = downsample_mask(mask_item.mask, factor)
             new_pps.add_mask(
                 mask_downsampled,
-                label=mask.get("label", ""),
-                enabled=mask.get("enabled", True),
-                mask_id=mask_id,
-            )
-        # --- Migrate background subtraction state ---
-        if self._original_images is not None:
-            new_pps._original_images = downsample_mean(self._original_images, factor)
-        if self._background_map is not None:
-            new_pps._background_map = downscale_local_mean(
-                self._background_map.astype(np.float64), (factor, factor)
+                label=mask_item.label,
+                enabled=mask_item.enabled,
+                mask_id=mask_item.id,
             )
         new_pps.filename = self.filename
+
         return new_pps
 
     def normalize(self, norm="minmax", mask_on=True):
@@ -265,7 +256,7 @@ class PPS:
         PPS
             The current PPS instance with normalized images.
         """
-        from .process import normalize_minmax
+        from .process import normalize_by_avg_curve
 
         if norm is None:
             return self
@@ -274,7 +265,7 @@ class PPS:
 
         # Compute scale factor from ORIGINAL data **before** modifying images.
         avg_curve = np.array(self.avg(mask_on=mask_on), dtype=np.float64)
-        scaled_images, scale_factor = normalize_minmax(self.images, avg_curve)
+        scaled_images, scale_factor = normalize_by_avg_curve(self.images, avg_curve)
 
         # Apply normalization.
         self.images = scaled_images
@@ -284,7 +275,24 @@ class PPS:
             self._original_images = self._original_images / scale_factor
             self._background_map = self._background_map / scale_factor
 
-        return self
+    def slice(self, indices: list[int]):
+        """Create a new PPS instance with only the selected frames.
+
+        Parameters
+        ----------
+        indices : list of int
+            List of frame indices to keep.
+
+        Returns
+        -------
+        PPS
+            A new PPS instance with the selected frames.
+        """
+        if not indices:
+            raise ValueError("No indices provided for slicing.")
+        pps_sliced = self.__class__(self.images[indices], self.axis_values[indices], axis_type=self.axis_type)
+        pps_sliced._mask_handler = self._mask_handler.copy()
+        return pps_sliced
 
     def apply_background_subtraction(self, indices, pixelwise=True):
         """Update display images by subtracting a background map."""

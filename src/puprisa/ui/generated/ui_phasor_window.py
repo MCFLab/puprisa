@@ -19,8 +19,8 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
 from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QGraphicsView,
     QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
     QMainWindow, QMenu, QMenuBar, QPushButton,
-    QSizePolicy, QSlider, QSplitter, QStatusBar,
-    QVBoxLayout, QWidget)
+    QSizePolicy, QSlider, QStatusBar, QVBoxLayout,
+    QWidget)
 
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
 from puprisa.ui.widgets.scrollable_graphics_view import ScrollableGraphicsView
@@ -47,6 +47,10 @@ class Ui_MainWindow(object):
         self.actionViewCurve.setObjectName(u"actionViewCurve")
         self.actionExportCurve = QAction(MainWindow)
         self.actionExportCurve.setObjectName(u"actionExportCurve")
+        self.actionEdit_ROI = QAction(MainWindow)
+        self.actionEdit_ROI.setObjectName(u"actionEdit_ROI")
+        self.actionClear_All_ROI = QAction(MainWindow)
+        self.actionClear_All_ROI.setObjectName(u"actionClear_All_ROI")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout_6 = QHBoxLayout(self.centralwidget)
@@ -83,27 +87,32 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_6.addLayout(self.verticalLayout)
 
-        self.splitter = QSplitter(self.centralwidget)
-        self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Orientation.Vertical)
-        self.plotCanvas = MatplotlibFigureCanvas(self.splitter)
+        self.verticalLayout_3 = QVBoxLayout()
+        self.verticalLayout_3.setObjectName(u"verticalLayout_3")
+        self.plotCanvas = MatplotlibFigureCanvas(self.centralwidget)
         self.plotCanvas.setObjectName(u"plotCanvas")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.plotCanvas.sizePolicy().hasHeightForWidth())
         self.plotCanvas.setSizePolicy(sizePolicy)
-        self.splitter.addWidget(self.plotCanvas)
-        self.ppsGraphicsView = QGraphicsView(self.splitter)
+
+        self.verticalLayout_3.addWidget(self.plotCanvas)
+
+        self.ppsGraphicsView = QGraphicsView(self.centralwidget)
         self.ppsGraphicsView.setObjectName(u"ppsGraphicsView")
         sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
         sizePolicy1.setHeightForWidth(self.ppsGraphicsView.sizePolicy().hasHeightForWidth())
         self.ppsGraphicsView.setSizePolicy(sizePolicy1)
-        self.splitter.addWidget(self.ppsGraphicsView)
 
-        self.horizontalLayout_6.addWidget(self.splitter)
+        self.verticalLayout_3.addWidget(self.ppsGraphicsView)
+
+        self.verticalLayout_3.setStretch(0, 2)
+        self.verticalLayout_3.setStretch(1, 1)
+
+        self.horizontalLayout_6.addLayout(self.verticalLayout_3)
 
         self.verticalLayout_2 = QVBoxLayout()
         self.verticalLayout_2.setObjectName(u"verticalLayout_2")
@@ -247,10 +256,13 @@ class Ui_MainWindow(object):
         self.menuView.setObjectName(u"menuView")
         self.menuCurve = QMenu(self.menubar)
         self.menuCurve.setObjectName(u"menuCurve")
+        self.menuROI = QMenu(self.menubar)
+        self.menuROI.setObjectName(u"menuROI")
         MainWindow.setMenuBar(self.menubar)
 
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuView.menuAction())
+        self.menubar.addAction(self.menuROI.menuAction())
         self.menubar.addAction(self.menuCurve.menuAction())
         self.menubar.addAction(self.menuExport.menuAction())
         self.menuFile.addAction(self.actionOpenStack)
@@ -263,6 +275,8 @@ class Ui_MainWindow(object):
         self.menuCurve.addSeparator()
         self.menuCurve.addAction(self.actionViewCurve)
         self.menuCurve.addAction(self.actionExportCurve)
+        self.menuROI.addAction(self.actionEdit_ROI)
+        self.menuROI.addAction(self.actionClear_All_ROI)
 
         self.retranslateUi(MainWindow)
 
@@ -279,6 +293,8 @@ class Ui_MainWindow(object):
         self.actionSavePhasorView.setText(QCoreApplication.translate("MainWindow", u"Save Phasor View...", None))
         self.actionViewCurve.setText(QCoreApplication.translate("MainWindow", u"View Curve...", None))
         self.actionExportCurve.setText(QCoreApplication.translate("MainWindow", u"Export Curve...", None))
+        self.actionEdit_ROI.setText(QCoreApplication.translate("MainWindow", u"Edit ROI...", None))
+        self.actionClear_All_ROI.setText(QCoreApplication.translate("MainWindow", u"Clear All ROI", None))
         self.Frequency.setText(QCoreApplication.translate("MainWindow", u"Frequency", None))
         self.stackMgrLabel.setText(QCoreApplication.translate("MainWindow", u"Multi Stack Manager", None))
         self.stackAddButton.setText(QCoreApplication.translate("MainWindow", u"Add", None))
@@ -303,5 +319,6 @@ class Ui_MainWindow(object):
         self.menuExport.setTitle(QCoreApplication.translate("MainWindow", u"Help", None))
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))
         self.menuCurve.setTitle(QCoreApplication.translate("MainWindow", u"Curve", None))
+        self.menuROI.setTitle(QCoreApplication.translate("MainWindow", u"ROI", None))
     # retranslateUi
 

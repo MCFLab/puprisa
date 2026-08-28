@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from puprisa.model.stack_manager import StackManager
-
+from puprisa.core.mask import MaskItem
 
 @dataclass(frozen=True)
 class MaskEvent:
@@ -55,10 +55,10 @@ class MaskManager:
     # ------------------------------------------------------------------
     # CRUD (delegating to PPS / PPSMask)
     # ------------------------------------------------------------------
-    def get_all_masks(self, stack_id: str) -> list[dict]:
+    def get_all_masks(self, stack_id: str) -> list[MaskItem]:
         return self._get_pps(stack_id).get_all_masks()
 
-    def get_mask(self, stack_id: str, mask_id: str) -> dict | None:
+    def get_mask(self, stack_id: str, mask_id: str) -> MaskItem | None:
         return self._get_pps(stack_id).get_mask(mask_id)
 
     def get_effective_mask(self, stack_id: str) -> np.ndarray:
@@ -96,6 +96,49 @@ class MaskManager:
         self._get_pps(stack_id).clear_all_masks()
         self._notify(MaskEvent(event="cleared", stack_id=stack_id))
         self._notify(MaskEvent(event="effective_changed", stack_id=stack_id))
+
+
+    # ------------------------------------------------------------------
+    # Mask math
+    # ------------------------------------------------------------------
+    def combine_masks(self, stack_id: str, first_mask_id: str, operation: str, second_mask_id: str | None = None, label: str | None = None) -> str:
+        """Create a mask from boolean operations on stored exclude masks.
+
+        ``True`` values mark excluded pixels, so the requested boolean
+        operation is applied directly to the two stored mask arrays.  ``NOT``
+        is unary and therefore does not require ``second_mask_id``.
+        """
+        first = self.get_mask(stack_id, first_mask_id)
+        if first is None:
+            raise KeyError(f"Unknown mask_id: {first_mask_id!r}")
+
+        first_mask = first.mask
+        first_label = first.label or first_mask_id
+
+        if operation == "not":
+            result = ~first_mask
+            default_label = f"NOT {first_label}"
+        else:
+            if second_mask_id is None:
+                raise ValueError("Select Mask 2")
+            second = self.get_mask(stack_id, second_mask_id)
+            if second is None:
+                raise KeyError(f"Unknown mask_id: {second_mask_id!r}")
+            second_mask = second.mask
+            second_label = second.label or second_mask_id
+            operations = {
+                "and": ("AND", np.logical_and),
+                "or": ("OR", np.logical_or),
+                "xor": ("XOR", np.logical_xor),
+            }
+            try:
+                symbol, combine = operations[operation]
+            except KeyError as exc:
+                raise ValueError(f"Unsupported mask operation: {operation!r}") from exc
+            result = combine(first_mask, second_mask)
+            default_label = f"{first_label} {symbol} {second_label}"
+
+        return self.add_mask(stack_id, result, label=default_label if label is None else label, enabled=True)
 
     # ------------------------------------------------------------------
     # Threshold creation

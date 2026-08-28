@@ -5,7 +5,7 @@ from puprisa.model.processing_manager import ProcessingManager
 from puprisa.model.stack_manager import StackManager
 from puprisa.ui.dialogs.background_subtraction import BackgroundSubtractionDialog
 from puprisa.ui.dialogs.stack_math import StackMathDialog
-
+from puprisa.utils.range_parser_utils import parse_range_string
 
 class ProcessingController(QObject):
     def __init__(self, stack_manager: StackManager, processing_manager: ProcessingManager, parent_widget: QWidget):
@@ -56,14 +56,26 @@ class ProcessingController(QObject):
         except ValueError as exc:
             QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
 
-    def apply_background_subtraction_negative_delays(self) -> None:
-        """Subtract the average of all negative-delay frames from the stack."""
+    def show_neg_delay_background_subtraction_dialog(self) -> None:
+        """Ask the user for pixelwise or whole-image subtraction and apply background subtraction using negative-delay frames."""
         stack_id = self._stack_manager.get_current_stack_id()
         if stack_id is None:
             QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
             return
+        items = ["Pixelwise", "Whole image"]
+        choice, ok = QInputDialog.getItem(
+            self._parent,
+            "Background Subtraction",
+            "Select subtraction method:",
+            items,
+            0,
+            False
+        )
+        if not ok:
+            return
+        pixelwise = (choice == "Pixelwise")
         try:
-            self._processing_manager.apply_background_subtraction_negative_delays(stack_id)
+            self._processing_manager.apply_background_subtraction_negative_delays(stack_id, pixelwise=pixelwise)
         except ValueError as exc:
             QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
 
@@ -91,6 +103,45 @@ class ProcessingController(QObject):
             self._processing_manager.svd_reconstruct(stack_id, n_components)
         except (ValueError, TypeError) as exc:
             QMessageBox.critical(self._parent, "SVD Denoising", str(exc))
+
+    def show_slice_dialog(self) -> None:
+        stack_id = self._stack_manager.get_current_stack_id()
+        if stack_id is None:
+            QMessageBox.warning(self._parent, "Slice Stack", "Please select a stack first.")
+            return
+
+        stack_item = self._stack_manager.get_item_by_id(stack_id)
+        n_frames = len(stack_item.pps.images)
+        text, ok = QInputDialog.getText(
+            self._parent,
+            "Slice Stack",
+            f"Enter frame numbers (1-based, e.g., 1,3-5) [1-{n_frames}]:"
+        )
+        if not ok or not text.strip():
+            return
+        try:
+            # User inputs 1-based frame numbers, we convert to 0-based indices for internal processing
+            indices = parse_range_string(text, offset=-1)
+        except ValueError as exc:
+            QMessageBox.critical(self._parent, "Slice Stack", f"Invalid input: {exc}")
+            return
+
+        if not indices:
+            QMessageBox.critical(self._parent, "Slice Stack", "No valid frames provided.")
+            return
+        if any(i < 0 or i >= n_frames for i in indices):
+            QMessageBox.critical(self._parent, "Slice Stack", f"Frame numbers must be between 1 and {n_frames}.")
+            return
+        try:
+            pps_sliced = stack_item.pps.slice(indices)
+        except (ValueError, TypeError) as exc:
+            QMessageBox.critical(self._parent, "Slice Stack", f"Slice failed: {exc}")
+            return
+        try:
+            new_id = self._stack_manager.add_stack(pps=pps_sliced, name=f"{stack_item.name} (sliced)")
+            QMessageBox.information(self._parent, "Slice Stack", f"Created new stack: {new_id}")
+        except (ValueError, TypeError) as exc:
+            QMessageBox.critical(self._parent, "Slice Stack", f"Failed to add stack: {exc}")
 
     def show_stack_math_dialog(self) -> None:
         """Combine two registered stacks and add the result as a new stack."""

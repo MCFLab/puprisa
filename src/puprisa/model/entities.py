@@ -4,12 +4,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 import numpy as np
+from puprisa.core.pps import PPS
 
 @dataclass
 class StackItem:
     """A loaded pump-probe stack and its UI metadata."""
     id: str
-    pps: Any
+    pps: PPS
     name: str
     visible: bool = True
     color: str = "#000000"

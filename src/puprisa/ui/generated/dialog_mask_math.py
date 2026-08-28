@@ -17,7 +17,8 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QAbstractButton, QApplication, QComboBox, QDialog,
     QDialogButtonBox, QHBoxLayout, QLabel, QListWidget,
-    QListWidgetItem, QSizePolicy, QVBoxLayout, QWidget)
+    QListWidgetItem, QSizePolicy, QSpacerItem, QVBoxLayout,
+    QWidget)
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -47,6 +48,15 @@ class Ui_Dialog(object):
         self.opLabel.setSizePolicy(sizePolicy)
 
         self.horizontalLayout.addWidget(self.opLabel)
+
+        self.infoLabel = QLabel(Dialog)
+        self.infoLabel.setObjectName(u"infoLabel")
+
+        self.horizontalLayout.addWidget(self.infoLabel)
+
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout.addItem(self.horizontalSpacer)
 
         self.opComboBox = QComboBox(Dialog)
         self.opComboBox.addItem("")
@@ -88,7 +98,11 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Mask Math", None))
         self.mask1Label.setText(QCoreApplication.translate("Dialog", u"Mask 1", None))
-        self.opLabel.setText(QCoreApplication.translate("Dialog", u"Operation:", None))
+        self.opLabel.setText(QCoreApplication.translate("Dialog", u"Operation", None))
+#if QT_CONFIG(tooltip)
+        self.infoLabel.setToolTip(QCoreApplication.translate("Dialog", u"The masked area is where bool = True.", None))
+#endif // QT_CONFIG(tooltip)
+        self.infoLabel.setText(QCoreApplication.translate("Dialog", u"Info", None))
         self.opComboBox.setItemText(0, QCoreApplication.translate("Dialog", u"AND", None))
         self.opComboBox.setItemText(1, QCoreApplication.translate("Dialog", u"OR", None))
         self.opComboBox.setItemText(2, QCoreApplication.translate("Dialog", u"NOT", None))

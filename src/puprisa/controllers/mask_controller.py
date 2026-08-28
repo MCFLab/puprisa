@@ -7,11 +7,12 @@ Does not touch list widgets or any persistent view state — those belong to :cl
 from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QDialog, QFileDialog, QInputDialog, QMessageBox, QWidget
 
-import numpy as np
+import json
 
 from puprisa.model.mask_manager import MaskManager
 from puprisa.model.stack_manager import StackManager
 from puprisa.ui.dialogs.intensity_threshold import IntensityThresholdDialog
+from puprisa.ui.dialogs.mask_math import MaskMathDialog
 
 
 class MaskController(QObject):
@@ -64,12 +65,12 @@ class MaskController(QObject):
         if stack_id is None:
             return
 
-        entry = self._mask_manager.get_mask(stack_id, mask_id)
-        if entry is None:
+        mask_item = self._mask_manager.get_mask(stack_id, mask_id)
+        if mask_item is None:
             QMessageBox.warning(self._parent, "Rename Mask", "Mask not found.")
             return
 
-        current = entry.get("label") or mask_id
+        current = mask_item.label or mask_id
         text, ok = QInputDialog.getText(self._parent, "Rename Mask", "Label:", text=current)
         if ok and text.strip():
             try:
@@ -109,7 +110,29 @@ class MaskController(QObject):
             self._mask_manager.clear_all_masks(stack_id)
         except KeyError as exc:
             QMessageBox.warning(self._parent, "Clear Masks", str(exc))
+    
+    # ------------------------------------------------------------------
+    # Mask math
+    # ------------------------------------------------------------------
+    def show_mask_math_dialog(self) -> None:
+        """Combine stored masks on the current stack into a new mask layer."""
+        stack_id = self._current_stack_id()
+        if stack_id is None:
+            return
+        masks = self._mask_manager.get_all_masks(stack_id)
+        if not masks:
+            QMessageBox.warning(self._parent, "Mask Math", "Create a mask first.")
+            return
 
+        dialog = MaskMathDialog(masks, parent=self._parent)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            mask_id = self._mask_manager.combine_masks(stack_id=stack_id, **dialog.get_parameters())
+            QMessageBox.information(self._parent, "Mask Math", f"Mask {mask_id} created.")
+        except (KeyError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self._parent, "Mask Math", str(exc))
+            
     # ------------------------------------------------------------------
     # Export / import
     # ------------------------------------------------------------------
@@ -123,13 +146,32 @@ class MaskController(QObject):
             QMessageBox.warning(self._parent, "Export Mask", "Mask not found.")
             return
 
-        default_name = f"mask_{mask_id}.npz"
-        path, _ = QFileDialog.getSaveFileName(self._parent, "Export Mask", default_name, "NPZ (*.npz);;All Files (*)")
+        default_name = f"mask_{mask_id}.json"
+        path, _ = QFileDialog.getSaveFileName(
+            self._parent,
+            "Export Mask",
+            default_name,
+            "JSON (*.json);;All Files (*)",
+        )
         if not path:
             return
 
         try:
-            np.savez(path, mask=entry["mask"], shape=np.array(entry["mask"].shape), label=np.array(entry.get("label", "")), mask_id=np.array(mask_id))
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(
+                    {
+                        "masks": [
+                            {
+                                "id": entry.id,
+                                "label": entry.label,
+                                "mask": entry.mask.tolist(),
+                                "enabled": entry.enabled,
+                            }
+                        ]
+                    },
+                    file,
+                    indent=2,
+                )
             QMessageBox.information(self._parent, "Export Mask", f"Saved to {path}.")
         except Exception as exc:
             QMessageBox.critical(self._parent, "Export Mask", f"Export failed:\n{exc}")

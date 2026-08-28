@@ -84,7 +84,7 @@ def subtract_background(images: np.ndarray, background_map: np.ndarray) -> np.nd
     return np.nan_to_num(result, nan=0.0, posinf=0.0, neginf=0.0)
 
 
-def normalize_minmax(images: np.ndarray, avg_curve=None) -> tuple[np.ndarray, float]:
+def normalize_by_avg_curve(images: np.ndarray, avg_curve=None) -> tuple[np.ndarray, float]:
     """Normalize stack by the max absolute value of the average curve.
 
     Parameters
@@ -105,9 +105,9 @@ def normalize_minmax(images: np.ndarray, avg_curve=None) -> tuple[np.ndarray, fl
             avg_curve = np.nanmean(np.asarray(images, dtype=np.float64), axis=(1, 2))
     finite_curve = np.asarray(avg_curve, dtype=np.float64)
     finite_curve = finite_curve[np.isfinite(finite_curve)]
+
     extremum = float(np.max(np.abs(finite_curve))) if finite_curve.size else 0.0
-    if extremum == 0:
-        extremum = 1.0
+    extremum = max(extremum, 1e-9) # Avoid division by zero
     return np.nan_to_num(np.asarray(images, dtype=np.float64) / extremum,
                          nan=0.0, posinf=0.0, neginf=0.0), extremum
 
@@ -119,7 +119,7 @@ def downsample_mask(mask: np.ndarray, factor: int) -> np.ndarray:
     """
     return downscale_local_mean(mask.astype(np.float64), (factor, factor)) > 0
 
-def downsample_mean(images: np.ndarray, factor: int) -> np.ndarray:
+def downsample_local_mean(images: np.ndarray, factor: int) -> np.ndarray:
     """Downsample stack using local mean.
 
     Parameters
@@ -134,7 +134,7 @@ def downsample_mean(images: np.ndarray, factor: int) -> np.ndarray:
     """
     if factor <= 0:
         raise ValueError("Downsampling factor must be positive")
-    return np.stack([downscale_local_mean(img, (factor, factor)) for img in images])
+    return downscale_local_mean(images, (1, factor, factor))
 
 
 def average_groups(images: np.ndarray, groups_indices: list[list[int]]) -> np.ndarray:

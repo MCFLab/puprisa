@@ -17,94 +17,96 @@
    <enum>QTabWidget::TabShape::Rounded</enum>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="3,1">
+   <layout class="QHBoxLayout" name="horizontalLayout" stretch="2,2,1">
     <item>
-     <widget class="QSplitter" name="splitter">
-      <property name="orientation">
-       <enum>Qt::Orientation::Horizontal</enum>
-      </property>
-      <widget class="QWidget" name="layoutWidget">
-       <layout class="QVBoxLayout" name="sliceViewVLayout">
+     <layout class="QVBoxLayout" name="sliceViewVLayout">
+      <item>
+       <widget class="ScrollableGraphicsView" name="ppsGraphicsView">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="verticalScrollBarPolicy">
+         <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+        </property>
+        <property name="horizontalScrollBarPolicy">
+         <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="MatplotlibFigureCanvas" name="colorbar" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>40</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>80</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="sliderLayout">
         <item>
-         <widget class="ScrollableGraphicsView" name="ppsGraphicsView">
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="verticalScrollBarPolicy">
-           <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
-          </property>
-          <property name="horizontalScrollBarPolicy">
-           <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+         <widget class="QLabel" name="sliceNumberLabel">
+          <property name="text">
+           <string>Slice</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="MatplotlibFigureCanvas" name="colorbar" native="true">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>40</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>80</height>
-           </size>
+         <widget class="QSlider" name="sliceSlider">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
           </property>
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="sliderLayout">
-          <item>
-           <widget class="QLabel" name="sliceNumberLabel">
-            <property name="text">
-             <string>Slice</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QSlider" name="sliceSlider">
-            <property name="orientation">
-             <enum>Qt::Orientation::Horizontal</enum>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLabel" name="axisLabel">
-            <property name="text">
-             <string>AxisLabel</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="QLabel" name="axisLabel">
+          <property name="text">
+           <string>AxisLabel</string>
+          </property>
+         </widget>
         </item>
        </layout>
-      </widget>
-      <widget class="MatplotlibFigureCanvas" name="plotCanvas" native="true">
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>16777215</height>
-        </size>
-       </property>
-      </widget>
-     </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="canvasVLayout" stretch="0,0">
+      <item>
+       <widget class="MatplotlibFigureCanvas" name="plotCanvas" native="true">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="MatplotlibFigureCanvas" name="fftCanvas" native="true"/>
+      </item>
+     </layout>
     </item>
     <item>
      <layout class="QVBoxLayout" name="managerVLayout">
@@ -323,56 +325,12 @@
     <addaction name="separator"/>
     <addaction name="actionSaveView"/>
    </widget>
-   <widget class="QMenu" name="menuProcess">
-    <property name="title">
-     <string>Process</string>
-    </property>
-    <widget class="QMenu" name="menuBackground_Subtraction">
-     <property name="title">
-      <string>Background Subtraction</string>
-     </property>
-     <addaction name="actionSubNegativeTime"/>
-     <addaction name="actionSubFirstLastNFrames"/>
-     <addaction name="actionSubFixedValue"/>
-     <addaction name="separator"/>
-     <addaction name="actionResetBackgroundSubtraction"/>
-    </widget>
-    <addaction name="menuBackground_Subtraction"/>
-    <addaction name="actionDownsample"/>
-    <addaction name="actionStack_Math"/>
-   </widget>
    <widget class="QMenu" name="menuROI">
     <property name="title">
      <string>ROI</string>
     </property>
-    <addaction name="actionConfigure_Selected_ROI"/>
-    <addaction name="actionClearAllROIs"/>
-   </widget>
-   <widget class="QMenu" name="menuMask">
-    <property name="title">
-     <string>Mask</string>
-    </property>
-    <addaction name="actionImportMask"/>
-    <addaction name="actionExportSelectedMask"/>
-    <addaction name="actionExportMask"/>
-    <addaction name="separator"/>
-    <addaction name="actionMaskAllZeroPixels"/>
-    <addaction name="actionMaskIntensityThreshold"/>
-    <addaction name="separator"/>
-    <addaction name="actionMaskMath"/>
-    <addaction name="actionClearAllMasks"/>
-   </widget>
-   <widget class="QMenu" name="menuPhasor">
-    <property name="title">
-     <string>Phasor</string>
-    </property>
-    <addaction name="actionPhasor"/>
-   </widget>
-   <widget class="QMenu" name="menuNoise">
-    <property name="title">
-     <string>Noise</string>
-    </property>
-    <addaction name="actionNoise"/>
+    <addaction name="actionEditROI"/>
+    <addaction name="actionClearAllROI"/>
    </widget>
    <widget class="QMenu" name="menuAbout">
     <property name="title">
@@ -380,24 +338,9 @@
     </property>
     <addaction name="actionAbout"/>
    </widget>
-   <widget class="QMenu" name="menuCurve">
-    <property name="title">
-     <string>Curve</string>
-    </property>
-    <addaction name="actionNormalizeCurve"/>
-    <addaction name="actionCurveFit"/>
-    <addaction name="separator"/>
-    <addaction name="actionViewCurve"/>
-    <addaction name="actionExportCurve"/>
-   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
-   <addaction name="menuProcess"/>
    <addaction name="menuROI"/>
-   <addaction name="menuMask"/>
-   <addaction name="menuCurve"/>
-   <addaction name="menuPhasor"/>
-   <addaction name="menuNoise"/>
    <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -471,9 +414,9 @@
     <string>Export ROI...</string>
    </property>
   </action>
-  <action name="actionClearAllROIs">
+  <action name="actionClearAllROI">
    <property name="text">
-    <string>Clear All ROIs</string>
+    <string>Clear All ROI</string>
    </property>
   </action>
   <action name="actionImportMask">
@@ -582,9 +525,9 @@
     <string>Stack Math...</string>
    </property>
   </action>
-  <action name="actionConfigure_Selected_ROI">
+  <action name="actionEditROI">
    <property name="text">
-    <string>Edit Selected ROI...</string>
+    <string>Edit ROI...</string>
    </property>
   </action>
  </widget>

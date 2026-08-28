@@ -339,6 +339,7 @@
     </widget>
     <addaction name="menuBackground_Subtraction"/>
     <addaction name="actionDownsample"/>
+    <addaction name="actionSlice"/>
     <addaction name="actionSVDDenoise"/>
     <addaction name="actionStackMath"/>
    </widget>
@@ -346,8 +347,8 @@
     <property name="title">
      <string>ROI</string>
     </property>
-    <addaction name="actionConfigure_Selected_ROI"/>
-    <addaction name="actionClearAllROIs"/>
+    <addaction name="actionEditROI"/>
+    <addaction name="actionClearAllROI"/>
    </widget>
    <widget class="QMenu" name="menuMask">
     <property name="title">
@@ -472,9 +473,9 @@
     <string>Export ROI...</string>
    </property>
   </action>
-  <action name="actionClearAllROIs">
+  <action name="actionClearAllROI">
    <property name="text">
-    <string>Clear All ROIs</string>
+    <string>Clear All ROI</string>
    </property>
   </action>
   <action name="actionImportMask">
@@ -583,14 +584,24 @@
     <string>Stack Math...</string>
    </property>
   </action>
-  <action name="actionConfigure_Selected_ROI">
+  <action name="actionEditROI">
    <property name="text">
-    <string>Edit Selected ROI...</string>
+    <string>Edit ROI...</string>
    </property>
   </action>
   <action name="actionSVDDenoise">
    <property name="text">
     <string>SVD Denoise...</string>
+   </property>
+  </action>
+  <action name="actionStack_Slice">
+   <property name="text">
+    <string>Slice Stack...</string>
+   </property>
+  </action>
+  <action name="actionSlice">
+   <property name="text">
+    <string>Slice...</string>
    </property>
   </action>
  </widget>

@@ -8,6 +8,7 @@ automatically via StackManager events.
 from PySide6.QtCore import QObject, Qt, QSignalBlocker
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
+from puprisa.core.mask import MaskItem
 from puprisa.model.mask_manager import MaskEvent, MaskManager
 from puprisa.model.stack_manager import StackEvent, StackManager
 
@@ -56,8 +57,8 @@ class MaskViewModel(QObject):
         stack_id = self._current_stack_id()
         if stack_id is None:
             return
-        entry = self._mask_manager.get_mask(stack_id, mask_id)
-        if entry is not None and entry.get("enabled", True) != enabled:
+        mask_item = self._mask_manager.get_mask(stack_id, mask_id)
+        if mask_item is not None and mask_item.enabled != enabled:
             self._mask_manager.set_mask_enabled(stack_id, mask_id, enabled)
 
     # ------------------------------------------------------------------
@@ -73,9 +74,9 @@ class MaskViewModel(QObject):
                 self._list_widget.addItem(self._make_item(entry))
 
     @staticmethod
-    def _make_item(entry: dict) -> QListWidgetItem:
-        mask_id = entry.get("id", "")
-        label = entry.get("label") or mask_id
+    def _make_item(mask_item: MaskItem) -> QListWidgetItem:
+        mask_id = mask_item.id
+        label = mask_item.label or mask_id
         item = QListWidgetItem(f"{label} [{mask_id}]")
         item.setData(Qt.ItemDataRole.UserRole, mask_id)
         item.setFlags(
@@ -84,7 +85,7 @@ class MaskViewModel(QObject):
             | Qt.ItemFlag.ItemIsEnabled
         )
         item.setCheckState(
-            Qt.CheckState.Checked if entry.get("enabled", True) else Qt.CheckState.Unchecked
+            Qt.CheckState.Checked if mask_item.enabled else Qt.CheckState.Unchecked
         )
         return item
 

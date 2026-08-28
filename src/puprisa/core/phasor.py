@@ -2,6 +2,7 @@
 """Pure phasor-transform helpers."""
 
 import numpy as np
+from scipy.signal import welch
 
 def flatten_stack(images: np.ndarray) -> np.ndarray:
     """Flatten an image stack into pixel * time curves.
@@ -108,3 +109,53 @@ def universal_semicircle(n_points: int = 400) -> tuple[np.ndarray, np.ndarray]:
     g = 0.5 * (1.0 + np.cos(theta))
     s = 0.5 * np.sin(theta)
     return g, s
+
+def compute_spectrum(signal: np.ndarray, axis_values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the Fourier spectrum of a 1D signal.
+
+    Parameters
+    ----------
+    signal : 1D array
+        The input signal to analyze.
+    axis_values : 1D array
+        The independent variable values corresponding to the signal.
+
+    Returns
+    -------
+    freqs : 1D array
+        Frequencies corresponding to the computed spectrum.
+    spectrum : 1D array
+        The magnitude of the Fourier transform of the signal.
+    """
+    signal = np.asarray(signal, dtype=np.float64)
+    axis_values = np.asarray(axis_values, dtype=np.float64)
+
+    if signal.ndim != 1 or axis_values.ndim != 1:
+        raise ValueError("signal and axis_values must be 1D arrays")
+    if signal.size != axis_values.size:
+        raise ValueError("signal and axis_values must have the same length")
+    if not np.all(np.isfinite(axis_values)):
+        raise ValueError("axis_values must contain only finite values")
+
+    # Compute the sampling interval and frequency bins
+    dt = np.mean(np.diff(axis_values))
+    n = signal.size
+    freqs = np.fft.rfftfreq(n, d=dt)
+
+    # Compute the Fourier transform and its magnitude
+    spectrum = np.abs(np.fft.rfft(signal))
+
+    # NOISE ANALYSIS ON PEAK AMPLITUDES
+    avg = np.mean(signal)
+    fluctuation = signal - avg
+    relative_fluctuation = fluctuation / avg
+    dt = np.mean(np.diff(axis_values))
+    fs = 1.0 / dt  # Sampling frequency
+
+    # Spectral analysis using Welch's method
+    freq, psd = welch(relative_fluctuation, fs=fs, nperseg=4096)
+    psd_dBc = 10 * np.log10(psd)
+
+    return freqs, spectrum
+
+

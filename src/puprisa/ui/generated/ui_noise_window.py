@@ -19,8 +19,7 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
 from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
     QListWidget, QListWidgetItem, QMainWindow, QMenu,
     QMenuBar, QPushButton, QSizePolicy, QSlider,
-    QSplitter, QStatusBar, QTabWidget, QVBoxLayout,
-    QWidget)
+    QStatusBar, QTabWidget, QVBoxLayout, QWidget)
 
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
 from puprisa.ui.widgets.scrollable_graphics_view import ScrollableGraphicsView
@@ -59,8 +58,8 @@ class Ui_MainWindow(object):
         self.actionImportROI.setObjectName(u"actionImportROI")
         self.actionExportROI = QAction(MainWindow)
         self.actionExportROI.setObjectName(u"actionExportROI")
-        self.actionClearAllROIs = QAction(MainWindow)
-        self.actionClearAllROIs.setObjectName(u"actionClearAllROIs")
+        self.actionClearAllROI = QAction(MainWindow)
+        self.actionClearAllROI.setObjectName(u"actionClearAllROI")
         self.actionImportMask = QAction(MainWindow)
         self.actionImportMask.setObjectName(u"actionImportMask")
         self.actionExportMask = QAction(MainWindow)
@@ -103,21 +102,15 @@ class Ui_MainWindow(object):
         self.actionExportSelectedMask.setObjectName(u"actionExportSelectedMask")
         self.actionStack_Math = QAction(MainWindow)
         self.actionStack_Math.setObjectName(u"actionStack_Math")
-        self.actionConfigure_Selected_ROI = QAction(MainWindow)
-        self.actionConfigure_Selected_ROI.setObjectName(u"actionConfigure_Selected_ROI")
+        self.actionEditROI = QAction(MainWindow)
+        self.actionEditROI.setObjectName(u"actionEditROI")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
-        self.horizontalLayout_6 = QHBoxLayout(self.centralwidget)
-        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
-        self.splitter = QSplitter(self.centralwidget)
-        self.splitter.setObjectName(u"splitter")
-        self.splitter.setOrientation(Qt.Orientation.Horizontal)
-        self.layoutWidget = QWidget(self.splitter)
-        self.layoutWidget.setObjectName(u"layoutWidget")
-        self.sliceViewVLayout = QVBoxLayout(self.layoutWidget)
+        self.horizontalLayout = QHBoxLayout(self.centralwidget)
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.sliceViewVLayout = QVBoxLayout()
         self.sliceViewVLayout.setObjectName(u"sliceViewVLayout")
-        self.sliceViewVLayout.setContentsMargins(0, 0, 0, 0)
-        self.ppsGraphicsView = ScrollableGraphicsView(self.layoutWidget)
+        self.ppsGraphicsView = ScrollableGraphicsView(self.centralwidget)
         self.ppsGraphicsView.setObjectName(u"ppsGraphicsView")
         self.ppsGraphicsView.setMinimumSize(QSize(0, 0))
         self.ppsGraphicsView.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -125,7 +118,7 @@ class Ui_MainWindow(object):
 
         self.sliceViewVLayout.addWidget(self.ppsGraphicsView)
 
-        self.colorbar = MatplotlibFigureCanvas(self.layoutWidget)
+        self.colorbar = MatplotlibFigureCanvas(self.centralwidget)
         self.colorbar.setObjectName(u"colorbar")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -139,18 +132,18 @@ class Ui_MainWindow(object):
 
         self.sliderLayout = QHBoxLayout()
         self.sliderLayout.setObjectName(u"sliderLayout")
-        self.sliceNumberLabel = QLabel(self.layoutWidget)
+        self.sliceNumberLabel = QLabel(self.centralwidget)
         self.sliceNumberLabel.setObjectName(u"sliceNumberLabel")
 
         self.sliderLayout.addWidget(self.sliceNumberLabel)
 
-        self.sliceSlider = QSlider(self.layoutWidget)
+        self.sliceSlider = QSlider(self.centralwidget)
         self.sliceSlider.setObjectName(u"sliceSlider")
         self.sliceSlider.setOrientation(Qt.Orientation.Horizontal)
 
         self.sliderLayout.addWidget(self.sliceSlider)
 
-        self.axisLabel = QLabel(self.layoutWidget)
+        self.axisLabel = QLabel(self.centralwidget)
         self.axisLabel.setObjectName(u"axisLabel")
 
         self.sliderLayout.addWidget(self.axisLabel)
@@ -158,14 +151,25 @@ class Ui_MainWindow(object):
 
         self.sliceViewVLayout.addLayout(self.sliderLayout)
 
-        self.splitter.addWidget(self.layoutWidget)
-        self.plotCanvas = MatplotlibFigureCanvas(self.splitter)
+
+        self.horizontalLayout.addLayout(self.sliceViewVLayout)
+
+        self.canvasVLayout = QVBoxLayout()
+        self.canvasVLayout.setObjectName(u"canvasVLayout")
+        self.plotCanvas = MatplotlibFigureCanvas(self.centralwidget)
         self.plotCanvas.setObjectName(u"plotCanvas")
         self.plotCanvas.setMinimumSize(QSize(0, 0))
         self.plotCanvas.setMaximumSize(QSize(16777215, 16777215))
-        self.splitter.addWidget(self.plotCanvas)
 
-        self.horizontalLayout_6.addWidget(self.splitter)
+        self.canvasVLayout.addWidget(self.plotCanvas)
+
+        self.fftCanvas = MatplotlibFigureCanvas(self.centralwidget)
+        self.fftCanvas.setObjectName(u"fftCanvas")
+
+        self.canvasVLayout.addWidget(self.fftCanvas)
+
+
+        self.horizontalLayout.addLayout(self.canvasVLayout)
 
         self.managerVLayout = QVBoxLayout()
         self.managerVLayout.setObjectName(u"managerVLayout")
@@ -299,10 +303,11 @@ class Ui_MainWindow(object):
         self.managerVLayout.addLayout(self.horizontalLayout_5)
 
 
-        self.horizontalLayout_6.addLayout(self.managerVLayout)
+        self.horizontalLayout.addLayout(self.managerVLayout)
 
-        self.horizontalLayout_6.setStretch(0, 3)
-        self.horizontalLayout_6.setStretch(1, 1)
+        self.horizontalLayout.setStretch(0, 2)
+        self.horizontalLayout.setStretch(1, 2)
+        self.horizontalLayout.setStretch(2, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
@@ -316,22 +321,10 @@ class Ui_MainWindow(object):
         self.menuColorbarScale.setObjectName(u"menuColorbarScale")
         self.menuColormap = QMenu(self.menuView)
         self.menuColormap.setObjectName(u"menuColormap")
-        self.menuProcess = QMenu(self.menubar)
-        self.menuProcess.setObjectName(u"menuProcess")
-        self.menuBackground_Subtraction = QMenu(self.menuProcess)
-        self.menuBackground_Subtraction.setObjectName(u"menuBackground_Subtraction")
         self.menuROI = QMenu(self.menubar)
         self.menuROI.setObjectName(u"menuROI")
-        self.menuMask = QMenu(self.menubar)
-        self.menuMask.setObjectName(u"menuMask")
-        self.menuPhasor = QMenu(self.menubar)
-        self.menuPhasor.setObjectName(u"menuPhasor")
-        self.menuNoise = QMenu(self.menubar)
-        self.menuNoise.setObjectName(u"menuNoise")
         self.menuAbout = QMenu(self.menubar)
         self.menuAbout.setObjectName(u"menuAbout")
-        self.menuCurve = QMenu(self.menubar)
-        self.menuCurve.setObjectName(u"menuCurve")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -339,12 +332,7 @@ class Ui_MainWindow(object):
 
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuView.menuAction())
-        self.menubar.addAction(self.menuProcess.menuAction())
         self.menubar.addAction(self.menuROI.menuAction())
-        self.menubar.addAction(self.menuMask.menuAction())
-        self.menubar.addAction(self.menuCurve.menuAction())
-        self.menubar.addAction(self.menuPhasor.menuAction())
-        self.menubar.addAction(self.menuNoise.menuAction())
         self.menubar.addAction(self.menuAbout.menuAction())
         self.menuFile.addAction(self.actionOpenStack)
         self.menuFile.addSeparator()
@@ -363,33 +351,9 @@ class Ui_MainWindow(object):
         self.menuColormap.addAction(self.actionRdBuR)
         self.menuColormap.addAction(self.actionViridis)
         self.menuColormap.addAction(self.actionGray)
-        self.menuProcess.addAction(self.menuBackground_Subtraction.menuAction())
-        self.menuProcess.addAction(self.actionDownsample)
-        self.menuProcess.addAction(self.actionStack_Math)
-        self.menuBackground_Subtraction.addAction(self.actionSubNegativeTime)
-        self.menuBackground_Subtraction.addAction(self.actionSubFirstLastNFrames)
-        self.menuBackground_Subtraction.addAction(self.actionSubFixedValue)
-        self.menuBackground_Subtraction.addSeparator()
-        self.menuBackground_Subtraction.addAction(self.actionResetBackgroundSubtraction)
-        self.menuROI.addAction(self.actionConfigure_Selected_ROI)
-        self.menuROI.addAction(self.actionClearAllROIs)
-        self.menuMask.addAction(self.actionImportMask)
-        self.menuMask.addAction(self.actionExportSelectedMask)
-        self.menuMask.addAction(self.actionExportMask)
-        self.menuMask.addSeparator()
-        self.menuMask.addAction(self.actionMaskAllZeroPixels)
-        self.menuMask.addAction(self.actionMaskIntensityThreshold)
-        self.menuMask.addSeparator()
-        self.menuMask.addAction(self.actionMaskMath)
-        self.menuMask.addAction(self.actionClearAllMasks)
-        self.menuPhasor.addAction(self.actionPhasor)
-        self.menuNoise.addAction(self.actionNoise)
+        self.menuROI.addAction(self.actionEditROI)
+        self.menuROI.addAction(self.actionClearAllROI)
         self.menuAbout.addAction(self.actionAbout)
-        self.menuCurve.addAction(self.actionNormalizeCurve)
-        self.menuCurve.addAction(self.actionCurveFit)
-        self.menuCurve.addSeparator()
-        self.menuCurve.addAction(self.actionViewCurve)
-        self.menuCurve.addAction(self.actionExportCurve)
 
         self.retranslateUi(MainWindow)
 
@@ -412,7 +376,7 @@ class Ui_MainWindow(object):
         self.actionSaveStackTIFF.setText(QCoreApplication.translate("MainWindow", u"Save Stack as TIFF", None))
         self.actionImportROI.setText(QCoreApplication.translate("MainWindow", u"Import ROI...", None))
         self.actionExportROI.setText(QCoreApplication.translate("MainWindow", u"Export ROI...", None))
-        self.actionClearAllROIs.setText(QCoreApplication.translate("MainWindow", u"Clear All ROIs", None))
+        self.actionClearAllROI.setText(QCoreApplication.translate("MainWindow", u"Clear All ROI", None))
         self.actionImportMask.setText(QCoreApplication.translate("MainWindow", u"Import Mask...", None))
         self.actionExportMask.setText(QCoreApplication.translate("MainWindow", u"Export Mask...", None))
         self.actionClearAllMasks.setText(QCoreApplication.translate("MainWindow", u"Clear All Masks", None))
@@ -433,7 +397,7 @@ class Ui_MainWindow(object):
         self.actionMaskIntensityThreshold.setText(QCoreApplication.translate("MainWindow", u"Mask from threshold...", None))
         self.actionExportSelectedMask.setText(QCoreApplication.translate("MainWindow", u"Export Selected Mask...", None))
         self.actionStack_Math.setText(QCoreApplication.translate("MainWindow", u"Stack Math...", None))
-        self.actionConfigure_Selected_ROI.setText(QCoreApplication.translate("MainWindow", u"Edit Selected ROI...", None))
+        self.actionEditROI.setText(QCoreApplication.translate("MainWindow", u"Edit ROI...", None))
         self.sliceNumberLabel.setText(QCoreApplication.translate("MainWindow", u"Slice", None))
         self.axisLabel.setText(QCoreApplication.translate("MainWindow", u"AxisLabel", None))
         self.stackMgrLabel.setText(QCoreApplication.translate("MainWindow", u"Multi Stack Manager", None))
@@ -459,13 +423,7 @@ class Ui_MainWindow(object):
         self.menuView.setTitle(QCoreApplication.translate("MainWindow", u"View", None))
         self.menuColorbarScale.setTitle(QCoreApplication.translate("MainWindow", u"Colorbar Scale", None))
         self.menuColormap.setTitle(QCoreApplication.translate("MainWindow", u"Colormap", None))
-        self.menuProcess.setTitle(QCoreApplication.translate("MainWindow", u"Process", None))
-        self.menuBackground_Subtraction.setTitle(QCoreApplication.translate("MainWindow", u"Background Subtraction", None))
         self.menuROI.setTitle(QCoreApplication.translate("MainWindow", u"ROI", None))
-        self.menuMask.setTitle(QCoreApplication.translate("MainWindow", u"Mask", None))
-        self.menuPhasor.setTitle(QCoreApplication.translate("MainWindow", u"Phasor", None))
-        self.menuNoise.setTitle(QCoreApplication.translate("MainWindow", u"Noise", None))
         self.menuAbout.setTitle(QCoreApplication.translate("MainWindow", u"Help", None))
-        self.menuCurve.setTitle(QCoreApplication.translate("MainWindow", u"Curve", None))
     # retranslateUi
 

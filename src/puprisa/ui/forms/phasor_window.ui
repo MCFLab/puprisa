@@ -48,27 +48,28 @@
      </layout>
     </item>
     <item>
-     <widget class="QSplitter" name="splitter">
-      <property name="orientation">
-       <enum>Qt::Orientation::Vertical</enum>
-      </property>
-      <widget class="MatplotlibFigureCanvas" name="plotCanvas" native="true">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-      <widget class="QGraphicsView" name="ppsGraphicsView">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-     </widget>
+     <layout class="QVBoxLayout" name="verticalLayout_3" stretch="2,1">
+      <item>
+       <widget class="MatplotlibFigureCanvas" name="plotCanvas" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QGraphicsView" name="ppsGraphicsView">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -269,8 +270,16 @@
     <addaction name="actionViewCurve"/>
     <addaction name="actionExportCurve"/>
    </widget>
+   <widget class="QMenu" name="menuROI">
+    <property name="title">
+     <string>ROI</string>
+    </property>
+    <addaction name="actionEdit_ROI"/>
+    <addaction name="actionClear_All_ROI"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
+   <addaction name="menuROI"/>
    <addaction name="menuCurve"/>
    <addaction name="menuExport"/>
   </widget>
@@ -315,6 +324,16 @@
   <action name="actionExportCurve">
    <property name="text">
     <string>Export Curve...</string>
+   </property>
+  </action>
+  <action name="actionEdit_ROI">
+   <property name="text">
+    <string>Edit ROI...</string>
+   </property>
+  </action>
+  <action name="actionClear_All_ROI">
+   <property name="text">
+    <string>Clear All ROI</string>
    </property>
   </action>
  </widget>

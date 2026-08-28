@@ -79,6 +79,7 @@ class MainWindow(QMainWindow):
         self.ui.actionClearAllMasks.triggered.connect(self.mask_controller.clear_all_masks)
         self.ui.actionExportSelectedMask.triggered.connect(lambda: self.mask_controller.export_selected_mask(self.mask_view_model.selected_mask_id()))
         self.ui.actionMaskIntensityThreshold.triggered.connect(self.mask_controller.show_intensity_threshold_dialog)
+        self.ui.actionMaskMath.triggered.connect(self.mask_controller.show_mask_math_dialog)
 
         # --------------------------------------------------------------
         # Image plot / slice: ViewModel + Controller
@@ -174,10 +175,11 @@ class MainWindow(QMainWindow):
             processing_manager=ctx.processing_manager,
             parent_widget=self,
         )
-        self.ui.actionSubNegativeTime.triggered.connect(self.processing_controller.apply_background_subtraction_negative_delays)
+        self.ui.actionSubNegativeTime.triggered.connect(self.processing_controller.show_neg_delay_background_subtraction_dialog)
         self.ui.actionSubFixedValue.triggered.connect(self.processing_controller.show_fixed_value_background_subtraction_dialog)
         self.ui.actionSubFirstLastNFrames.triggered.connect(self.processing_controller.show_background_subtraction_dialog)
         self.ui.actionResetBackgroundSubtraction.triggered.connect(self.processing_controller.reset_background_subtraction)
+        self.ui.actionSlice.triggered.connect(self.processing_controller.show_slice_dialog)
         self.ui.actionDownsample.triggered.connect(self.processing_controller.show_downsample_dialog)
         self.ui.actionSVDDenoise.triggered.connect(self.processing_controller.show_svd_denoise_dialog)
         self.ui.actionStackMath.triggered.connect(self.processing_controller.show_stack_math_dialog)
