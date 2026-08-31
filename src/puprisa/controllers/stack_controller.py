@@ -1,11 +1,13 @@
 # puprisa/controllers/stack_controller.py
 from PySide6.QtCore import QObject
-from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QWidget
+from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QWidget, QColorDialog
 from pathlib import Path
 
 from puprisa.model.entities import StackItem
 from puprisa.model.stack_manager import StackManager
 from puprisa.core.pps import PPS
+from puprisa.utils.color_utils import MATLAB_COLORS
 
 class StackController(QObject):
     def __init__(self, manager: StackManager, parent_widget: QWidget):
@@ -43,6 +45,25 @@ class StackController(QObject):
         text, ok = QInputDialog.getText(self._parent, "Rename Stack", "Enter new name:", text=item.name)
         if ok:
             self._manager.rename_stack(index, text)
+
+    def change_stack_color(self, stack_id: str) -> None:
+        """Prompt the user for a new color and apply it to the stack."""
+        item = self._manager.get_item_by_id(stack_id)
+        if item is None:
+            QMessageBox.warning(self._parent, "Change Stack Color", "Stack not found.")
+            return
+        dlg = QColorDialog(QColor(item.color), self._parent)
+        for i, hex_color in enumerate(MATLAB_COLORS):
+            if i >= 16:
+                break
+            dlg.setCustomColor(i, QColor(hex_color))
+        if dlg.exec() == QColorDialog.DialogCode.Accepted:
+            new_color = dlg.selectedColor()
+            if new_color.isValid():
+                try:
+                    self._manager.set_stack_color(stack_id, new_color.name())
+                except KeyError:
+                    QMessageBox.warning(self._parent, "Change Stack Color", "Stack no longer exists.")
 
     def save_selected_stack(self, index: int, format: str) -> None:
         if format == "tiff":

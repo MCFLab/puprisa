@@ -46,6 +46,7 @@ class MainWindow(QMainWindow):
             parent_widget=self,
         )
 
+        self.stack_view_model.colorChangeRequested.connect(self.stack_controller.change_stack_color)
         self.ui.stackAddButton.clicked.connect(self.stack_controller.open_stack_dialog)
         self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model._selected_stack_index()))
         self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model._selected_stack_index()))
@@ -115,8 +116,6 @@ class MainWindow(QMainWindow):
         self.ui.actionRdBuR.triggered.connect(lambda: self.plot_controller.set_colormap("RdBu_r"))
         self.ui.actionViridis.triggered.connect(lambda: self.plot_controller.set_colormap("viridis"))
         self.ui.actionGray.triggered.connect(lambda: self.plot_controller.set_colormap("gray"))
-        self.ui.actionSaveView.triggered.connect(self.plot_view_model.view_standalone)
-
         self.ui.ppsGraphicsView.wheelSliceChanged.connect(self.slice_controller.change_slice_by_delta)
 
         # --------------------------------------------------------------
@@ -139,6 +138,7 @@ class MainWindow(QMainWindow):
             space="pixel",
         )
 
+        self.roi_view_model.colorChangeRequested.connect(self.roi_controller.change_roi_color)
         self.ui.roiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.roiShapeComboBox.currentText().lower()))
         self.ui.roiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
         self.ui.roiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))
@@ -167,7 +167,7 @@ class MainWindow(QMainWindow):
         self.ui.actionViewCurve.triggered.connect(lambda: self.curve_controller.view_standalone(space="pixel", normalize=self.curve_view_model.normalize))
         self.ui.actionExportCurve.triggered.connect(lambda: self.curve_controller.export_curve_dialog(space="pixel", normalize=self.curve_view_model.normalize))
         self.slice_controller.sliceChanged.connect(self.curve_view_model.set_current_slice)
-
+        self.ui.actionSaveView.triggered.connect(lambda: self.plot_view_model.view_standalone(normalize=self.curve_view_model.normalize))
         # --------------------------------------------------------------
         # Processing: Controller only (no viewmodel, no UI widgets)
         # --------------------------------------------------------------

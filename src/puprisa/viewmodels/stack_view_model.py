@@ -18,6 +18,7 @@ class StackViewModel(QObject):
     # Re-emitted for other controllers / windows
     currentStackChanged = Signal(object)        # StackItem | None
     stackVisibilityChanged = Signal(str, bool)
+    colorChangeRequested = Signal(str)
 
     def __init__(
         self,
@@ -35,7 +36,8 @@ class StackViewModel(QObject):
         # View -> Model
         self._list_widget.currentRowChanged.connect(self._on_row_changed)
         self._list_widget.itemChanged.connect(self._on_item_changed)
-
+        self._list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        
         # Initial population
         self._rebuild()
 
@@ -73,6 +75,11 @@ class StackViewModel(QObject):
         item_data = self._manager.get_item_by_id(stack_id)
         if item_data is not None and item_data.visible != visible:
             self._manager.set_stack_visible(stack_id, visible)
+
+    def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
+        stack_id = item.data(Qt.ItemDataRole.UserRole)
+        if stack_id:
+            self.colorChangeRequested.emit(stack_id)
 
     # ------------------------------------------------------------------
     # Widget rebuild helpers

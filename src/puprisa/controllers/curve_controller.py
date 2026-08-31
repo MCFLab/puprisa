@@ -86,7 +86,7 @@ class CurveController(QObject):
 
     def _handle_fitRequested(self, dialog: CurveFitDialog, curves: list[CurveItem], space: str, normalize: bool) -> None:
         options = dialog.get_fit_options()
-        fig, ax = plt.subplots(figsize=(10, 6), layout="constrained")
+        fig, ax = plt.subplots(figsize=(8, 6), layout="constrained")
         result_text_lines = []
         success_count = 0
         for curve in curves:

@@ -213,7 +213,7 @@ class PPSPlotViewModel(QObject):
     # Standalone view
     # ------------------------------------------------------------------
 
-    def view_standalone(self, normalize: bool = False) -> None:
+    def view_standalone(self, normalize: bool) -> None:
         """Open a standalone Matplotlib figure for the current view.
 
         Parameters

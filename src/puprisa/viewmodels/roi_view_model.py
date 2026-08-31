@@ -21,6 +21,7 @@ class RoiViewModel(QObject):
     """Synchronize RoiManager state with a list widget and scene."""
 
     roiSelectionChanged = Signal(str)          # roi_id | ""
+    colorChangeRequested = Signal(str)          # roi_id
 
     def __init__(
         self,
@@ -46,6 +47,7 @@ class RoiViewModel(QObject):
 
         # View -> Model for checkbox toggles only
         self._list_widget.itemChanged.connect(self._on_item_changed)
+        self._list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
 
         self._rebuild()
 
@@ -88,6 +90,12 @@ class RoiViewModel(QObject):
         roi = self._roi_manager.get_roi_by_id(roi_id)
         if roi is not None and roi.visible != visible:
             self._roi_manager.set_visible(roi_id, visible)
+
+    def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
+        """User double-clicked an item: request color change."""
+        roi_id = item.data(Qt.ItemDataRole.UserRole)
+        if roi_id:
+            self.colorChangeRequested.emit(roi_id)
 
     # ------------------------------------------------------------------
     # Scene item management

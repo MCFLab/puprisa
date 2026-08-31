@@ -46,6 +46,7 @@ class PhasorWindow(QMainWindow):
             parent_widget=self,
         )
 
+        self.stack_view_model.colorChangeRequested.connect(self.stack_controller.change_stack_color)
         self.ui.stackAddButton.clicked.connect(self.stack_controller.open_stack_dialog)
         self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model._selected_stack_index()))
         self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model._selected_stack_index()))
@@ -112,6 +113,7 @@ class PhasorWindow(QMainWindow):
             space="phasor",
         )
 
+        self.roi_view_model.colorChangeRequested.connect(self.roi_controller.change_roi_color)
         self.ui.phasorRoiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.phasorRoiShapeComboBox.currentText().lower()))
         self.ui.phasorRoiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
         self.ui.phasorRoiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))

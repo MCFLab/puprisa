@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QColorDialog, QInputDialog, QMessageBox, QWidget
 from puprisa.model.entities import RoiItem
 from puprisa.model.roi_manager import RoiManager
 from puprisa.model.stack_manager import StackManager
+from puprisa.utils.color_utils import MATLAB_COLORS
 
 
 class RoiController(QObject):
@@ -71,17 +72,19 @@ class RoiController(QObject):
         if roi is None:
             QMessageBox.warning(self._parent, "Change Color", "ROI not found.")
             return False
-
-        current_color = QColor(roi.color)
-        new_color = QColorDialog.getColor(current_color, self._parent, "Choose ROI Color")
-        if new_color.isValid():
-            try:
-                self._roi_manager.update_color(roi_id, new_color.name())
-                return True
-            except KeyError as exc:
-                QMessageBox.warning(self._parent, "Change Color", str(exc))
-                return False
-        return False
+        dlg = QColorDialog(QColor(roi.color), self._parent)
+        dlg.setWindowTitle("Choose Color")
+        for i, hex_color in enumerate(MATLAB_COLORS):
+            if i >= 16:
+                break
+            dlg.setCustomColor(i, QColor(hex_color))
+        if dlg.exec() == QColorDialog.DialogCode.Accepted:
+            new_color = dlg.selectedColor()
+            if new_color.isValid():
+                try:
+                    self._roi_manager.update_color(roi_id, new_color.name())
+                except KeyError:
+                    QMessageBox.warning(self._parent, "Change Color", "ROI no longer exists.")
 
     def convert_roi_to_mask(self, roi_id: str) -> str | None:
         """Convert the ROI into an exclude mask on its owning stack."""
