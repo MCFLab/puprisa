@@ -358,10 +358,9 @@
     <addaction name="actionExportSelectedMask"/>
     <addaction name="actionExportMask"/>
     <addaction name="separator"/>
-    <addaction name="actionMaskAllZeroPixels"/>
     <addaction name="actionMaskIntensityThreshold"/>
-    <addaction name="separator"/>
     <addaction name="actionMaskMath"/>
+    <addaction name="separator"/>
     <addaction name="actionClearAllMasks"/>
    </widget>
    <widget class="QMenu" name="menuPhasor">

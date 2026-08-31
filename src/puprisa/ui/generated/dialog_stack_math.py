@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'stack_math.ui'
+## Form generated from reading UI file 'stack_math_dialog.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.11.2
 ##
