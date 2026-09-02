@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>460</width>
+    <width>518</width>
     <height>420</height>
    </rect>
   </property>
@@ -131,7 +131,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="rectLeftXSpinBox"/>
+        <widget class="QDoubleSpinBox" name="rectLeftXBox"/>
        </item>
       </layout>
      </item>
@@ -164,7 +164,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="rectTopYSpinBox"/>
+        <widget class="QDoubleSpinBox" name="rectTopYBox"/>
        </item>
       </layout>
      </item>
@@ -197,7 +197,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="rectWidthSpinBox"/>
+        <widget class="QDoubleSpinBox" name="rectWidthBox"/>
        </item>
       </layout>
      </item>
@@ -230,7 +230,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="rectHeightSpinBox"/>
+        <widget class="QDoubleSpinBox" name="rectHeightBox"/>
        </item>
       </layout>
      </item>
@@ -319,7 +319,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="circCenterXSpinBox"/>
+        <widget class="QDoubleSpinBox" name="circCenterXBox"/>
        </item>
       </layout>
      </item>
@@ -352,7 +352,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="circCenterYSpinBox"/>
+        <widget class="QDoubleSpinBox" name="circCenterYBox"/>
        </item>
       </layout>
      </item>
@@ -385,7 +385,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="circRSpinBox"/>
+        <widget class="QDoubleSpinBox" name="circRBox"/>
        </item>
       </layout>
      </item>
@@ -468,7 +468,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="ellipseCenterXSpinBox"/>
+        <widget class="QDoubleSpinBox" name="ellipseCenterXBox"/>
        </item>
       </layout>
      </item>
@@ -501,7 +501,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="ellipseCenterYSpinBox"/>
+        <widget class="QDoubleSpinBox" name="ellipseCenterYBox"/>
        </item>
       </layout>
      </item>
@@ -534,7 +534,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="ellipseRadiusXSpinBox"/>
+        <widget class="QDoubleSpinBox" name="ellipseRadiusXBox"/>
        </item>
       </layout>
      </item>
@@ -567,7 +567,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QSpinBox" name="ellipseRadiusYSpinBox"/>
+        <widget class="QDoubleSpinBox" name="ellipseRadiusYBox"/>
        </item>
       </layout>
      </item>

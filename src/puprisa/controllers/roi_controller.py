@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QColorDialog, QInputDialog, QMessageBox, QWidget
 from puprisa.model.entities import RoiItem
 from puprisa.model.roi_manager import RoiManager
 from puprisa.model.stack_manager import StackManager
+from puprisa.ui.dialogs.edit_roi import EditRoiDialog
 from puprisa.utils.color_utils import MATLAB_COLORS
 
 
@@ -95,3 +96,58 @@ class RoiController(QObject):
         except (KeyError, ValueError) as exc:
             QMessageBox.warning(self._parent, "Convert to Mask", str(exc))
             return None
+
+    def edit_roi(self, roi_id: str) -> None:
+        """Open the edit dialog for the given ROI and handle actions."""
+        roi = self._roi_manager.get_roi_by_id(roi_id)
+        if roi is None:
+            QMessageBox.warning(self._parent, "Edit ROI", "ROI not found.")
+            return
+        dialog = EditRoiDialog(roi, parent=self._parent)
+        dialog.okClicked.connect(
+            lambda params, rid=roi_id: self._handle_edit_ok(rid, params)
+        )
+        dialog.copyClicked.connect(
+            lambda params, r=roi: self._handle_edit_copy(r, params)
+        )
+        dialog.copyAllClicked.connect(
+            lambda params, r=roi: self._handle_edit_copy_all(r, params)
+        )
+        dialog.exec()
+
+    # ------------------------------------------------------------------
+    # Edit action handlers
+    # ------------------------------------------------------------------
+    def _handle_edit_ok(self, roi_id: str, params: dict) -> None:
+        try:
+            self._roi_manager.update_params(roi_id, params)
+        except KeyError as exc:
+            QMessageBox.warning(self._parent, "Edit ROI", str(exc))
+    def _handle_edit_copy(self, source_roi: RoiItem, params: dict) -> None:
+        """Create a new ROI on the same stack with the edited parameters."""
+        try:
+            self._roi_manager.add_roi(
+                stack_id=source_roi.stack_id,
+                space=source_roi.space,
+                shape=source_roi.shape,
+                params=params,
+                label=None,
+                color=None,
+            )
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self._parent, "Copy ROI", str(exc))
+    def _handle_edit_copy_all(self, source_roi: RoiItem, params: dict) -> None:
+        """Create a new ROI on every available stack with the same parameters."""
+        try:
+            stack_ids = self._stack_manager.get_all_stack_ids()
+            for sid in stack_ids:
+                self._roi_manager.add_roi(
+                    stack_id=sid,
+                    space=source_roi.space,
+                    shape=source_roi.shape,
+                    params=params,
+                    label=None,
+                    color=None,
+                )
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self._parent, "Copy for All Stacks", str(exc))

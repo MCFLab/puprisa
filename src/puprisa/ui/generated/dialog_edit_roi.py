@@ -15,16 +15,16 @@ from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
     QFont, QFontDatabase, QGradient, QIcon,
     QImage, QKeySequence, QLinearGradient, QPainter,
     QPalette, QPixmap, QRadialGradient, QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QHBoxLayout,
-    QHeaderView, QLabel, QPushButton, QSizePolicy,
-    QSpacerItem, QSpinBox, QTableWidget, QTableWidgetItem,
+from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QDoubleSpinBox,
+    QHBoxLayout, QHeaderView, QLabel, QPushButton,
+    QSizePolicy, QSpacerItem, QTableWidget, QTableWidgetItem,
     QVBoxLayout, QWidget)
 
 class Ui_EditRoiDialog(object):
     def setupUi(self, EditRoiDialog):
         if not EditRoiDialog.objectName():
             EditRoiDialog.setObjectName(u"EditRoiDialog")
-        EditRoiDialog.resize(460, 420)
+        EditRoiDialog.resize(518, 420)
         self.verticalLayout_16 = QVBoxLayout(EditRoiDialog)
         self.verticalLayout_16.setObjectName(u"verticalLayout_16")
         self.horizontalLayout_6 = QHBoxLayout()
@@ -86,10 +86,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout.addWidget(self.rectLeftXLabel)
 
-        self.rectLeftXSpinBox = QSpinBox(EditRoiDialog)
-        self.rectLeftXSpinBox.setObjectName(u"rectLeftXSpinBox")
+        self.rectLeftXBox = QDoubleSpinBox(EditRoiDialog)
+        self.rectLeftXBox.setObjectName(u"rectLeftXBox")
 
-        self.verticalLayout.addWidget(self.rectLeftXSpinBox)
+        self.verticalLayout.addWidget(self.rectLeftXBox)
 
 
         self.horizontalLayout.addLayout(self.verticalLayout)
@@ -107,10 +107,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_2.addWidget(self.rectTopYLabel)
 
-        self.rectTopYSpinBox = QSpinBox(EditRoiDialog)
-        self.rectTopYSpinBox.setObjectName(u"rectTopYSpinBox")
+        self.rectTopYBox = QDoubleSpinBox(EditRoiDialog)
+        self.rectTopYBox.setObjectName(u"rectTopYBox")
 
-        self.verticalLayout_2.addWidget(self.rectTopYSpinBox)
+        self.verticalLayout_2.addWidget(self.rectTopYBox)
 
 
         self.horizontalLayout.addLayout(self.verticalLayout_2)
@@ -128,10 +128,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_3.addWidget(self.rectWidthLabel)
 
-        self.rectWidthSpinBox = QSpinBox(EditRoiDialog)
-        self.rectWidthSpinBox.setObjectName(u"rectWidthSpinBox")
+        self.rectWidthBox = QDoubleSpinBox(EditRoiDialog)
+        self.rectWidthBox.setObjectName(u"rectWidthBox")
 
-        self.verticalLayout_3.addWidget(self.rectWidthSpinBox)
+        self.verticalLayout_3.addWidget(self.rectWidthBox)
 
 
         self.horizontalLayout.addLayout(self.verticalLayout_3)
@@ -149,10 +149,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_4.addWidget(self.rectHeightLabel)
 
-        self.rectHeightSpinBox = QSpinBox(EditRoiDialog)
-        self.rectHeightSpinBox.setObjectName(u"rectHeightSpinBox")
+        self.rectHeightBox = QDoubleSpinBox(EditRoiDialog)
+        self.rectHeightBox.setObjectName(u"rectHeightBox")
 
-        self.verticalLayout_4.addWidget(self.rectHeightSpinBox)
+        self.verticalLayout_4.addWidget(self.rectHeightBox)
 
 
         self.horizontalLayout.addLayout(self.verticalLayout_4)
@@ -197,10 +197,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_5.addWidget(self.circCenterXLabel)
 
-        self.circCenterXSpinBox = QSpinBox(EditRoiDialog)
-        self.circCenterXSpinBox.setObjectName(u"circCenterXSpinBox")
+        self.circCenterXBox = QDoubleSpinBox(EditRoiDialog)
+        self.circCenterXBox.setObjectName(u"circCenterXBox")
 
-        self.verticalLayout_5.addWidget(self.circCenterXSpinBox)
+        self.verticalLayout_5.addWidget(self.circCenterXBox)
 
 
         self.horizontalLayout_2.addLayout(self.verticalLayout_5)
@@ -218,10 +218,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_6.addWidget(self.circCenterYLabel)
 
-        self.circCenterYSpinBox = QSpinBox(EditRoiDialog)
-        self.circCenterYSpinBox.setObjectName(u"circCenterYSpinBox")
+        self.circCenterYBox = QDoubleSpinBox(EditRoiDialog)
+        self.circCenterYBox.setObjectName(u"circCenterYBox")
 
-        self.verticalLayout_6.addWidget(self.circCenterYSpinBox)
+        self.verticalLayout_6.addWidget(self.circCenterYBox)
 
 
         self.horizontalLayout_2.addLayout(self.verticalLayout_6)
@@ -239,10 +239,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_7.addWidget(self.circRLabel)
 
-        self.circRSpinBox = QSpinBox(EditRoiDialog)
-        self.circRSpinBox.setObjectName(u"circRSpinBox")
+        self.circRBox = QDoubleSpinBox(EditRoiDialog)
+        self.circRBox.setObjectName(u"circRBox")
 
-        self.verticalLayout_7.addWidget(self.circRSpinBox)
+        self.verticalLayout_7.addWidget(self.circRBox)
 
 
         self.horizontalLayout_2.addLayout(self.verticalLayout_7)
@@ -285,10 +285,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_8.addWidget(self.ellipseCenterXLabel)
 
-        self.ellipseCenterXSpinBox = QSpinBox(EditRoiDialog)
-        self.ellipseCenterXSpinBox.setObjectName(u"ellipseCenterXSpinBox")
+        self.ellipseCenterXBox = QDoubleSpinBox(EditRoiDialog)
+        self.ellipseCenterXBox.setObjectName(u"ellipseCenterXBox")
 
-        self.verticalLayout_8.addWidget(self.ellipseCenterXSpinBox)
+        self.verticalLayout_8.addWidget(self.ellipseCenterXBox)
 
 
         self.horizontalLayout_3.addLayout(self.verticalLayout_8)
@@ -306,10 +306,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_9.addWidget(self.ellipseCenterYLabel)
 
-        self.ellipseCenterYSpinBox = QSpinBox(EditRoiDialog)
-        self.ellipseCenterYSpinBox.setObjectName(u"ellipseCenterYSpinBox")
+        self.ellipseCenterYBox = QDoubleSpinBox(EditRoiDialog)
+        self.ellipseCenterYBox.setObjectName(u"ellipseCenterYBox")
 
-        self.verticalLayout_9.addWidget(self.ellipseCenterYSpinBox)
+        self.verticalLayout_9.addWidget(self.ellipseCenterYBox)
 
 
         self.horizontalLayout_3.addLayout(self.verticalLayout_9)
@@ -327,10 +327,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_10.addWidget(self.ellipseRadiusXLabel)
 
-        self.ellipseRadiusXSpinBox = QSpinBox(EditRoiDialog)
-        self.ellipseRadiusXSpinBox.setObjectName(u"ellipseRadiusXSpinBox")
+        self.ellipseRadiusXBox = QDoubleSpinBox(EditRoiDialog)
+        self.ellipseRadiusXBox.setObjectName(u"ellipseRadiusXBox")
 
-        self.verticalLayout_10.addWidget(self.ellipseRadiusXSpinBox)
+        self.verticalLayout_10.addWidget(self.ellipseRadiusXBox)
 
 
         self.horizontalLayout_3.addLayout(self.verticalLayout_10)
@@ -348,10 +348,10 @@ class Ui_EditRoiDialog(object):
 
         self.verticalLayout_11.addWidget(self.ellipseRadiusYLabel)
 
-        self.ellipseRadiusYSpinBox = QSpinBox(EditRoiDialog)
-        self.ellipseRadiusYSpinBox.setObjectName(u"ellipseRadiusYSpinBox")
+        self.ellipseRadiusYBox = QDoubleSpinBox(EditRoiDialog)
+        self.ellipseRadiusYBox.setObjectName(u"ellipseRadiusYBox")
 
-        self.verticalLayout_11.addWidget(self.ellipseRadiusYSpinBox)
+        self.verticalLayout_11.addWidget(self.ellipseRadiusYBox)
 
 
         self.horizontalLayout_3.addLayout(self.verticalLayout_11)
