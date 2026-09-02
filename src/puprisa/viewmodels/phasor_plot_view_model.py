@@ -389,7 +389,8 @@ class PhasorPlotViewModel(QObject):
         import matplotlib.pyplot as plt
         from matplotlib.patches import Circle
 
-        ax.set_title("Phasor Plot")
+        frequency = self.frequency
+        ax.set_title(f"Phasor Plot @ {frequency} THz")
         ax.set_xlabel("g")
         ax.set_ylabel("s")
         ax.set_xlim(self.G_LIM)

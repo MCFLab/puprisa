@@ -1,7 +1,7 @@
 import numpy as np
-from .mask import PPSMask, MaskItem
-from .io import PPSDataClass, load_stack, export_as_tiff, export_as_pickle
-
+from puprisa.core.mask import PPSMask, MaskItem
+from puprisa.core.io import PPSDataClass, load_stack, export_as_tiff, export_as_pickle
+from puprisa.core.process import gaussian_threshold_mask
 
 class PPS:
     """In-memory pump-probe stack facade.
@@ -122,6 +122,40 @@ class PPS:
 
     def clear_all_masks(self):
         self._mask_handler.clear_all_masks()
+
+    def add_mask_from_threshold(self, threshold: str | float = "Li", sigma: float = 5.0, mask_on: bool = False, label: str | None = None) -> str:
+        """Add a mask by thresholding the projected intensity.
+
+        The projection is smoothed with a Gaussian filter and then thresholded so
+        that pixels with intensities below the threshold are masked out (kept
+        disabled), producing a mask of the low-intensity regions.
+
+        Parameters
+        ----------
+        threshold : str | float, optional
+            Intensity threshold below which pixels are masked. Either a float
+            value or a string label such as ``"Li"`` selecting a predefined
+            threshold (see ``gaussian_threshold_mask``). Defaults to ``"Li"``.
+        sigma : float, optional
+            Standard deviation of the Gaussian smoothing kernel applied to the
+            projection before thresholding. Defaults to ``5.0``.
+        mask_on : bool, optional
+            If True, restrict the thresholding to the region currently covered
+            by this PPS instance's effective mask; otherwise the full projection
+            is considered. Defaults to ``False``.
+        label : str | None, optional
+            Label for the new mask layer. Defaults to ``"Intensity threshold"``.
+
+        Returns
+        -------
+        str
+            The id of the newly created mask layer.
+        """
+        projection = self.project(mask_on=False)
+        effective_mask = np.asarray(self.mask, dtype=bool) if mask_on else None
+        keep_mask = gaussian_threshold_mask(projection, threshold=threshold, sigma=sigma, mask=effective_mask)
+        label = label or f"Gaussian threshold"
+        return self.add_mask(~keep_mask, label=label, enabled=True)
 
     def load_mask(self, path, format="json") -> None:
         """Load and replace this PPS instance's mask layers."""
@@ -251,10 +285,11 @@ class PPS:
             The normalization method to use.
         mask_on : bool
             Whether to use the effective mask when computing the average curve.
+
         Returns
         -------
         PPS
-            The current PPS instance with normalized images.
+            The same PPS instance, with images and background map modified in place.
         """
         from .process import normalize_by_avg_curve
 
@@ -274,6 +309,8 @@ class PPS:
         if scale_factor > 1e-12:
             self._original_images = self._original_images / scale_factor
             self._background_map = self._background_map / scale_factor
+
+        return self
 
     def slice(self, indices: list[int]):
         """Create a new PPS instance with only the selected frames.

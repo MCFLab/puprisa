@@ -53,7 +53,7 @@ class IntensityThresholdDialog(QDialog):
         self.ui.labelManual.setEnabled(is_manual)
 
     def get_params(self):
-        """Return ``(threshold, sigma, mask_on)``."""
+        """Return ``(threshold, sigma, mask_on, apply_all)``."""
         if self.ui.thresholdTypeComboBox.currentText() == "Li":
             threshold = "Li"
         else:
@@ -63,4 +63,5 @@ class IntensityThresholdDialog(QDialog):
             threshold,
             self.ui.sigmaDoubleSpinBox.value(),
             self.ui.maskCheckBox.isChecked(),
+            self.ui.applyAllCheckBox.isChecked(),  # "Apply to all stacks"
         )

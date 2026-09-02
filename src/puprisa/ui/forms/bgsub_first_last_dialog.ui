@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>backgroundSubtractionDialog</class>
- <widget class="QDialog" name="backgroundSubtractionDialog">
+ <class>FirstLastBgSubDialog</class>
+ <widget class="QDialog" name="FirstLastBgSubDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>320</width>
-    <height>180</height>
+    <height>220</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -24,7 +24,14 @@
       </widget>
      </item>
      <item>
-      <widget class="QSpinBox" name="imgNumberSpinBox"/>
+      <widget class="QSpinBox" name="imgNumberSpinBox">
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>65536</number>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -89,6 +96,13 @@
     </layout>
    </item>
    <item>
+    <widget class="QCheckBox" name="applyAllCheckBox">
+     <property name="text">
+      <string>Apply to all stacks</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Orientation::Horizontal</enum>
@@ -105,7 +119,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>backgroundSubtractionDialog</receiver>
+   <receiver>FirstLastBgSubDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -121,7 +135,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>backgroundSubtractionDialog</receiver>
+   <receiver>FirstLastBgSubDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

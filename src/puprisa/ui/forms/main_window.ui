@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Main Window</string>
   </property>
   <property name="tabShape">
    <enum>QTabWidget::TabShape::Rounded</enum>
@@ -347,6 +347,10 @@
     <property name="title">
      <string>ROI</string>
     </property>
+    <addaction name="actionImport_ROI"/>
+    <addaction name="actionExport_Selected_ROI"/>
+    <addaction name="actionExport_ROI"/>
+    <addaction name="separator"/>
     <addaction name="actionEditROI"/>
     <addaction name="actionClearAllROI"/>
    </widget>
@@ -369,12 +373,6 @@
     </property>
     <addaction name="actionPhasor"/>
    </widget>
-   <widget class="QMenu" name="menuNoise">
-    <property name="title">
-     <string>Noise</string>
-    </property>
-    <addaction name="actionNoise"/>
-   </widget>
    <widget class="QMenu" name="menuAbout">
     <property name="title">
      <string>Help</string>
@@ -388,6 +386,10 @@
     <addaction name="actionNormalizeCurve"/>
     <addaction name="actionCurveFit"/>
     <addaction name="separator"/>
+    <addaction name="actionFFT"/>
+    <addaction name="actionPSD"/>
+    <addaction name="actionRIN"/>
+    <addaction name="separator"/>
     <addaction name="actionViewCurve"/>
     <addaction name="actionExportCurve"/>
    </widget>
@@ -398,7 +400,6 @@
    <addaction name="menuMask"/>
    <addaction name="menuCurve"/>
    <addaction name="menuPhasor"/>
-   <addaction name="menuNoise"/>
    <addaction name="menuAbout"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -460,16 +461,6 @@
   <action name="actionSaveStackTIFF">
    <property name="text">
     <string>Save Stack as TIFF</string>
-   </property>
-  </action>
-  <action name="actionImportROI">
-   <property name="text">
-    <string>Import ROI...</string>
-   </property>
-  </action>
-  <action name="actionExportROI">
-   <property name="text">
-    <string>Export ROI...</string>
    </property>
   </action>
   <action name="actionClearAllROI">
@@ -538,11 +529,6 @@
     <string>Normalize Curve</string>
    </property>
   </action>
-  <action name="actionNoise">
-   <property name="text">
-    <string>Noise Analysis</string>
-   </property>
-  </action>
   <action name="actionViewCurve">
    <property name="text">
     <string>View Curve...</string>
@@ -561,11 +547,6 @@
   <action name="actionSubFixedValue">
    <property name="text">
     <string>Subtract Fixed Value</string>
-   </property>
-  </action>
-  <action name="actionMaskAllZeroPixels">
-   <property name="text">
-    <string>Mask all-zero pixels</string>
    </property>
   </action>
   <action name="actionMaskIntensityThreshold">
@@ -593,14 +574,39 @@
     <string>SVD Denoise...</string>
    </property>
   </action>
-  <action name="actionStack_Slice">
-   <property name="text">
-    <string>Slice Stack...</string>
-   </property>
-  </action>
   <action name="actionSlice">
    <property name="text">
     <string>Slice...</string>
+   </property>
+  </action>
+  <action name="actionImport_ROI">
+   <property name="text">
+    <string>Import ROI...</string>
+   </property>
+  </action>
+  <action name="actionExport_Selected_ROI">
+   <property name="text">
+    <string>Export Selected ROI...</string>
+   </property>
+  </action>
+  <action name="actionExport_ROI">
+   <property name="text">
+    <string>Export ROI...</string>
+   </property>
+  </action>
+  <action name="actionPSD">
+   <property name="text">
+    <string>Calculate PSD...</string>
+   </property>
+  </action>
+  <action name="actionFFT">
+   <property name="text">
+    <string>Calculate FFT...</string>
+   </property>
+  </action>
+  <action name="actionRIN">
+   <property name="text">
+    <string>Calculate RIN...</string>
    </property>
   </action>
  </widget>

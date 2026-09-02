@@ -1,36 +1,62 @@
 # puprisa/ui/dialogs/background_subtraction.py
 from PySide6.QtWidgets import QDialog
-from puprisa.ui.generated.dialog_background_subtraction import Ui_backgroundSubtractionDialog
 
-class BackgroundSubtractionDialog(QDialog):
+from puprisa.ui.generated.dialog_bgsub_first_last import Ui_FirstLastBgSubDialog
+from puprisa.ui.generated.dialog_bgsub_fixed_value import Ui_FixedValueBgSubDialog
+from puprisa.ui.generated.dialog_bgsub_neg_delay import Ui_NegDelayBgSubDialog
+
+
+class BgSubFirstLastDialog(QDialog):
     """Dialog for configuring background subtraction using first/last N frames."""
-
-    def __init__(self, n_total_frames: int, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.ui = Ui_backgroundSubtractionDialog()
+        self.ui = Ui_FirstLastBgSubDialog()
+        self.ui.setupUi(self)
+        self.ui.pixelwiseRadioButton.setChecked(True)
+        
+    def get_parameters(self) -> tuple[int, bool, bool, bool]:
+        """Return (n_frames, is_first, pixelwise, apply_all)."""
+        n = self.ui.imgNumberSpinBox.value()
+        is_first = self.ui.subTypeComboBox.currentIndex() == 0
+        pixelwise = self.ui.pixelwiseRadioButton.isChecked()
+        apply_all = self.ui.applyAllCheckBox.isChecked()
+        return n, is_first, pixelwise, apply_all
+
+
+class BgSubFixedValueDialog(QDialog):
+    """Dialog for subtracting a fixed value from stack."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = Ui_FixedValueBgSubDialog()
         self.ui.setupUi(self)
 
-        self._n_total_frames = n_total_frames
+        # Configure the spin box
+        self.ui.doubleSpinBox.setRange(-1e9, 1e9)
+        self.ui.doubleSpinBox.setDecimals(6)
+        self.ui.doubleSpinBox.setValue(0.0)
 
-        # Set valid range for frame count
-        self.ui.imgNumberSpinBox.setRange(1, n_total_frames)
-        self.ui.imgNumberSpinBox.setValue(1)
+    def get_parameters(self) -> tuple[float, bool]:
+        """Return (value, apply_all)."""
+        return (
+            self.ui.doubleSpinBox.value(),
+            self.ui.checkBox.isChecked(),
+        )
 
-        # Default: pixel-wise subtraction
-        self.ui.pixelwiseRadioButton.setChecked(True)
-        self.ui.wholeimgRadioButton.setChecked(False)
 
-    def get_parameters(self) -> tuple[list[int], bool]:
-        """Return (indices, pixelwise) based on current user selections."""
-        n = self.ui.imgNumberSpinBox.value()
-        is_first = self.ui.subTypeComboBox.currentText().strip().lower() == "first"
-        pixelwise = self.ui.pixelwiseRadioButton.isChecked()
+class BgSubNegDelayDialog(QDialog):
+    """Dialog for subtracting negative-delay background."""
 
-        if is_first:
-            indices = list(range(n))
-        else:
-            # Last n frames
-            start = max(0, self._n_total_frames - n)
-            indices = list(range(start, self._n_total_frames))
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = Ui_NegDelayBgSubDialog()
+        self.ui.setupUi(self)
 
-        return indices, pixelwise
+        # Default: pixel-wise
+        self.ui.radioButton.setChecked(True)
+
+    def get_parameters(self) -> tuple[bool, bool]:
+        """Return (pixelwise, apply_all)."""
+        pixelwise = self.ui.radioButton.isChecked()
+        apply_all = self.ui.checkBox.isChecked()
+        return pixelwise, apply_all

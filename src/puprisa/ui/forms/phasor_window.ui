@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>PhasorWindow</class>
+ <widget class="QMainWindow" name="PhasorWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Phasor Window</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="2,2,1">
@@ -266,6 +266,7 @@
      <string>Curve</string>
     </property>
     <addaction name="actionNormalizeCurve"/>
+    <addaction name="actionCurveFit"/>
     <addaction name="separator"/>
     <addaction name="actionViewCurve"/>
     <addaction name="actionExportCurve"/>
@@ -334,6 +335,11 @@
   <action name="actionClear_All_ROI">
    <property name="text">
     <string>Clear All ROI</string>
+   </property>
+  </action>
+  <action name="actionCurveFit">
+   <property name="text">
+    <string>Curve Fit...</string>
    </property>
   </action>
  </widget>

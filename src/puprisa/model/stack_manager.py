@@ -148,6 +148,9 @@ class StackManager:
     def get_visible_items(self) -> list[StackItem]:
         return [i for i in self._items if i.visible]
 
+    def get_all_stack_ids(self) -> list[str]:
+        return [i.id for i in self._items]
+
     def __len__(self) -> int:
         return len(self._items)
 

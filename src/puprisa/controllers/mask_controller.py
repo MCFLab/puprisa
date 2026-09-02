@@ -40,20 +40,31 @@ class MaskController(QObject):
         stack_id = self._current_stack_id()
         if stack_id is None:
             return
-
         dialog = IntensityThresholdDialog(self._parent)
         if dialog.exec() == QDialog.Accepted:
-            threshold, sigma, mask_on = dialog.get_params()
-            self.create_threshold_mask(threshold=threshold, sigma=sigma, mask_on=mask_on)
+            threshold, sigma, mask_on, apply_all = dialog.get_params()
+            if apply_all:
+                success = 0
+                for stack_id in self._stack_manager.get_all_stack_ids():
+                    try:
+                        self.add_mask_from_threshold(stack_id=stack_id, threshold=threshold, sigma=sigma, mask_on=mask_on, message=False)
+                        success += 1
+                    except (ValueError, KeyError) as exc:
+                        QMessageBox.warning(self._parent, "Mask", str(exc))
+                if success > 0:
+                    QMessageBox.information(self._parent, "Mask", f"Created masks in {success} stacks.")
+            else:
+                self.add_mask_from_threshold(stack_id=stack_id, threshold=threshold, sigma=sigma, mask_on=mask_on, message=True)
 
-    def create_threshold_mask(self, threshold="Li", sigma=5.0, mask_on=True, label=None) -> None:
-        stack_id = self._current_stack_id()
+    def add_mask_from_threshold(self, stack_id=None, threshold="Li", sigma=5.0, mask_on=True, label=None, message=True) -> None:
+        if stack_id is None:
+            stack_id = self._current_stack_id()
         if stack_id is None:
             return
-
         try:
-            mask_id = self._mask_manager.create_threshold_mask(stack_id=stack_id, threshold=threshold, sigma=sigma, mask_on=mask_on, label=label)
-            QMessageBox.information(self._parent, "Mask", f"Mask {mask_id} created.")
+            mask_id = self._mask_manager.add_mask_from_threshold(stack_id=stack_id, threshold=threshold, sigma=sigma, mask_on=mask_on, label=label)
+            if message:
+                QMessageBox.information(self._parent, "Mask", f"Mask {mask_id} created.")
         except (ValueError, KeyError) as exc:
             QMessageBox.warning(self._parent, "Mask", str(exc))
 
@@ -64,12 +75,10 @@ class MaskController(QObject):
         stack_id = self._current_stack_id()
         if stack_id is None:
             return
-
         mask_item = self._mask_manager.get_mask(stack_id, mask_id)
         if mask_item is None:
             QMessageBox.warning(self._parent, "Rename Mask", "Mask not found.")
             return
-
         current = mask_item.label or mask_id
         text, ok = QInputDialog.getText(self._parent, "Rename Mask", "Label:", text=current)
         if ok and text.strip():
@@ -105,14 +114,13 @@ class MaskController(QObject):
         stack_id = self._current_stack_id()
         if stack_id is None:
             return
-
         try:
             self._mask_manager.clear_all_masks(stack_id)
         except KeyError as exc:
             QMessageBox.warning(self._parent, "Clear Masks", str(exc))
     
     # ------------------------------------------------------------------
-    # Mask math
+    # Mask Math
     # ------------------------------------------------------------------
     def show_mask_math_dialog(self) -> None:
         """Combine stored masks on the current stack into a new mask layer."""
@@ -134,7 +142,7 @@ class MaskController(QObject):
             QMessageBox.warning(self._parent, "Mask Math", str(exc))
             
     # ------------------------------------------------------------------
-    # Export / import
+    # Export / Import
     # ------------------------------------------------------------------
     def export_selected_mask(self, mask_id: str) -> None:
         stack_id = self._current_stack_id()

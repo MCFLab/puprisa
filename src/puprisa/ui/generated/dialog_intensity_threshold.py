@@ -23,7 +23,7 @@ class Ui_intensityThresholdDialog(object):
     def setupUi(self, intensityThresholdDialog):
         if not intensityThresholdDialog.objectName():
             intensityThresholdDialog.setObjectName(u"intensityThresholdDialog")
-        intensityThresholdDialog.resize(360, 180)
+        intensityThresholdDialog.resize(360, 220)
         icon = QIcon(QIcon.fromTheme(QIcon.ThemeIcon.DocumentProperties))
         intensityThresholdDialog.setWindowIcon(icon)
         self.verticalLayout = QVBoxLayout(intensityThresholdDialog)
@@ -82,6 +82,11 @@ class Ui_intensityThresholdDialog(object):
 
         self.verticalLayout.addWidget(self.maskCheckBox)
 
+        self.applyAllCheckBox = QCheckBox(intensityThresholdDialog)
+        self.applyAllCheckBox.setObjectName(u"applyAllCheckBox")
+
+        self.verticalLayout.addWidget(self.applyAllCheckBox)
+
         self.buttonBox = QDialogButtonBox(intensityThresholdDialog)
         self.buttonBox.setObjectName(u"buttonBox")
         self.buttonBox.setOrientation(Qt.Orientation.Horizontal)
@@ -106,5 +111,6 @@ class Ui_intensityThresholdDialog(object):
         self.labelSigma.setText(QCoreApplication.translate("intensityThresholdDialog", u"Sigma (Gaussian smoothing):", None))
         self.labelManual.setText(QCoreApplication.translate("intensityThresholdDialog", u"Manual Threshold Value:", None))
         self.maskCheckBox.setText(QCoreApplication.translate("intensityThresholdDialog", u"Calculate with current effective mask on", None))
+        self.applyAllCheckBox.setText(QCoreApplication.translate("intensityThresholdDialog", u"Apply to all stacks", None))
     # retranslateUi
 

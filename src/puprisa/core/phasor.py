@@ -97,65 +97,148 @@ def compute_phasor(
         coords[result_indices] = coords_valid
         return coords
 
-def universal_semicircle(n_points: int = 400) -> tuple[np.ndarray, np.ndarray]:
-    """Return (g, s) coordinates of the universal semicircle.
+def compute_fft(
+    signal: np.ndarray,
+    axis_values: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the single-sided amplitude spectrum of a real signal.
 
-    Returns
-    -------
-    g, s : 1D arrays of length n_points
-        The standard universal phasor circle for single-exponential decay.
-    """
-    theta = np.linspace(0.0, np.pi, n_points)
-    g = 0.5 * (1.0 + np.cos(theta))
-    s = 0.5 * np.sin(theta)
-    return g, s
-
-def compute_spectrum(signal: np.ndarray, axis_values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Compute the Fourier spectrum of a 1D signal.
+    The mean is removed before calculating the FFT.
 
     Parameters
     ----------
     signal : 1D array
-        The input signal to analyze.
+        Input signal.
     axis_values : 1D array
-        The independent variable values corresponding to the signal.
+        Independent variable corresponding to the signal. It must be
+        finite, strictly increasing, and uniformly spaced.
 
     Returns
     -------
-    freqs : 1D array
-        Frequencies corresponding to the computed spectrum.
-    spectrum : 1D array
-        The magnitude of the Fourier transform of the signal.
+    freq : np.ndarray
+        Non-negative frequencies in reciprocal units of ``axis_values``.
+    spectrum : np.ndarray
+        Single-sided peak-amplitude spectrum. For a sinusoid with peak
+        amplitude A whose frequency falls exactly on an FFT bin, the
+        corresponding spectral peak is A.
     """
     signal = np.asarray(signal, dtype=np.float64)
     axis_values = np.asarray(axis_values, dtype=np.float64)
 
-    if signal.ndim != 1 or axis_values.ndim != 1:
-        raise ValueError("signal and axis_values must be 1D arrays")
     if signal.size != axis_values.size:
         raise ValueError("signal and axis_values must have the same length")
-    if not np.all(np.isfinite(axis_values)):
-        raise ValueError("axis_values must contain only finite values")
+    
+    sampling_intervals = np.diff(axis_values)
+    if not np.all(sampling_intervals > 0):
+        raise ValueError("axis_values must be strictly increasing")
+    dt = sampling_intervals[0]
+    if not np.allclose(sampling_intervals, dt, rtol=1e-6, atol=0.0):
+        raise ValueError("axis_values must be uniformly spaced")
 
-    # Compute the sampling interval and frequency bins
-    dt = np.mean(np.diff(axis_values))
-    n = signal.size
-    freqs = np.fft.rfftfreq(n, d=dt)
+    signal_ac = signal - np.mean(signal)
+    n = signal_ac.size
 
-    # Compute the Fourier transform and its magnitude
-    spectrum = np.abs(np.fft.rfft(signal))
+    freq = np.fft.rfftfreq(n,d=dt)
+    spectrum = (np.abs(np.fft.rfft(signal_ac)) / n)
 
-    # NOISE ANALYSIS ON PEAK AMPLITUDES
-    avg = np.mean(signal)
-    fluctuation = signal - avg
-    relative_fluctuation = fluctuation / avg
-    dt = np.mean(np.diff(axis_values))
-    fs = 1.0 / dt  # Sampling frequency
-
-    # Spectral analysis using Welch's method
-    freq, psd = welch(relative_fluctuation, fs=fs, nperseg=4096)
-    psd_dBc = 10 * np.log10(psd)
-
-    return freqs, spectrum
+    # Convert the two-sided spectrum to a single-sided one.
+    # DC and Nyquist must not be doubled.
+    if n % 2 == 0:
+        spectrum[1:-1] *= 2.0
+    else:
+        spectrum[1:] *= 2.0
+    return freq, spectrum
 
 
+def compute_psd(
+    signal: np.ndarray,
+    axis_values: np.ndarray,
+    normalize: bool = False,
+    nperseg: int | None = None,
+    db: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the PSD of a signal using Welch's method.
+
+    The mean is removed before calculating the PSD. If ``normalize`` is
+    True, the fluctuation is divided by the mean signal, producing the
+    relative intensity noise (RIN) PSD.
+
+    Parameters
+    ----------
+    signal : 1D array
+        Input signal.
+    axis_values : 1D array
+        Independent variable corresponding to the signal. It must be
+        finite, strictly increasing, and uniformly spaced.
+    normalize : bool, default False
+        If False, calculate the ordinary PSD of the signal fluctuation.
+        If True, normalize the fluctuation by the mean signal and
+        calculate the RIN PSD.
+    nperseg : int or None, default None
+        Number of samples in each Welch segment. If None,
+        ``min(256, max(2, N // 4))`` is used, where N is the signal length.
+    db : bool, default False
+        If True, return ``10 * log10(PSD)``. Otherwise, return the
+        linear PSD.
+
+    Returns
+    -------
+    freq : np.ndarray
+        Non-negative frequencies in reciprocal units of
+        ``axis_values``.
+    power_spectral_density : np.ndarray
+        One-sided power spectral density.
+
+        If ``normalize=False``, its unit is the squared signal unit per
+        frequency unit, such as V^2/Hz.
+
+        If ``normalize=True``, it is the RIN PSD with units of inverse
+        frequency, such as 1/Hz. Its logarithmic representation is
+        commonly expressed in dBc/Hz.
+    """
+    signal = np.asarray(signal, dtype=np.float64)
+    axis_values = np.asarray(axis_values, dtype=np.float64)
+
+    if signal.size != axis_values.size:
+        raise ValueError("signal and axis_values must have the same length")
+    sampling_intervals = np.diff(axis_values)
+    if not np.all(sampling_intervals > 0):
+        raise ValueError("axis_values must be strictly increasing")
+    dt = sampling_intervals[0]
+    if not np.allclose(sampling_intervals,dt,rtol=1e-6,atol=0.0):
+        raise ValueError("axis_values must be uniformly spaced")
+
+    mean_signal = np.mean(signal)
+    signal_fluctuation = signal - mean_signal
+
+    if normalize:
+        signal_scale = np.max(np.abs(signal))
+        mean_tolerance = (np.finfo(np.float64).eps * max(signal_scale, 1.0))
+        if abs(mean_signal) <= mean_tolerance:
+            raise ValueError("mean signal is too close to zero for normalization")
+        analyzed_signal = signal_fluctuation / mean_signal
+    else:
+        analyzed_signal = signal_fluctuation
+
+    number_of_samples = signal.size
+    fs = 1.0 / dt # sampling frequency
+
+    if nperseg is None:
+        nperseg = min(256, max(2, number_of_samples // 4))
+
+    freq, psd = welch(
+        analyzed_signal,
+        fs=fs,
+        window="hann",
+        nperseg=nperseg,
+        noverlap=nperseg // 2,
+        detrend="constant",
+        return_onesided=True,
+        scaling="density",
+    )
+
+    if db:
+        minimum_positive_value = np.finfo(np.float64).tiny
+        psd = 10.0 * np.log10(np.maximum(psd,minimum_positive_value))
+
+    return freq, psd

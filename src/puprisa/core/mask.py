@@ -55,6 +55,11 @@ class PPSMask:
             Whether this mask contributes to the effective mask.
         mask_id : str or None, optional
             Unique identifier. Auto-generated if None.
+        
+        Returns
+        -------
+        str
+            The ID of the newly added mask.
         """
         mask = self._validate_mask(mask)
 

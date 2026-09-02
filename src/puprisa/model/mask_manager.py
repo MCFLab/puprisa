@@ -143,23 +143,20 @@ class MaskManager:
     # ------------------------------------------------------------------
     # Threshold creation
     # ------------------------------------------------------------------
-    def create_threshold_mask(self, stack_id: str,
-                              threshold: str | float = "Li",
-                              sigma: float = 5.0,
-                              mask_on: bool = True,
-                              label: str | None = None) -> str:
-        """Create an exclude mask from intensity thresholding."""
-        from puprisa.core.process import gaussian_threshold_mask
-
+    def add_mask_from_threshold(self, stack_id: str,
+                            threshold: str | float = "Li",
+                            sigma: float = 5.0,
+                            mask_on: bool = False,
+                            label: str | None = None) -> str:
+        """Add an exclude mask from intensity thresholding."""
         pps = self._get_pps(stack_id)
-        projection = pps.project(mask_on=mask_on)
-        effective = np.asarray(pps.mask, dtype=bool) if mask_on else None
-
-        keep_mask = gaussian_threshold_mask(
-            projection, threshold=threshold, sigma=sigma, mask=effective
-        )
-        label = label or f"Intensity threshold ({threshold})"
-        return self.add_mask(stack_id, ~keep_mask, label=label, enabled=True)
+        try:
+            mask_id = pps.add_mask_from_threshold(threshold=threshold, sigma=sigma, mask_on=mask_on, label=label)
+        except Exception as exc:
+            raise ValueError(f"Could not create mask from threshold: {exc}") from exc
+        self._notify(MaskEvent(event="added", stack_id=stack_id, mask_id=mask_id))
+        self._notify(MaskEvent(event="effective_changed", stack_id=stack_id, mask_id=mask_id))
+        return mask_id
 
     # ------------------------------------------------------------------
     # Serialization helpers

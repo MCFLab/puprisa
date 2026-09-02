@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QDialog, QMessageBox, QWidget, QInputDialog
 
 from puprisa.model.processing_manager import ProcessingManager
 from puprisa.model.stack_manager import StackManager
-from puprisa.ui.dialogs.background_subtraction import BackgroundSubtractionDialog
+from puprisa.ui.dialogs.background_subtraction import BgSubFirstLastDialog, BgSubFixedValueDialog, BgSubNegDelayDialog
 from puprisa.ui.dialogs.stack_math import StackMathDialog
 from puprisa.utils.range_parser_utils import parse_range_string
 
@@ -20,65 +20,97 @@ class ProcessingController(QObject):
             QMessageBox.warning(self._parent, "Processing", "Please select a stack first.")
         return stack_id
 
+    # ------------------------------------------------------------------
+    # Background Subtraction: First/Last N frames
+    # ------------------------------------------------------------------
     def show_background_subtraction_dialog(self):
-        stack_id = self._current_stack_id()
-        if stack_id is None:
+        current_stack_id = self._stack_manager.get_current_stack_id()
+        dialog = BgSubFirstLastDialog(self._parent)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-
-        stack_item = self._stack_manager.get_item_by_id(stack_id)
-        frame_count = len(stack_item.pps.images)
-
-        dialog = BackgroundSubtractionDialog(frame_count, parent=self._parent)
-
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            indices, pixelwise = dialog.get_parameters()
-
+        n_frames, is_first, pixelwise, apply_all = dialog.get_parameters()
+        if apply_all:
+            targets = self._stack_manager.get_all_stack_ids()
+            if not targets:
+                QMessageBox.warning(self._parent, "Background Subtraction", "No stacks available.")
+                return
+        else:
+            if current_stack_id is None:
+                QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
+                return
+            targets = [current_stack_id]
+        for stack_id in targets:
+            stack_item = self._stack_manager.get_item_by_id(stack_id)
+            if stack_item is None:
+                continue
+            total_frames = len(stack_item.pps.images)
+            if n_frames > total_frames:
+                QMessageBox.critical(self._parent, "Background Subtraction", f"Stack {stack_id}: requested {n_frames} frames, but only {total_frames} available.")
+                continue
+            if is_first:
+                indices = list(range(n_frames))
+            else:
+                indices = list(range(total_frames - n_frames, total_frames))
             try:
-                self._processing_manager.apply_background_subtraction(
-                    stack_id=stack_id,
-                    indices=indices,
-                    pixelwise=pixelwise,
-                )
+                self._processing_manager.apply_background_subtraction(stack_id=stack_id, indices=indices, pixelwise=pixelwise)
             except (ValueError, IndexError, TypeError) as exc:
                 QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
 
+    # ------------------------------------------------------------------
+    # Background Subtraction: Fixed Value
+    # ------------------------------------------------------------------
     def show_fixed_value_background_subtraction_dialog(self) -> None:
-        """Ask the user for a constant value and subtract it from the stack."""
-        stack_id = self._stack_manager.get_current_stack_id()
-        if stack_id is None:
-            QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
+        dialog = BgSubFixedValueDialog(self._parent)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        value, ok = QInputDialog.getDouble(self._parent, "Subtract Fixed Value", "Value to subtract:", 0.0, -1e9, 1e9, 6)
-        if not ok:
-            return
-        try:
-            self._processing_manager.apply_background_subtraction_fixed_value(stack_id, value)
-        except ValueError as exc:
-            QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
+        value, apply_all = dialog.get_parameters()
+        current_stack_id = self._stack_manager.get_current_stack_id()
+        if apply_all:
+            targets = self._stack_manager.get_all_stack_ids()
+            if not targets:
+                QMessageBox.warning(self._parent, "Background Subtraction", "No stacks available.")
+                return
+        else:
+            if current_stack_id is None:
+                QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
+                return
+            targets = [current_stack_id]
+        for stack_id in targets:
+            try:
+                self._processing_manager.apply_background_subtraction_fixed_value(stack_id, value)
+            except ValueError as exc:
+                QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
 
+    # ------------------------------------------------------------------
+    # Background Subtraction: Negative Delays
+    # ------------------------------------------------------------------
     def show_neg_delay_background_subtraction_dialog(self) -> None:
-        """Ask the user for pixelwise or whole-image subtraction and apply background subtraction using negative-delay frames."""
-        stack_id = self._stack_manager.get_current_stack_id()
-        if stack_id is None:
-            QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
+        dialog = BgSubNegDelayDialog(self._parent)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        items = ["Pixelwise", "Whole image"]
-        choice, ok = QInputDialog.getItem(
-            self._parent,
-            "Background Subtraction",
-            "Select subtraction method:",
-            items,
-            0,
-            False
-        )
-        if not ok:
-            return
-        pixelwise = (choice == "Pixelwise")
-        try:
-            self._processing_manager.apply_background_subtraction_negative_delays(stack_id, pixelwise=pixelwise)
-        except ValueError as exc:
-            QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
+        pixelwise, apply_all = dialog.get_parameters()
+        current_stack_id = self._stack_manager.get_current_stack_id()
+        if apply_all:
+            targets = self._stack_manager.get_all_stack_ids()
+            if not targets:
+                QMessageBox.warning(self._parent, "Background Subtraction", "No stacks available.")
+                return
+        else:
+            if current_stack_id is None:
+                QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
+                return
+            targets = [current_stack_id]
+        for stack_id in targets:
+            try:
+                self._processing_manager.apply_background_subtraction_negative_delays(
+                    stack_id, pixelwise=pixelwise
+                )
+            except ValueError as exc:
+                QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
 
+    # ------------------------------------------------------------------
+    # Background Subtraction: Reset
+    # ------------------------------------------------------------------
     def reset_background_subtraction(self) -> None:
         """Reset the background subtraction for the current stack."""
         stack_id = self._stack_manager.get_current_stack_id()
@@ -90,6 +122,9 @@ class ProcessingController(QObject):
         except ValueError as exc:
             QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
 
+    # ------------------------------------------------------------------
+    # SVD Denoising
+    # ------------------------------------------------------------------
     def show_svd_denoise_dialog(self) -> None:
         """Ask the user for the number of SVD components and apply SVD denoising."""
         stack_id = self._stack_manager.get_current_stack_id()
@@ -104,6 +139,9 @@ class ProcessingController(QObject):
         except (ValueError, TypeError) as exc:
             QMessageBox.critical(self._parent, "SVD Denoising", str(exc))
 
+    # ------------------------------------------------------------------
+    # Slice Stack
+    # ------------------------------------------------------------------
     def show_slice_dialog(self) -> None:
         stack_id = self._stack_manager.get_current_stack_id()
         if stack_id is None:
@@ -143,6 +181,9 @@ class ProcessingController(QObject):
         except (ValueError, TypeError) as exc:
             QMessageBox.critical(self._parent, "Slice Stack", f"Failed to add stack: {exc}")
 
+    # ------------------------------------------------------------------
+    # Stack Math
+    # ------------------------------------------------------------------
     def show_stack_math_dialog(self) -> None:
         """Combine two registered stacks and add the result as a new stack."""
         items = self._stack_manager.get_all_items()
@@ -164,6 +205,9 @@ class ProcessingController(QObject):
         except (ValueError, TypeError, KeyError) as exc:
             QMessageBox.critical(self._parent, "Stack Math", str(exc))
 
+    # ------------------------------------------------------------------
+    # Downsample Stack
+    # ------------------------------------------------------------------
     def show_downsample_dialog(self) -> None:
         """Ask the user for a downsampling factor and create a derived stack."""
         stack_id = self._stack_manager.get_current_stack_id()
