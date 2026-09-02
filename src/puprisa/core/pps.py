@@ -4,7 +4,8 @@ from puprisa.core.io import PPSDataClass, load_stack, export_as_tiff, export_as_
 from puprisa.core.process import gaussian_threshold_mask
 
 class PPS:
-    """In-memory pump-probe stack facade.
+    """
+    Pump Probe Image Stack (PPS) class for handling 3D image stacks with associated axis values and analysis masks.
 
     Parameters
     ----------
@@ -288,7 +289,72 @@ class PPS:
         new_pps.filename = self.filename
 
         return new_pps
+    
+    def substacks(self, size: int, cutoff: int = 0) -> list["PPS"]:
+        """Split the stack into non-overlapping square spatial substacks.
 
+        Each substack is a new :class:`PPS` instance that shares the same
+        axis values, axis type and axis unit. Every mask layer from this
+        stack is cropped to the same spatial region, preserving mask IDs,
+        labels and enabled states.
+
+        Edge substacks may be smaller than ``size`` when the image
+        dimension is not an exact multiple of ``size``.
+
+        Parameters
+        ----------
+        size : int
+            Side length of the square sub-blocks in pixels.
+        cutoff : int, default 0
+            Minimum number of non-zero valid projection pixels required
+            for a substack to be included. A value of 0 (or negative)
+            includes all substacks.
+
+        Returns
+        -------
+        list of PPS
+            New PPS instances in row-major order.
+        """
+        if not isinstance(size, (int, np.integer)) or size <= 0:
+            raise ValueError("size must be a positive integer")
+
+        h, w = self.image_dimensions
+
+        # Compute [start, end) intervals for each axis. Edge blocks are
+        # truncated to the image boundary.
+        def _intervals(total: int, block: int) -> list[tuple[int, int]]:
+            starts = list(range(0, total, block))
+            return [(start, min(start + block, total)) for start in starts]
+        row_intervals = _intervals(h, size)
+        col_intervals = _intervals(w, size)
+        substacks: list[PPS] = []
+
+        for r0, r1 in row_intervals:
+            for c0, c1 in col_intervals:
+                images_sub = self.images[:, r0:r1, c0:c1]
+                sub = self.__class__(
+                    images_sub,
+                    self.axis_values,
+                    axis_type=self.axis_type,
+                    axis_unit=self.axis_unit,
+                )
+                # Migrate every mask layer, cropped to this spatial block.
+                for mask_item in self.get_all_masks():
+                    mask_sub = mask_item.mask[r0:r1, c0:c1]
+                    sub.add_mask(
+                        mask_sub,
+                        label=mask_item.label,
+                        enabled=mask_item.enabled,
+                        mask_id=mask_item.id,
+                    )
+                sub.filename = self.filename
+                if cutoff > 0:
+                    valid_pixels = int(np.count_nonzero(sub.project(mask_on=True)))
+                    if valid_pixels < cutoff:
+                        continue
+                substacks.append(sub)
+        return substacks
+    
     def normalize(self, norm="minmax", mask_on=True):
         """Normalize the image stack in place (only minmax supported).
 
@@ -461,6 +527,29 @@ class PPS:
             raise ValueError(f"Cannot {operation} PPS instances with different axis units.")
         if not np.allclose(self.axis_values, other.axis_values):
             raise ValueError(f"Cannot {operation} PPS instances with different axis values.")
+
+    # ------------------------------------------------------------------
+    # Visuallization
+    # ------------------------------------------------------------------
+    def plot_slice(self, slice_index: int, ax=None, colormap: str = "pumpprobe", vmin: float | None = None, vmax: float | None = None, mask_color: tuple[int, int, int] = (200, 200, 200), colorbar: bool = True):
+        """Display a single slice of this stack on a Matplotlib axis."""
+        from puprisa.core.visualize import plot_slice
+        return plot_slice(self, slice_index=slice_index, ax=ax, colormap=colormap, vmin=vmin, vmax=vmax, mask_color=mask_color, colorbar=colorbar)
+
+    def plot_projection(self, ax=None, colormap: str = "gray", vmin: float | None = None, vmax: float | None = None, mask_color: tuple[int, int, int] = (200, 200, 200), colorbar: bool = True):
+        """Display the spatial projection of this stack on a Matplotlib axis."""
+        from puprisa.core.visualize import plot_projection
+        return plot_projection(self, ax=ax, colormap=colormap, vmin=vmin, vmax=vmax, mask_color=mask_color, colorbar=colorbar)
+    
+    def plot_phasor(self, color_hex: str, freq: float = 0.25, use_mask: bool = True, ax=None, g_lim: tuple[float, float] = (-1.0, 1.0), s_lim: tuple[float, float] = (-1.0, 1.0), size: int = 512, show_semicircle: bool = True):
+        """Display the phasor density of this stack on a Matplotlib axis."""
+        from puprisa.core.visualize import plot_phasor
+        return plot_phasor(self, color_hex=color_hex, freq=freq, use_mask=use_mask, ax=ax, g_lim=g_lim, s_lim=s_lim, size=size, show_semicircle=show_semicircle)
+    
+    def plot_average_curve(self, ax=None, normalize: bool = False, color: str | None = None, linewidth: float = 1.5):
+        """Plot the average curve of this stack on a Matplotlib axis."""
+        from puprisa.core.visualize import plot_average_curve
+        return plot_average_curve(self, ax=ax, normalize=normalize, color=color, linewidth=linewidth)
     
     # ------------------------------------------------------------------
     # Serialization helpers

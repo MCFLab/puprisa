@@ -11,7 +11,7 @@ from puprisa.core.mask import MaskItem
 @dataclass(frozen=True)
 class MaskEvent:
     """Emitted whenever a mask is modified."""
-    event: str                   # "added" / "removed" / "enabled_changed" /
+    event: str                  # "added" / "removed" / "enabled_changed" /
                                 # "label_changed" / "reversed" / "cleared" / "effective_changed"
     stack_id: str
     mask_id: str | None = None

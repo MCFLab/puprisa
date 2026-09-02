@@ -40,7 +40,7 @@ syncAllPx = 0
 syncEnabled = 1
 
 [StackConfig]
-baseFileName = example_stack
+baseFileName = melanin
 date = 03-15-2022
 time = 11:13:14
 fileType = DS
@@ -53,5 +53,5 @@ frameAverages = 1
 delayArr_ps = -5.000,-4.000,-2.000,-0.500,-0.200,-0.100,-0.050,0.000,0.050,0.150,0.200,0.500,0.900,2.000,4.000,6.000,8.000,10.000,15.000,20.000,30.000,50.000,70.000,90.000,110.000
 
 [File_0000]
-fileName = example_stack
+fileName = melanin
 positions = 0.00 0.00 0.00 0.00 0

@@ -157,49 +157,6 @@ class RoiController(QObject):
     # ------------------------------------------------------------------
     # Export / Import
     # ------------------------------------------------------------------
-    def export_selected_roi(self, roi_id: str) -> None:
-        """Export the currently selected ROI to a JSON file."""
-        roi = self._roi_manager.get_roi_by_id(roi_id)
-        if roi is None:
-            QMessageBox.warning(self._parent, "Export ROI", "ROI not found.")
-            return
-        default_name = f"roi_{roi.label or roi_id}.json"
-        path, _ = QFileDialog.getSaveFileName(
-            self._parent,
-            "Export Selected ROI",
-            default_name,
-            "JSON (*.json);;All Files (*)",
-        )
-        if not path:
-            return
-        try:
-            self._roi_manager.export_rois_to_json(path, [roi])
-            QMessageBox.information(self._parent, "Export Selected ROI", f"Saved to {path}.")
-        except (OSError, ValueError) as exc:
-            QMessageBox.critical(self._parent, "Export Selected ROI", f"Export failed:\n{exc}")
-    def export_all_rois(self) -> None:
-        """Export all ROIs of the current stack to a JSON file."""
-        stack_id = self._stack_manager.get_current_stack_id()
-        if stack_id is None:
-            QMessageBox.warning(self._parent, "Export ROIs of Current Stack", "Please select a stack first.")
-            return
-        rois = self._roi_manager.get_rois_for_stack(stack_id)
-        if not rois:
-            QMessageBox.warning(self._parent, "Export ROIs of Current Stack", "No ROIs available for this stack.")
-            return
-        path, _ = QFileDialog.getSaveFileName(
-            self._parent,
-            "Export ROIs of Current Stack",
-            "rois.json",
-            "JSON (*.json);;All Files (*)",
-        )
-        if not path:
-            return
-        try:
-            self._roi_manager.export_rois_to_json(path, rois)
-            QMessageBox.information(self._parent, "Export ROIs of Current Stack", f"Saved {len(rois)} ROIs to {path}.")
-        except (OSError, ValueError) as exc:
-            QMessageBox.critical(self._parent, "Export ROIs of Current Stack", f"Export failed:\n{exc}")
     def import_rois(self) -> None:
         """Import ROIs from JSON into the current stack, respecting current space."""
         stack_id = self._stack_manager.get_current_stack_id()
@@ -227,3 +184,48 @@ class RoiController(QObject):
             )
         except (OSError, ValueError, KeyError, TypeError) as exc:
             QMessageBox.critical(self._parent, "Import ROIs for Current Stack", f"Import failed:\n{exc}")
+
+    def export_selected_roi(self, roi_id: str) -> None:
+        """Export the currently selected ROI to a JSON file."""
+        roi = self._roi_manager.get_roi_by_id(roi_id)
+        if roi is None:
+            QMessageBox.warning(self._parent, "Export ROI", "ROI not found.")
+            return
+        default_name = f"roi_{roi.label or roi_id}.json"
+        path, _ = QFileDialog.getSaveFileName(
+            self._parent,
+            "Export Selected ROI",
+            default_name,
+            "JSON (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+        try:
+            self._roi_manager.export_rois_to_json(path, [roi])
+            QMessageBox.information(self._parent, "Export Selected ROI", f"Saved to {path}.")
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self._parent, "Export Selected ROI", f"Export failed:\n{exc}")
+
+    def export_all_rois(self) -> None:
+        """Export all ROIs of the current stack to a JSON file."""
+        stack_id = self._stack_manager.get_current_stack_id()
+        if stack_id is None:
+            QMessageBox.warning(self._parent, "Export ROIs of Current Stack", "Please select a stack first.")
+            return
+        rois = self._roi_manager.get_rois_for_stack(stack_id)
+        if not rois:
+            QMessageBox.warning(self._parent, "Export ROIs of Current Stack", "No ROIs available for this stack.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self._parent,
+            "Export ROIs of Current Stack",
+            "rois.json",
+            "JSON (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+        try:
+            self._roi_manager.export_rois_to_json(path, rois)
+            QMessageBox.information(self._parent, "Export ROIs of Current Stack", f"Saved {len(rois)} ROIs to {path}.")
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self._parent, "Export ROIs of Current Stack", f"Export failed:\n{exc}")

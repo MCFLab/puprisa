@@ -90,34 +90,51 @@ class CurveController(QObject):
         self._fit_dialog = None
         dialog = CurveFitDialog(self._parent)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        dialog.fitRequested.connect(lambda: self._handle_fitRequested(dialog, curves, space, normalize))
+        dialog.fitRequested.connect(
+            lambda d = dialog: self._handle_fitRequested(d, space, normalize)
+        )
         dialog.show()
         self._fit_dialog = dialog
 
-    def _handle_fitRequested(self, dialog: CurveFitDialog, curves: list[CurveItem], space: str, normalize: bool) -> None:
+    def _handle_fitRequested(self, dialog: CurveFitDialog, space: str, normalize: bool) -> None:
+        curves = self._curve_manager.compute_curves(space=space, normalize=normalize)
+        if not curves:
+            QMessageBox.warning(self._parent, "Curve Fitting", "No visible ROIs available. Please check ROI visibility.")
+            return
+
         options = dialog.get_fit_options()
         fig, ax = plt.subplots(figsize=(8, 6), layout="constrained")
         result_text_lines = []
         success_count = 0
+
         for curve in curves:
             result = fit_curve(curve.x, curve.y, options)
             if not result.success:
                 result_text_lines.append(f"{curve.label}: FAILED ({result.message})")
                 continue
-            ax.plot(result.x, result.y, 'o', markersize=3,
-                    label=f"{curve.label} (data)", color=curve.color)
-            ax.plot(result.x_fit, result.y_fit, '-', linewidth=1.5,
-                    label=f"{curve.label} (fit)", color=curve.color, alpha=0.85)
+
+            ax.plot(result.x, result.y, "o", markersize=3, label=f"{curve.label} (data)", color=curve.color)
+            ax.plot(result.x_fit, result.y_fit, "-", linewidth=1.5, label=f"{curve.label} (fit)", color=curve.color, alpha=0.85)
+
             param_str = ", ".join(
                 f"{name}={value:.4f}±{result.perr.get(name, float('nan')):.4f}"
                 for name, value in result.popt.items()
             )
             result_text_lines.append(f"{curve.label}: {param_str}")
             success_count += 1
+
         if success_count == 0:
             QMessageBox.critical(self._parent, "Curve Fitting", "All fits failed.")
             return
-        ax.set_xlabel("Time delay (ps)")
+
+        current_item = self._stack_manager.get_current_item()
+        if current_item is not None:
+            pps = current_item.pps
+            xlabel = f"{pps.get_axis_label()} ({pps.get_axis_unit()})"
+        else:
+            xlabel = "Time delay (ps)"
+
+        ax.set_xlabel(xlabel)
         ax.set_ylabel("Normalized signal (a.u.)" if normalize else "Average signal (a.u.)")
         ax.set_title("Curve Fitting Results")
         ax.grid(True, alpha=0.4)
