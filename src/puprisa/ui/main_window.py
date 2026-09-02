@@ -139,11 +139,11 @@ class MainWindow(QMainWindow):
         )
 
         self.roi_view_model.colorChangeRequested.connect(self.roi_controller.change_roi_color)
+        self.ui.actionEditROI.triggered.connect(lambda: self.roi_controller.edit_roi(self.roi_view_model.selected_roi_id()))
         self.ui.roiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.roiShapeComboBox.currentText().lower()))
         self.ui.roiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
         self.ui.roiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))
         self.ui.roiConvertToMaskButton.clicked.connect(lambda: self.roi_controller.convert_roi_to_mask(self.roi_view_model.selected_roi_id()))
-        self.ui.actionEditROI.triggered.connect(lambda: self.roi_controller.edit_roi(self.roi_view_model.selected_roi_id()))
 
         # --------------------------------------------------------------
         # Curve: ViewModel + Controller

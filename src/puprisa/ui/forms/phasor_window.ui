@@ -275,8 +275,7 @@
     <property name="title">
      <string>ROI</string>
     </property>
-    <addaction name="actionEdit_ROI"/>
-    <addaction name="actionClear_All_ROI"/>
+    <addaction name="actionEditROI"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -327,14 +326,9 @@
     <string>Export Curve...</string>
    </property>
   </action>
-  <action name="actionEdit_ROI">
+  <action name="actionEditROI">
    <property name="text">
     <string>Edit ROI...</string>
-   </property>
-  </action>
-  <action name="actionClear_All_ROI">
-   <property name="text">
-    <string>Clear All ROI</string>
    </property>
   </action>
   <action name="actionCurveFit">

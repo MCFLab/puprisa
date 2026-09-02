@@ -15,7 +15,7 @@ from puprisa.controllers.mask_controller import MaskController
 from puprisa.controllers.phasor_freq_controller import PhasorFrequencyController
 from puprisa.controllers.roi_controller import RoiController
 from puprisa.controllers.stack_controller import StackController
-from puprisa.ui.generated.ui_phasor_window import Ui_MainWindow
+from puprisa.ui.generated.ui_phasor_window import Ui_PhasorWindow
 from puprisa.viewmodels.curve_view_model import CurveViewModel
 from puprisa.viewmodels.mask_view_model import MaskViewModel
 from puprisa.viewmodels.phasor_plot_view_model import PhasorPlotViewModel
@@ -30,7 +30,7 @@ class PhasorWindow(QMainWindow):
     def __init__(self, ctx: ApplicationContext):
         super().__init__()
         self.ctx = ctx
-        self.ui = Ui_MainWindow()
+        self.ui = Ui_PhasorWindow()
         self.ui.setupUi(self)
 
         # --------------------------------------------------------------
@@ -114,6 +114,7 @@ class PhasorWindow(QMainWindow):
         )
 
         self.roi_view_model.colorChangeRequested.connect(self.roi_controller.change_roi_color)
+        self.ui.actionEditROI.triggered.connect(lambda: self.roi_controller.edit_roi(self.roi_view_model.selected_roi_id()))
         self.ui.phasorRoiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.phasorRoiShapeComboBox.currentText().lower()))
         self.ui.phasorRoiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
         self.ui.phasorRoiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))
