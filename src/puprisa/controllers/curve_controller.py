@@ -3,6 +3,8 @@
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
+from puprisa.model.stack_manager import StackManager
+from puprisa.ui.dialogs.spectrum import SpectrumDialog
 from shiboken6 import isValid
 import matplotlib.pyplot as plt
 
@@ -18,14 +20,16 @@ class CurveController(QObject):
     passes the current space and normalization flag when invoking actions.
     """
 
-    def __init__(self, curve_manager: CurveManager, parent_widget: QWidget | None):
+    def __init__(self, curve_manager: CurveManager, stack_manager: StackManager, parent_widget: QWidget | None):
         super().__init__()
         self._curve_manager = curve_manager
+        self._stack_manager = stack_manager
         self._parent = parent_widget
         self._fit_dialog: CurveFitDialog | None = None
+        self._spectrum_dialog: SpectrumDialog | None = None
 
     # ------------------------------------------------------------------
-    # Actions
+    # Export Curve
     # ------------------------------------------------------------------
     def export_curve_dialog(self, space: str, normalize: bool) -> bool:
         curves = self._curve_manager.compute_curves(space=space, normalize=normalize)
@@ -44,6 +48,9 @@ class CurveController(QObject):
             QMessageBox.critical(self._parent, "Export Curves", f"Export failed:\n{exc}")
             return False
 
+    # ------------------------------------------------------------------
+    # View Curve
+    # ------------------------------------------------------------------
     def view_standalone(self, space: str, normalize: bool) -> None:
         curves = self._curve_manager.compute_curves(space=space, normalize=normalize)
         if not curves:
@@ -54,7 +61,7 @@ class CurveController(QObject):
         for curve in curves:
             ax.plot(curve.x, curve.y, linewidth=2.0, label=curve.label, color=curve.color)
 
-        current_item = self._curve_manager._stack_manager.get_current_item()
+        current_item = self._stack_manager.get_current_item()
         if current_item is not None:
             pps = current_item.pps
             ax.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})", fontsize=10)
@@ -70,6 +77,9 @@ class CurveController(QObject):
 
         fig.show()
 
+    # ------------------------------------------------------------------
+    # Curve Fitting
+    # ------------------------------------------------------------------
     def open_fit_dialog(self, space: str, normalize: bool) -> None:
         curves = self._curve_manager.compute_curves(space=space, normalize=normalize)
         if not curves:
@@ -114,3 +124,17 @@ class CurveController(QObject):
         ax.legend(fontsize=8, loc="best")
         fig.show()
         dialog.set_result_text("\n".join(result_text_lines))
+
+    # ------------------------------------------------------------------
+    # Curve Spectrum Analysis
+    # ------------------------------------------------------------------
+    def open_spectrum_dialog(self, space: str = "pixel") -> None:
+        dialog = SpectrumDialog(
+            self._curve_manager,
+            self._stack_manager,
+            parent=self._parent,
+            space=space,
+        )
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        dialog.show()
+        self._spectrum_dialog = dialog

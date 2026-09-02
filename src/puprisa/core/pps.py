@@ -12,12 +12,17 @@ class PPS:
         Stack with shape (n_frames, height, width).
     axis_values : np.ndarray
         1D coordinate for each frame. Interpretation depends on
-        ``stack_axis``. Time delays are in ps; Z positions are in µm.
+        ``stack_axis``. Time delays are in ps; Z positions are in um.
     axis_type : {"time", "z"}
         Type of the axis values. "time" for time delays, "z" for Z positions.
+    axis_unit : str, optional
+        Unit of the axis values. Supported units depend on axis_type:
+        - time: "ps", "ns", "us", "ms", "s"
+        - z: "um", "mm", "cm"
+        Defaults based on axis_type and ``axis_unit`` (or "ps"/"um" if None).
     """
 
-    def __init__(self, images: np.ndarray, axis_values: np.ndarray, axis_type: str = "time"):
+    def __init__(self, images: np.ndarray, axis_values: np.ndarray, axis_type: str = "time", axis_unit: str = "ps"):
 
         self.images = np.asarray(images, dtype=np.float64, copy=True)
         if self.images.ndim != 3:
@@ -33,8 +38,16 @@ class PPS:
             raise ValueError("axis_values must contain only finite values")
         
         self.axis_type = axis_type
-        if axis_type not in ("time", "z"):
-            raise ValueError('axis_type must be "time" or "z"')
+        if axis_type == "time":
+            self.axis_unit = axis_unit or "ps"
+            if self.axis_unit not in ("ps", "ns", "us", "ms", "s"):
+                raise ValueError(f"Invalid axis_unit for time axis: {self.axis_unit!r}. Must be one of ('ps', 'ns', 'us', 'ms', 's').")
+        elif axis_type == "z":
+            self.axis_unit = axis_unit or "um"
+            if self.axis_unit not in ("um", "mm", "cm"):
+                raise ValueError(f"Invalid axis_unit for z axis: {self.axis_unit!r}. Must be one of ('um', 'mm', 'cm').")
+        else:
+            raise ValueError(f"Invalid axis_type: {axis_type!r}. Must be 'time' or 'z'.")
 
         # Mask handler
         self._mask_handler = PPSMask(self.image_dimensions)
@@ -53,7 +66,7 @@ class PPS:
     # Loading and saving
     # ------------------------------------------------------------------
     @classmethod
-    def load(cls, path, axis_type: str | None = None, dataType = None):
+    def load(cls, path, axis_type: str | None = None, axis_unit: str | None = None, dataType = None):
         """Load a stack from file via ``core.io``.
 
         Parameters
@@ -63,6 +76,10 @@ class PPS:
         axis_type : {"time", "z"}, optional
             Type of the axis values. "time" for time delays, "z" for Z positions.
             If None, it will be guessed from the file (e.g. from TIFF metadata).
+        axis_unit : str, optional
+            Unit of the axis values.
+            Supported units: "ps", "ns", "us", "ms", "s" for time; "um", "mm", "cm" for Z.
+            If None, it will be guessed from the file (e.g. from TIFF metadata).
         dataType : str, optional
             Type of the data. If None, it will be guessed from the file extension.
 
@@ -70,13 +87,13 @@ class PPS:
         -------
         PPS instance with the loaded data.
         """
-        data = load_stack(path, axis_type=axis_type, dataType=dataType)
+        data = load_stack(path, axis_type=axis_type, axis_unit=axis_unit, dataType=dataType)
         return cls._from_dataclass(data)
 
     def save(self, path, format="tiff"):
         data = self._to_dataclass()
         if format == "tiff":
-            export_as_tiff(path, data.images, axis_values=data.axis_values, axis_type=data.axis_type)
+            export_as_tiff(path, data.images, axis_values=data.axis_values, axis_type=data.axis_type, axis_unit=data.axis_unit)
         elif format == "pickle":
             export_as_pickle(path, data)
         else:
@@ -258,7 +275,7 @@ class PPS:
         from .process import downsample_local_mean, downsample_mask
 
         new_images = downsample_local_mean(self.images, factor)
-        new_pps = self.__class__(new_images, self.axis_values, axis_type=self.axis_type)
+        new_pps = self.__class__(new_images, self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
 
         for mask_item in self.get_all_masks():
             mask_downsampled = downsample_mask(mask_item.mask, factor)
@@ -327,7 +344,7 @@ class PPS:
         """
         if not indices:
             raise ValueError("No indices provided for slicing.")
-        pps_sliced = self.__class__(self.images[indices], self.axis_values[indices], axis_type=self.axis_type)
+        pps_sliced = self.__class__(self.images[indices], self.axis_values[indices], axis_type=self.axis_type, axis_unit=self.axis_unit)
         pps_sliced._mask_handler = self._mask_handler.copy()
         return pps_sliced
 
@@ -372,7 +389,8 @@ class PPS:
         Parameters
         ----------
         freq : float
-            Phasor frequency in THz.
+            Phasor frequency expressed in the reciprocal unit of
+            ``axis_unit`` (e.g. THz for ps, GHz for ns, kHz for ms).
         use_mask : bool
             If True, apply the effective mask to the computation. Pixels outside
             the mask will have NaN coordinates.
@@ -395,9 +413,7 @@ class PPS:
         if isinstance(other, PPS):
             self._validate_computable(other, "add")            
             new_images = self.images + other.images
-            new_axis_values = self.axis_values
-            new_axis_type = self.axis_type
-            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
             return new_pps
         raise TypeError("Unsupported operand type for +")
 
@@ -405,18 +421,14 @@ class PPS:
         if isinstance(other, PPS):
             self._validate_computable(other, "subtract")
             new_images = self.images - other.images
-            new_axis_values = self.axis_values
-            new_axis_type = self.axis_type
-            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
             return new_pps
         raise TypeError("Unsupported operand type for -")
 
     def __mul__(self, other):
         if isinstance(other, (int, float)):
             new_images = self.images * other
-            new_axis_values = self.axis_values
-            new_axis_type = self.axis_type
-            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
             return new_pps
         raise TypeError("Unsupported operand type for *")
 
@@ -425,9 +437,7 @@ class PPS:
             if other == 0:
                 raise ValueError("Cannot divide by zero!")
             new_images = self.images / other
-            new_axis_values = self.axis_values
-            new_axis_type = self.axis_type
-            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
             return new_pps
         elif isinstance(other, PPS):
             self._validate_computable(other, "divide")
@@ -437,9 +447,7 @@ class PPS:
                 new_images = np.true_divide(self.images, other.images)
                 new_images = nan_inf_to_zero(new_images)  # Replace inf/nan with 0
 
-            new_axis_values = self.axis_values
-            new_axis_type = self.axis_type
-            new_pps = PPS(new_images, new_axis_values, axis_type=new_axis_type)
+            new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
             return new_pps
         raise TypeError("Unsupported operand type for /")
 
@@ -449,6 +457,8 @@ class PPS:
             raise ValueError(f"Cannot {operation} PPS instances with different image shapes.")
         if self.axis_type != other.axis_type:
             raise ValueError(f"Cannot {operation} PPS instances with different axis types.")
+        if self.axis_unit != other.axis_unit:
+            raise ValueError(f"Cannot {operation} PPS instances with different axis units.")
         if not np.allclose(self.axis_values, other.axis_values):
             raise ValueError(f"Cannot {operation} PPS instances with different axis values.")
     
@@ -457,7 +467,7 @@ class PPS:
     # ------------------------------------------------------------------
     @classmethod
     def _from_dataclass(cls, data: PPSDataClass):
-        pps = cls(data.images, data.axis_values, data.axis_type)
+        pps = cls(data.images, data.axis_values, data.axis_type, data.axis_unit)
         
         # Restore masks
         if data.masks:
@@ -478,6 +488,7 @@ class PPS:
             image_dimensions=self.image_dimensions,
             axis_values=self.axis_values.copy(),
             axis_type=self.axis_type,
+            axis_unit=self.axis_unit,
             masks=self._mask_handler.to_serializable(),
             original_images=self._original_images.copy(),
             background_map=self._background_map.copy(),
@@ -498,4 +509,22 @@ class PPS:
 
     def get_axis_unit(self) -> str:
         """Unit string for the stack axis."""
-        return "ps" if self.axis_type == "time" else "µm"
+        return self.axis_unit
+
+    def get_phasor_unit(self) -> str:
+        """Unit string for the phasor frequency axis."""
+        if self.axis_type == "time":
+            if self.axis_unit == "ps":
+                return "THz"
+            if self.axis_unit == "ns":
+                return "GHz"
+            if self.axis_unit == "us":
+                return "MHz"
+            if self.axis_unit == "ms":
+                return "kHz"
+            if self.axis_unit == "s":
+                return "Hz"
+            raise ValueError("Unknown time unit for phasor frequency")
+        if self.axis_type == "z":
+            raise ValueError("Phasor frequency is not defined for Z position axis")
+        raise ValueError("Unknown axis type for phasor frequency")

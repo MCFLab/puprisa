@@ -275,7 +275,12 @@
     <property name="title">
      <string>ROI</string>
     </property>
+    <addaction name="actionImport_ROI"/>
+    <addaction name="actionExport_Selected_ROI"/>
+    <addaction name="actionExport_ROI"/>
+    <addaction name="separator"/>
     <addaction name="actionEditROI"/>
+    <addaction name="separator"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -334,6 +339,21 @@
   <action name="actionCurveFit">
    <property name="text">
     <string>Curve Fit...</string>
+   </property>
+  </action>
+  <action name="actionImport_ROI">
+   <property name="text">
+    <string>Import ROI...</string>
+   </property>
+  </action>
+  <action name="actionExport_ROI">
+   <property name="text">
+    <string>Export ROI...</string>
+   </property>
+  </action>
+  <action name="actionExport_Selected_ROI">
+   <property name="text">
+    <string>Export Selected ROI...</string>
    </property>
   </action>
  </widget>

@@ -115,6 +115,9 @@ class PhasorWindow(QMainWindow):
 
         self.roi_view_model.colorChangeRequested.connect(self.roi_controller.change_roi_color)
         self.ui.actionEditROI.triggered.connect(lambda: self.roi_controller.edit_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.actionImportROI.triggered.connect(self.roi_controller.import_rois)
+        self.ui.actionExportSelectedROI.triggered.connect(lambda: self.roi_controller.export_selected_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.actionExportROI.triggered.connect(self.roi_controller.export_all_rois)
         self.ui.phasorRoiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.phasorRoiShapeComboBox.currentText().lower()))
         self.ui.phasorRoiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
         self.ui.phasorRoiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))
@@ -135,6 +138,7 @@ class PhasorWindow(QMainWindow):
         )
         self.curve_controller = CurveController(
             curve_manager=ctx.curve_manager,
+            stack_manager=ctx.stack_manager,
             parent_widget=self,
         )
 

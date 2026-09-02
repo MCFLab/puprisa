@@ -30,34 +30,34 @@ class Ui_spectrumDialog(object):
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.horizontalLayout_2 = QHBoxLayout()
         self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
-        self.radioButton = QRadioButton(spectrumDialog)
+        self.fftButton = QRadioButton(spectrumDialog)
         self.calcTypeButtonGroup = QButtonGroup(spectrumDialog)
         self.calcTypeButtonGroup.setObjectName(u"calcTypeButtonGroup")
-        self.calcTypeButtonGroup.addButton(self.radioButton)
-        self.radioButton.setObjectName(u"radioButton")
+        self.calcTypeButtonGroup.addButton(self.fftButton)
+        self.fftButton.setObjectName(u"fftButton")
 
-        self.horizontalLayout_2.addWidget(self.radioButton)
+        self.horizontalLayout_2.addWidget(self.fftButton)
 
-        self.radioButton_2 = QRadioButton(spectrumDialog)
-        self.calcTypeButtonGroup.addButton(self.radioButton_2)
-        self.radioButton_2.setObjectName(u"radioButton_2")
+        self.psdButton = QRadioButton(spectrumDialog)
+        self.calcTypeButtonGroup.addButton(self.psdButton)
+        self.psdButton.setObjectName(u"psdButton")
 
-        self.horizontalLayout_2.addWidget(self.radioButton_2)
+        self.horizontalLayout_2.addWidget(self.psdButton)
 
-        self.radioButton_3 = QRadioButton(spectrumDialog)
-        self.calcTypeButtonGroup.addButton(self.radioButton_3)
-        self.radioButton_3.setObjectName(u"radioButton_3")
+        self.rinButton = QRadioButton(spectrumDialog)
+        self.calcTypeButtonGroup.addButton(self.rinButton)
+        self.rinButton.setObjectName(u"rinButton")
 
-        self.horizontalLayout_2.addWidget(self.radioButton_3)
+        self.horizontalLayout_2.addWidget(self.rinButton)
 
 
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
-        self.psdCanvas = MatplotlibFigureCanvas(spectrumDialog)
-        self.psdCanvas.setObjectName(u"psdCanvas")
-        self.psdCanvas.setMinimumSize(QSize(0, 300))
+        self.spectrumCanvas = MatplotlibFigureCanvas(spectrumDialog)
+        self.spectrumCanvas.setObjectName(u"spectrumCanvas")
+        self.spectrumCanvas.setMinimumSize(QSize(0, 300))
 
-        self.verticalLayout.addWidget(self.psdCanvas)
+        self.verticalLayout.addWidget(self.spectrumCanvas)
 
         self.resultLabel = QLabel(spectrumDialog)
         self.resultLabel.setObjectName(u"resultLabel")
@@ -107,13 +107,13 @@ class Ui_spectrumDialog(object):
 
     def retranslateUi(self, spectrumDialog):
         spectrumDialog.setWindowTitle(QCoreApplication.translate("spectrumDialog", u"Spectrum", None))
-        self.radioButton.setText(QCoreApplication.translate("spectrumDialog", u"FFT", None))
-        self.radioButton_2.setText(QCoreApplication.translate("spectrumDialog", u"PSD", None))
-        self.radioButton_3.setText(QCoreApplication.translate("spectrumDialog", u"RIN", None))
+        self.fftButton.setText(QCoreApplication.translate("spectrumDialog", u"FFT", None))
+        self.psdButton.setText(QCoreApplication.translate("spectrumDialog", u"PSD", None))
+        self.rinButton.setText(QCoreApplication.translate("spectrumDialog", u"RIN", None))
         self.resultLabel.setText(QCoreApplication.translate("spectrumDialog", u"Result", None))
         self.calculateButton.setText(QCoreApplication.translate("spectrumDialog", u"Calculate", None))
-        self.viewButton.setText(QCoreApplication.translate("spectrumDialog", u"Save View", None))
-        self.exportButton.setText(QCoreApplication.translate("spectrumDialog", u"Export Data", None))
+        self.viewButton.setText(QCoreApplication.translate("spectrumDialog", u"View", None))
+        self.exportButton.setText(QCoreApplication.translate("spectrumDialog", u"Export", None))
         self.exitButton.setText(QCoreApplication.translate("spectrumDialog", u"Exit", None))
     # retranslateUi
 

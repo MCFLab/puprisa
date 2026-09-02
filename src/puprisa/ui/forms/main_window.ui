@@ -347,12 +347,11 @@
     <property name="title">
      <string>ROI</string>
     </property>
-    <addaction name="actionImport_ROI"/>
-    <addaction name="actionExport_Selected_ROI"/>
-    <addaction name="actionExport_ROI"/>
+    <addaction name="actionImportROI"/>
+    <addaction name="actionExportSelectedROI"/>
+    <addaction name="actionExportROI"/>
     <addaction name="separator"/>
     <addaction name="actionEditROI"/>
-    <addaction name="actionClearAllROI"/>
    </widget>
    <widget class="QMenu" name="menuMask">
     <property name="title">
@@ -385,10 +384,7 @@
     </property>
     <addaction name="actionNormalizeCurve"/>
     <addaction name="actionCurveFit"/>
-    <addaction name="separator"/>
-    <addaction name="actionFFT"/>
-    <addaction name="actionPSD"/>
-    <addaction name="actionRIN"/>
+    <addaction name="actionSpectrum"/>
     <addaction name="separator"/>
     <addaction name="actionViewCurve"/>
     <addaction name="actionExportCurve"/>
@@ -461,11 +457,6 @@
   <action name="actionSaveStackTIFF">
    <property name="text">
     <string>Save Stack as TIFF</string>
-   </property>
-  </action>
-  <action name="actionClearAllROI">
-   <property name="text">
-    <string>Clear All ROI</string>
    </property>
   </action>
   <action name="actionImportMask">
@@ -579,34 +570,24 @@
     <string>Slice...</string>
    </property>
   </action>
-  <action name="actionImport_ROI">
+  <action name="actionImportROI">
    <property name="text">
     <string>Import ROI...</string>
    </property>
   </action>
-  <action name="actionExport_Selected_ROI">
+  <action name="actionExportSelectedROI">
    <property name="text">
     <string>Export Selected ROI...</string>
    </property>
   </action>
-  <action name="actionExport_ROI">
+  <action name="actionSpectrum">
+   <property name="text">
+    <string>Calculate Spectrum...</string>
+   </property>
+  </action>
+  <action name="actionExportROI">
    <property name="text">
     <string>Export ROI...</string>
-   </property>
-  </action>
-  <action name="actionPSD">
-   <property name="text">
-    <string>Calculate PSD...</string>
-   </property>
-  </action>
-  <action name="actionFFT">
-   <property name="text">
-    <string>Calculate FFT...</string>
-   </property>
-  </action>
-  <action name="actionRIN">
-   <property name="text">
-    <string>Calculate RIN...</string>
    </property>
   </action>
  </widget>

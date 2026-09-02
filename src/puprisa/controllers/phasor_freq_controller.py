@@ -9,7 +9,7 @@ class PhasorFrequencyController(QObject):
 
     SLIDER_MIN = 1
     SLIDER_MAX = 100
-    SLIDER_STEP = 0.01   # THz per slider unit
+    SLIDER_STEP = 0.01
 
     SPINBOX_MIN = 0.01
     SPINBOX_MAX = 100.0

@@ -140,6 +140,9 @@ class MainWindow(QMainWindow):
 
         self.roi_view_model.colorChangeRequested.connect(self.roi_controller.change_roi_color)
         self.ui.actionEditROI.triggered.connect(lambda: self.roi_controller.edit_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.actionImportROI.triggered.connect(self.roi_controller.import_rois)
+        self.ui.actionExportSelectedROI.triggered.connect(lambda: self.roi_controller.export_selected_roi(self.roi_view_model.selected_roi_id()))
+        self.ui.actionExportROI.triggered.connect(self.roi_controller.export_all_rois)
         self.ui.roiAddButton.clicked.connect(lambda: self.roi_controller.add_roi(self.ui.roiShapeComboBox.currentText().lower()))
         self.ui.roiRenameButton.clicked.connect(lambda: self.roi_controller.rename_roi(self.roi_view_model.selected_roi_id()))
         self.ui.roiDeleteButton.clicked.connect(lambda: self.roi_controller.delete_roi(self.roi_view_model.selected_roi_id()))
@@ -160,15 +163,18 @@ class MainWindow(QMainWindow):
         )
         self.curve_controller = CurveController(
             curve_manager=ctx.curve_manager,
+            stack_manager=ctx.stack_manager,
             parent_widget=self,
         )
 
         self.ui.actionNormalizeCurve.toggled.connect(self.curve_view_model.set_normalize)
         self.ui.actionCurveFit.triggered.connect(lambda: self.curve_controller.open_fit_dialog(space="pixel", normalize=self.curve_view_model.normalize))
+        self.ui.actionSpectrum.triggered.connect(lambda: self.curve_controller.open_spectrum_dialog(space="pixel"))
         self.ui.actionViewCurve.triggered.connect(lambda: self.curve_controller.view_standalone(space="pixel", normalize=self.curve_view_model.normalize))
         self.ui.actionExportCurve.triggered.connect(lambda: self.curve_controller.export_curve_dialog(space="pixel", normalize=self.curve_view_model.normalize))
         self.slice_controller.sliceChanged.connect(self.curve_view_model.set_current_slice)
         self.ui.actionSaveView.triggered.connect(lambda: self.plot_view_model.view_standalone(normalize=self.curve_view_model.normalize))
+        
         # --------------------------------------------------------------
         # Processing: Controller only (no viewmodel, no UI widgets)
         # --------------------------------------------------------------

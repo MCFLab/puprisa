@@ -37,6 +37,74 @@ class RoiItem:
     visible: bool = True
     graphics_item: Any = field(default=None, repr=False)
 
+    # ------------------------------------------------------------------
+    # Serialization
+    # ------------------------------------------------------------------
+    def to_serializable(self) -> dict:
+        """Convert this ROI to a JSON-friendly dictionary.
+
+        Runtime-only fields (`id`, `stack_id`, `graphics_item`) are
+        intentionally omitted because they must be regenerated or rebound
+        when the ROI is imported into a new stack/session.
+        """
+        return {
+            "space": self.space,
+            "shape": self.shape,
+            "params": self.params,
+            "label": self.label,
+            "color": self.color,
+            "visible": self.visible,
+        }
+
+    @classmethod
+    def from_serializable(
+        cls,
+        data: dict,
+        roi_id: str,
+        stack_id: str,
+    ) -> "RoiItem":
+        """Create a new ROI from serialized data.
+
+        Parameters
+        ----------
+        data : dict
+            Dictionary previously produced by :meth:`to_serializable`.
+        roi_id : str
+            New runtime ID assigned by the caller (usually RoiManager).
+        stack_id : str
+            Stack this ROI will belong to.
+
+        Raises
+        ------
+        ValueError
+            If required fields are missing or invalid.
+        """
+        if not isinstance(data, dict):
+            raise ValueError("ROI data must be a dictionary")
+
+        space = data.get("space")
+        if space not in ("pixel", "phasor"):
+            raise ValueError(f"Invalid or missing ROI space: {space!r}")
+
+        shape = data.get("shape")
+        if shape not in ("rectangle", "circle", "ellipse", "polygon"):
+            raise ValueError(f"Invalid or missing ROI shape: {shape!r}")
+
+        params = data.get("params", {})
+        if not isinstance(params, dict):
+            raise ValueError("ROI params must be a dictionary")
+
+        return cls(
+            id=roi_id,
+            stack_id=stack_id,
+            space=space,
+            shape=shape,
+            params=params,
+            label=str(data.get("label", "")),
+            color=str(data.get("color", "#000000")),
+            visible=bool(data.get("visible", True)),
+        )
+
 
 @dataclass
 class CurveItem:

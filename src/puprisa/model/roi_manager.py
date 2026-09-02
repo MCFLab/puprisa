@@ -2,7 +2,8 @@
 """Qt-free manager for all ROI shapes across all stacks."""
 from dataclasses import dataclass
 from typing import Callable
-
+from pathlib import Path
+import json
 import numpy as np
 
 from puprisa.model.entities import RoiItem, StackItem
@@ -225,6 +226,60 @@ class RoiManager:
 
         label = f"From ROI {roi.label}"
         return self._mask_manager.add_mask(roi.stack_id, ~keep_mask, label=label, enabled=True)
+
+    # ------------------------------------------------------------------
+    # Serialization
+    # ------------------------------------------------------------------
+    def import_rois_from_json(
+        self,
+        path: str | Path,
+        stack_id: str,
+        space: str | None = None,
+    ) -> list[str]:
+        """Import ROIs from JSON into the given stack.
+
+        If ``space`` is given, only ROIs of that space are imported. Returns
+        the list of new ROI IDs. Uses :meth:`add_roi` so all validation,
+        initialization, and event notifications are handled consistently.
+        """
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        if not isinstance(data, dict):
+            raise ValueError("ROI file must contain a JSON object")
+
+        items = data.get("rois", [])
+        if not isinstance(items, list):
+            raise ValueError("'rois' must be a list")
+
+        new_ids: list[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                raise ValueError("Every ROI entry must be an object")
+            roi_space = item.get("space")
+            if space is not None and roi_space != space:
+                continue
+            new_roi = self.add_roi(
+                stack_id=stack_id,
+                space=roi_space,
+                shape=item.get("shape"),
+                params=item.get("params"),
+                label=item.get("label"),
+                color=item.get("color"),
+                visible=item.get("visible", True),
+            )
+            new_ids.append(new_roi.id)
+
+        if not new_ids:
+            raise ValueError(f"No ROI imported. File may be empty or all ROIs were filtered by space={space!r}.")
+
+        return new_ids
+
+    def export_rois_to_json(self, path: str | Path, rois: list[RoiItem]) -> None:
+        """Write a list of ROIs to a JSON file."""
+        payload = {"rois": [roi.to_serializable() for roi in rois]}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
 
     # ------------------------------------------------------------------
     # Default parameter generation (data-space)

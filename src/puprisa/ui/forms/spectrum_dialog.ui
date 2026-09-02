@@ -17,7 +17,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QRadioButton" name="radioButton">
+      <widget class="QRadioButton" name="fftButton">
        <property name="text">
         <string>FFT</string>
        </property>
@@ -27,7 +27,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QRadioButton" name="radioButton_2">
+      <widget class="QRadioButton" name="psdButton">
        <property name="text">
         <string>PSD</string>
        </property>
@@ -37,7 +37,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QRadioButton" name="radioButton_3">
+      <widget class="QRadioButton" name="rinButton">
        <property name="text">
         <string>RIN</string>
        </property>
@@ -49,7 +49,7 @@
     </layout>
    </item>
    <item>
-    <widget class="MatplotlibFigureCanvas" name="psdCanvas" native="true">
+    <widget class="MatplotlibFigureCanvas" name="spectrumCanvas" native="true">
      <property name="minimumSize">
       <size>
        <width>0</width>
@@ -97,14 +97,14 @@
      <item>
       <widget class="QPushButton" name="viewButton">
        <property name="text">
-        <string>Save View</string>
+        <string>View</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="exportButton">
        <property name="text">
-        <string>Export Data</string>
+        <string>Export</string>
        </property>
       </widget>
      </item>

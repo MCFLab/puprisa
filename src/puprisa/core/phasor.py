@@ -1,6 +1,7 @@
 # puprisa/core/phasor.py
 """Pure phasor-transform helpers."""
 
+import warnings
 import numpy as np
 from scipy.signal import welch
 
@@ -103,7 +104,11 @@ def compute_fft(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute the single-sided amplitude spectrum of a real signal.
 
-    The mean is removed before calculating the FFT.
+    The mean is removed before calculating the FFT. The sampling interval is
+    estimated as the average of ``np.diff(axis_values)``. If the intervals
+    differ significantly, a runtime warning is issued instead of raising an
+    error. The returned frequency axis uses reciprocal units of
+    ``axis_values``.
 
     Parameters
     ----------
@@ -111,7 +116,7 @@ def compute_fft(
         Input signal.
     axis_values : 1D array
         Independent variable corresponding to the signal. It must be
-        finite, strictly increasing, and uniformly spaced.
+        finite and strictly increasing.
 
     Returns
     -------
@@ -127,19 +132,30 @@ def compute_fft(
 
     if signal.size != axis_values.size:
         raise ValueError("signal and axis_values must have the same length")
-    
+    if not np.all(np.isfinite(axis_values)):
+        raise ValueError("axis_values must contain only finite values")
+
     sampling_intervals = np.diff(axis_values)
     if not np.all(sampling_intervals > 0):
         raise ValueError("axis_values must be strictly increasing")
-    dt = sampling_intervals[0]
-    if not np.allclose(sampling_intervals, dt, rtol=1e-6, atol=0.0):
-        raise ValueError("axis_values must be uniformly spaced")
+
+    dt = float(np.mean(sampling_intervals))
+
+    # Warn if spacing is significantly non-uniform (relative deviation > 1%)
+    if dt > 0.0:
+        rel_dev = float(np.max(np.abs(sampling_intervals - dt)) / dt)
+        if rel_dev > 0.01:
+            warnings.warn(
+                f"axis_values are not uniformly spaced (max relative deviation "
+                f"{rel_dev:.2%}). Using average sampling interval {dt:.6g}.",
+                RuntimeWarning,
+            )
 
     signal_ac = signal - np.mean(signal)
     n = signal_ac.size
 
-    freq = np.fft.rfftfreq(n,d=dt)
-    spectrum = (np.abs(np.fft.rfft(signal_ac)) / n)
+    freq = np.fft.rfftfreq(n, d=dt)
+    spectrum = np.abs(np.fft.rfft(signal_ac)) / n
 
     # Convert the two-sided spectrum to a single-sided one.
     # DC and Nyquist must not be doubled.
@@ -147,8 +163,8 @@ def compute_fft(
         spectrum[1:-1] *= 2.0
     else:
         spectrum[1:] *= 2.0
-    return freq, spectrum
 
+    return freq, spectrum
 
 def compute_psd(
     signal: np.ndarray,
@@ -159,9 +175,10 @@ def compute_psd(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute the PSD of a signal using Welch's method.
 
-    The mean is removed before calculating the PSD. If ``normalize`` is
-    True, the fluctuation is divided by the mean signal, producing the
-    relative intensity noise (RIN) PSD.
+    The mean is removed before calculating the PSD. The sampling frequency is
+    derived from the average interval of ``axis_values``; non-uniform spacing
+    only triggers a warning, not an error. The returned frequency axis uses
+    reciprocal units of ``axis_values``.
 
     Parameters
     ----------
@@ -169,7 +186,7 @@ def compute_psd(
         Input signal.
     axis_values : 1D array
         Independent variable corresponding to the signal. It must be
-        finite, strictly increasing, and uniformly spaced.
+        finite and strictly increasing.
     normalize : bool, default False
         If False, calculate the ordinary PSD of the signal fluctuation.
         If True, normalize the fluctuation by the mean signal and
@@ -184,13 +201,12 @@ def compute_psd(
     Returns
     -------
     freq : np.ndarray
-        Non-negative frequencies in reciprocal units of
-        ``axis_values``.
+        Non-negative frequencies in reciprocal units of ``axis_values``.
     power_spectral_density : np.ndarray
         One-sided power spectral density.
 
         If ``normalize=False``, its unit is the squared signal unit per
-        frequency unit, such as V^2/Hz.
+        frequency unit, such as V^2/Hz (when axis is seconds).
 
         If ``normalize=True``, it is the RIN PSD with units of inverse
         frequency, such as 1/Hz. Its logarithmic representation is
@@ -201,19 +217,30 @@ def compute_psd(
 
     if signal.size != axis_values.size:
         raise ValueError("signal and axis_values must have the same length")
+    if not np.all(np.isfinite(axis_values)):
+        raise ValueError("axis_values must contain only finite values")
+
     sampling_intervals = np.diff(axis_values)
     if not np.all(sampling_intervals > 0):
         raise ValueError("axis_values must be strictly increasing")
-    dt = sampling_intervals[0]
-    if not np.allclose(sampling_intervals,dt,rtol=1e-6,atol=0.0):
-        raise ValueError("axis_values must be uniformly spaced")
+
+    dt = float(np.mean(sampling_intervals))
+
+    if dt > 0.0:
+        rel_dev = float(np.max(np.abs(sampling_intervals - dt)) / dt)
+        if rel_dev > 0.01:
+            warnings.warn(
+                f"axis_values are not uniformly spaced (max relative deviation "
+                f"{rel_dev:.2%}). Using average sampling interval {dt:.6g}.",
+                RuntimeWarning,
+            )
 
     mean_signal = np.mean(signal)
     signal_fluctuation = signal - mean_signal
 
     if normalize:
         signal_scale = np.max(np.abs(signal))
-        mean_tolerance = (np.finfo(np.float64).eps * max(signal_scale, 1.0))
+        mean_tolerance = np.finfo(np.float64).eps * max(signal_scale, 1.0)
         if abs(mean_signal) <= mean_tolerance:
             raise ValueError("mean signal is too close to zero for normalization")
         analyzed_signal = signal_fluctuation / mean_signal
@@ -221,7 +248,7 @@ def compute_psd(
         analyzed_signal = signal_fluctuation
 
     number_of_samples = signal.size
-    fs = 1.0 / dt # sampling frequency
+    fs = 1.0 / dt  # sampling frequency
 
     if nperseg is None:
         nperseg = min(256, max(2, number_of_samples // 4))
@@ -239,6 +266,6 @@ def compute_psd(
 
     if db:
         minimum_positive_value = np.finfo(np.float64).tiny
-        psd = 10.0 * np.log10(np.maximum(psd,minimum_positive_value))
+        psd = 10.0 * np.log10(np.maximum(psd, minimum_positive_value))
 
     return freq, psd

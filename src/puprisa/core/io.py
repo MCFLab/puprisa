@@ -4,6 +4,8 @@ import pickle
 from pathlib import Path
 from dataclasses import dataclass, field
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import tifffile
@@ -14,6 +16,7 @@ class PPSDataClass:
     images: np.ndarray
     axis_values: np.ndarray
     axis_type: str
+    axis_unit: str
     image_dimensions: tuple | None = None
     masks: dict = field(default_factory=dict)
     original_images: np.ndarray | None = None
@@ -21,36 +24,48 @@ class PPSDataClass:
     results: dict = field(default_factory=dict)
     filename: str = ""
 
-def load_stack(path, axis_type, dataType=None) -> PPSDataClass:
+def load_stack(path, axis_type: str | None, axis_unit: str | None, dataType=None) -> PPSDataClass:
     if dataType is None:
         dataType = _guess_type_from_extension(path)
     if dataType == "DukeScan":
-        if axis_type is None:
-            axis_type = tiff_page285_axis_hint(path)
-        if axis_type is None:
-            raise ValueError(f"Cannot infer axis_type from {path}. ")
-        return load_dukescan_stack(path, axis_type=axis_type)
+        return load_dukescan_stack(path, axis_type=axis_type, axis_unit=axis_unit)
     elif dataType == "pickle":
-        return load_pickle_stack(path, axis_type=axis_type)
+        return load_pickle_stack(path)
     elif dataType == "mathematica":
-        return load_mathematica_stack(path, axis_type=axis_type)
+        return load_mathematica_stack(path, axis_type=axis_type, axis_unit=axis_unit)
     else:
         raise ValueError(f"Unknown stack type: {dataType}")
     
-def load_dukescan_stack(path, axis_type):
+def load_dukescan_stack(path, axis_type: str | None, axis_unit: str | None) -> PPSDataClass:
     path = str(path)
 
     with tifffile.TiffFile(path) as tif:
         # 1. Read all images from the TIFF stack
         images = tif.asarray()
 
-        # 2. Extract axis values based on axis_type
+        # 2. Extract axis values and axis unit based on axis_type
+        if axis_type is None:
+            axis_type = tiff_page285_axis_type_hint(path)
+        if axis_type is None:
+            raise ValueError(f"Cannot infer axis_type from {path}. ")
         if axis_type == "time":
-            axis_values = extract_time_delays(path)
+            extracted_values, extracted_unit = extract_time_delays(path)
         elif axis_type == "z":
-            axis_values = extract_pos_z(path)
+            extracted_values, extracted_unit = extract_pos_z(path)
         else:
             raise ValueError('axis_type must be "time" or "z"')
+        axis_values = extracted_values
+        if axis_unit is None:
+            # If user did not specify, use extracted unit
+            axis_unit = extracted_unit
+        else:
+            # If user specified a unit, check for consistency with extracted unit
+            if extracted_unit is not None and extracted_unit != axis_unit:
+                print(
+                    f"Warning: user-specified axis_unit {axis_unit!r} conflicts "
+                    f"with extracted unit {extracted_unit!r}; using user-specified "
+                    f"{axis_unit!r}."
+                )
 
     images = np.asarray(images, dtype=np.float64)
     original_shape = images.shape
@@ -80,10 +95,11 @@ def load_dukescan_stack(path, axis_type):
         image_dimensions=image_dimensions,
         axis_values=axis_values,
         axis_type=axis_type,
+        axis_unit=axis_unit,
         filename=Path(path).name,
     )
 
-def load_mathematica_stack(path, axis_type) -> PPSDataClass:
+def load_mathematica_stack(path, axis_type: str | None, axis_unit: str | None) -> PPSDataClass:
     temp = _import_mathematica_binary(path)
     images = np.array(temp[0], dtype=np.float64)
     axis_values = np.array(temp[1])
@@ -95,10 +111,11 @@ def load_mathematica_stack(path, axis_type) -> PPSDataClass:
         image_dimensions=image_dimensions,
         axis_values=axis_values,
         axis_type=axis_type,
+        axis_unit=axis_unit,
         filename=filename,
     )
 
-def load_pickle_stack(path, axis_type):
+def load_pickle_stack(path) -> PPSDataClass:
     with open(path, "rb") as f:
         save_object = pickle.load(f)
 
@@ -107,6 +124,7 @@ def load_pickle_stack(path, axis_type):
             image_dimensions=save_object["image_dimensions"],
             axis_values = save_object["axis_values"],
             axis_type = save_object["axis_type"],
+            axis_unit = save_object["axis_unit"],
             masks = save_object.get("masks", {}),
             original_images = save_object.get("original_images", None),
             background_map = save_object.get("background_map", None),
@@ -120,6 +138,7 @@ def export_as_pickle(path, data: PPSDataClass):
         "image_dimensions": data.image_dimensions,
         "axis_values": data.axis_values,
         "axis_type": data.axis_type,
+        "axis_unit": data.axis_unit,
         "masks": data.masks,
         "original_images": data.original_images,
         "background_map": data.background_map,
@@ -129,7 +148,7 @@ def export_as_pickle(path, data: PPSDataClass):
     with open(path, "wb") as f:
         pickle.dump(save_object, f)
 
-def export_as_tiff(path, images: np.ndarray, axis_values = None, axis_type = None):
+def export_as_tiff(path, images: np.ndarray, axis_values = None, axis_type = None, axis_unit = None):
     """Save a 3D image stack to a multi-page TIFF file, embedding axis values.
 
     Parameters
@@ -142,8 +161,10 @@ def export_as_tiff(path, images: np.ndarray, axis_values = None, axis_type = Non
         1D array of axis values (one per frame). If None, only images are saved.
     axis_type : str, optional
         Must be provided if axis_values are given. Either "time" or "z".
-        "time" -> Tag 285 string: "t = <value> ps"
-        "z"    -> Tag 285 string: "z = <value>"
+        "time" -> Tag 285 string: "t = <value> <unit>"
+        "z"    -> Tag 285 string: "z = <value> <unit>"
+    axis_unit : str, optional
+        The unit of the axis values. If None, defaults to "ps" for time and "um" for z.
     """
     if images.ndim != 3:
         raise ValueError(f"Expected 3D array for images, got shape {images.shape}")
@@ -163,9 +184,11 @@ def export_as_tiff(path, images: np.ndarray, axis_values = None, axis_type = Non
             extras = []
             if axis_values is not None:
                 if axis_type == "time":
-                    tag_str = f"t = {axis_values[i]:.6g} ps"
+                    unit = axis_unit or 'ps'
+                    tag_str = f"t = {axis_values[i]:.6g} {unit}"
                 else:  # "z"
-                    tag_str = f"z = {axis_values[i]:.6g}"
+                    unit = axis_unit or 'um'
+                    tag_str = f"z = {axis_values[i]:.6g} {unit}"
                 extras = [(285, 's', len(tag_str), tag_str.encode('utf-8'), False)]
             tif.write(
                 frame,
@@ -182,8 +205,9 @@ def extract_time_delays(path):
 
     Attempts to read time delay information using multiple methods in order:
     1. Legacy _xaxis.txt file (older format)
-    2. TIFF tags embedded in the TIFF file (via delays_from_tiff)
-    3. DukeScan .log file (via delays_from_log)
+    2. RegA Lab dat file (via extract_time_delays_from_dat)
+    3. TIFF tags embedded in the TIFF file (via delays_from_tiff)
+    4. DukeScan .log file (via delays_from_log)
 
     Returns an empty array if all methods fail.
 
@@ -194,37 +218,59 @@ def extract_time_delays(path):
 
     Returns
     -------
-    np.ndarray
-        1D array of time delays in picoseconds. Empty array if extraction fails.
+    tuple[numpy.ndarray, str | None]
+        Array of delay values and their unit (or None if extraction fails).
 
     See Also
     --------
+    extract_time_delays_from_dat : Extract delays from RegA Lab dat file
     extract_time_delays_from_tiff : Extract delays from TIFF tag 285
     extract_time_delays_from_log : Extract delays from DukeScan .log file
     """
-    # check if (older) x-axis file still exists (case-insensitive .tif)
+    # 1. Legacy _xaxis.txt file (older format)
     p = Path(path)
-    if p.suffix.lower() == ".tif":
+    if p.suffix.lower() in {".tif", ".tiff"}:
         p_new = str(p.with_name(p.stem + "_xaxis.txt"))
     else:
         p_new = str(p) + "_xaxis.txt"
     if os.path.isfile(p_new):
         times = pd.read_table(p_new, header=None).iloc[:, 0].to_numpy()
-        return times
+        return times, 'ps'
 
-    # if no x-axis file, try to extract delays from TIFF tags
+    # 2. RegA Lab dat file
     try:
-        return extract_time_delays_from_tiff(path)
-    except Exception as e:
-        print("Error extracting delays from TIFF tags:", e)
+        values, unit = extract_time_delays_from_dat(path)
+        if values.size > 0:
+            return values, unit
+    except (OSError, ValueError) as exc:
+        warnings.warn(
+            f"Could not read time delays from the .dat for {path}: {exc}",
+            RuntimeWarning,
+        )
 
-    # if no x-axis file and no TIFF tags, try extracting delays from log file
+    # 3. If no x-axis file, try TIFF tag 285
     try:
-        return extract_time_delays_from_log(path)
-    except Exception as e:
-        print("Error extracting delays from log file:", e)
+        values, unit = extract_time_delays_from_tiff(path)
+        if values.size > 0:
+            return values, unit
+    except (OSError, ValueError, tifffile.TiffFileError) as exc:
+        warnings.warn(
+            f"Could not read time delays from TIFF metadata in {path}: {exc}",
+            RuntimeWarning,
+        )
 
-    return np.array([])
+    # 4. DukeScan log
+    try:
+        values, unit = extract_time_delays_from_log(path)
+        if values.size > 0:
+            return values, unit
+    except (OSError, ValueError) as exc:
+        warnings.warn(
+            f"Could not read time delays from the log for {path}: {exc}",
+            RuntimeWarning,
+        )
+
+    return np.array([], dtype=np.float64), None
 
 def extract_time_delays_from_log(path):
     """Extract time delays from DukeScan .log file.
@@ -252,59 +298,131 @@ def extract_time_delays_from_log(path):
     """
     # Companion .log next to the TIFF (any _DS_CH#; case-insensitive .tif/.TIF)
     p = Path(path)
-    if p.suffix.lower() == ".tif":
-        p_new = str(p.with_suffix(".log"))
+    if p.suffix.lower() in {".tif", ".tiff"}:
+        log_path = p.with_suffix(".log")
     else:
-        p_new = str(p) + ".log"
+        log_path = Path(f"{p}.log")
     try:
-        with open(p_new, "r", encoding="utf-8") as f:
+        with open(log_path, "r", encoding="utf-8") as f:
             log = f.read()
     except UnicodeDecodeError:
-        with open(p_new, "r", encoding="latin1") as f:
+        with open(log_path, "r", encoding="latin1") as f:
             log = f.read()
+    except OSError:
+        return np.array([], dtype=np.float64), None
 
     match = re.search(r"(?:delayArr_ps = )([\-0-9,.]+).*", log)
     if match:
         times = np.array(match.group(1).split(","), dtype=float)
     else:
-        print("there was a problem importing time delays with", path)
-        times = []
-    return times
+        raise ValueError(f"Could not find delayArr_ps in {log_path}.")
+    return times, 'ps'
 
 def extract_time_delays_from_tiff(path):
-    """Extract time delays from TIFF tag 285 metadata.
+    """Extract time delays and their unit from TIFF tag 285 metadata.
 
-    Reads time delay information embedded in TIFF tag 285 (PageName) for
-    each page/frame in the TIFF file. Expected format: "t = <value> ps".
+    Each page's tag 285 (PageName) is expected to contain a string like
+    ``"t = <value> <unit>"`` (e.g. ``"t = 1.6 ms"``).  The unit is
+    extracted from the trailing word. If no unit is present, ``None`` 
+    is returned for the unit.
+
+    Returns
+    -------
+    tuple[numpy.ndarray, str]
+        Array of delay values and the unit string.
+    """
+    delays = []
+    unit = None
+    # Match "t = <number> <unit>"
+    pattern = re.compile(
+        r'^\s*t\s*=\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*([a-zA-Zµ]+)?\s*$',
+        re.IGNORECASE,
+    )
+    with tifffile.TiffFile(path) as tif:
+        for page in tif.pages:
+            if 285 not in page.tags:
+                continue
+            tag_value = page.tags[285].value
+            if isinstance(tag_value, bytes):
+                tag_value = tag_value.decode("utf-8", errors="replace")
+            match = pattern.match(str(tag_value).strip())
+            if match:
+                delays.append(float(match.group(1)))
+                if unit is None and match.group(2):
+                    unit = match.group(2).strip().lower()
+                elif unit is not None and match.group(2) and unit != match.group(2).strip().lower():
+                    print(f"Warning: inconsistent units in TIFF tags")
+    if not delays:
+        return np.array([], dtype=np.float64), None
+    return np.array(delays, dtype=np.float64), unit
+
+def extract_time_delays_from_dat(path):
+    """Extract time delays and unit from a DukeScan companion ``.dat`` file.
+
+    Typical DukeScan ``.dat`` header contains comment lines starting with
+    ``#``, including ``# xUnits = ps``. Following the comments there may be
+    a single marker line (e.g. ``pos``) and then one value per line, or
+    multiple columns separated by whitespace. The first column is used as
+    the axis values.
 
     Parameters
     ----------
     path : str or Path
-        Path to the pump-probe stack TIFF file.
+        TIFF path whose companion ``.dat`` file is read.
 
     Returns
     -------
-    list
-        List of time delays in picoseconds, one per TIFF page.
-
-    Notes
-    -----
-    The function looks for tag 285 values starting with "t = " and ending
-    with " ps", extracting the numeric value between them.
+    tuple[numpy.ndarray, str | None]
+        Array of axis values and their unit (or None if missing).
+        Empty array if the ``.dat`` file cannot be parsed.
     """
-    delays = []
-    with tifffile.TiffFile(path) as tif:
-        for page in tif.pages:
-            if 285 in page.tags:
-                tag_value = page.tags[285].value
-                if isinstance(tag_value, bytes):
-                    tag_value = tag_value.decode("utf-8", errors="replace")
-                if tag_value.startswith(r"t = "):
-                    delay = float(tag_value[4:-3])
-                    delays.append(delay)
-    return delays
+    p = Path(path)
+    stem = p.stem
+    #  Remove channel suffixes like _DS_CH1, _CH1, etc. to find the base .dat file
+    #  foo_DS_CH1.tif -> foo.dat
+    #  foo_CH1.tif    -> foo.dat
+    #  foo.tif        -> foo.dat
+    stem = re.sub(r"(?:^|_)(?:DS_)?CH\d+$", "", stem, flags=re.IGNORECASE)
+    dat_path = p.with_name(f"{stem}.dat")
+    if not dat_path.exists():
+        return np.array([], dtype=np.float64), None
+    
+    values: list[float] = []
+    unit: str | None = None
+    data_started = False
 
-def tiff_page285_axis_hint(path):
+    try:
+        with open(dat_path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                s = line.strip()
+                if not s:
+                    continue
+                if s.startswith("#"):
+                    match = re.search(r"xUnits\s*=\s*([^\s#]+)", s, re.IGNORECASE)
+                    if match:
+                        unit = match.group(1).strip().lower()
+                    continue
+                tokens = s.split()
+                if not tokens:
+                    continue
+                if not data_started:
+                    try:
+                        float(tokens[0])
+                        data_started = True
+                    except ValueError:
+                        continue
+                if data_started:
+                    try:
+                        values.append(float(tokens[0]))
+                    except ValueError:
+                        continue
+    except OSError:
+        return np.array([], dtype=np.float64), None
+    if not values:
+        return np.array([], dtype=np.float64), None
+    return np.array(values, dtype=np.float64), unit
+
+def tiff_page285_axis_type_hint(path):
     """Inspect first TIFF page tag 285 (PageName) for *t* vs *z* prefix.
 
     Returns ``\"t\"``, ``\"z\"``, or ``None`` if missing/unrecognized (caller may still load).
@@ -320,9 +438,9 @@ def tiff_page285_axis_hint(path):
             if isinstance(tag_value, bytes):
                 tag_value = tag_value.decode("utf-8", errors="replace")
             s = str(tag_value).strip().lower()
-            if s.startswith("t ="):
+            if re.match(r'^\s*t\s*=', s, re.IGNORECASE):
                 return "time"
-            if s.startswith("z ="):
+            if re.match(r'^\s*z\s*=', s, re.IGNORECASE):
                 return "z"
             return None
     except Exception:
@@ -344,22 +462,22 @@ def extract_pos_z(path):
 
     Returns
     -------
-    np.ndarray
-        1D array of Z positions in µm. Length may differ from number of images;
-        caller must validate.
+    tuple[numpy.ndarray, str | None]
+        1D array of Z positions in µm and their unit (or None if extraction fails).
+        Length may differ from number of images; caller must validate.
 
     Raises
     ------
     ValueError
         If no Z positions could be extracted from either TIFF tags or .log file.
     """
-    pz = extract_pos_z_from_tiff(path)
+    pz, unit = extract_pos_z_from_tiff(path)
     if pz.size > 0:
-        return pz
+        return pz, unit
 
-    pz_log = extract_pos_z_from_log(path)
+    pz_log, unit = extract_pos_z_from_log(path)
     if pz_log.size > 0:
-        return pz_log
+        return pz_log, unit
 
     raise ValueError(
         f"Could not extract Z positions from {path}. "
@@ -367,11 +485,12 @@ def extract_pos_z(path):
     )
 
 def extract_pos_z_from_tiff(path):
-    """Extract Z positions (µm) from TIFF tag 285 on each page.
+    """Extract Z positions and their unit from TIFF tag 285 on each page.
 
-    Expects each page's PageName to start with ``z =`` followed by a float
-    (legacy MATLAB ``ReadImageStack_TIFF`` convention). Optional text after
-    the number is ignored.
+    Each page's PageName is expected to contain a string like
+    ``"z = <value> <unit>"`` (e.g. ``"z = 12.5 um"``).  The unit is
+    extracted from the trailing word; if no unit is present, ``"um"`` is
+    assumed (legacy MATLAB ``ReadImageStack_TIFF`` convention).
 
     Parameters
     ----------
@@ -380,14 +499,20 @@ def extract_pos_z_from_tiff(path):
 
     Returns
     -------
-    np.ndarray
-        One Z value per page (µm). Empty array if no ``z =`` entries found.
+    tuple[numpy.ndarray, str | None]
+        Array of Z position values and the unit string.
+        Empty array and ``None`` if no ``z =`` entries found.
     """
     values = []
+    unit = None
+    # Match "z = <number> <unit>
     z_pat = re.compile(
-        r"^\s*z\s*=\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)",
+        r'^\s*z\s*=\s*'
+        r'([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)'
+        r'\s*([a-zA-Z]+)?\s*$',
         re.IGNORECASE,
     )
+
     with tifffile.TiffFile(path) as tif:
         for page in tif.pages:
             if 285 not in page.tags:
@@ -395,10 +520,19 @@ def extract_pos_z_from_tiff(path):
             tag_value = page.tags[285].value
             if isinstance(tag_value, bytes):
                 tag_value = tag_value.decode("utf-8", errors="replace")
-            m = z_pat.match(str(tag_value).strip())
-            if m:
-                values.append(float(m.group(1)))
-    return np.array(values, dtype=np.float64)
+            match = z_pat.match(str(tag_value).strip())
+            if match:
+                values.append(float(match.group(1)))
+                extracted_unit = match.group(2)
+                if extracted_unit is not None:
+                    extracted_unit = extracted_unit.strip().lower()
+                    if unit is None:
+                        unit = extracted_unit
+                    elif unit != extracted_unit:
+                        print(f"Warning: inconsistent units in TIFF tags: {unit} vs {extracted_unit}")
+    if not values:
+        return np.array([], dtype=np.float64), None
+    return np.array(values, dtype=np.float64), unit
 
 def extract_pos_z_from_log(path):
     """Extract Z positions (µm) from a DukeScan companion ``.log`` file (silent if missing).
@@ -414,9 +548,9 @@ def extract_pos_z_from_log(path):
 
     Returns
     -------
-    np.ndarray
-        1D array of Z positions in µm. Empty array if ``posZArr_um`` is not found
-        or parsing fails.
+    tuple[numpy.ndarray, str | None]
+        1D array of Z positions in µm and their unit (or None if extraction fails).
+        Length may differ from number of images; caller must validate.
     """
     p = Path(path)
     if p.suffix.lower() == ".tif":
@@ -430,7 +564,7 @@ def extract_pos_z_from_log(path):
         with open(p_log, "r", encoding="latin1") as f:
             log = f.read()
     except OSError:
-        return np.array([], dtype=np.float64)
+        return np.array([], dtype=np.float64), None
 
     raw = None
     for line in log.splitlines():
@@ -441,14 +575,14 @@ def extract_pos_z_from_log(path):
                 raw = m.group(1).strip()
                 break
     if not raw:
-        return np.array([], dtype=np.float64)
+        return np.array([], dtype=np.float64), None
     parts = [x.strip() for x in raw.split(",") if x.strip()]
     if not parts:
-        return np.array([], dtype=np.float64)
+        return np.array([], dtype=np.float64), None
     try:
-        return np.array([float(x) for x in parts], dtype=np.float64)
+        return np.array([float(x) for x in parts], dtype=np.float64), 'um'
     except ValueError:
-        return np.array([], dtype=np.float64)
+        return np.array([], dtype=np.float64), None
 
 def _guess_type_from_extension(path):
     """Guess the stack type based on file extension."""
