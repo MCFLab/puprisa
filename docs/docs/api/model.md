@@ -6,6 +6,8 @@ The model layer is Qt-free. Managers own session state, validate operations, and
 
 ::: puprisa.model.entities.StackItem
 
+::: puprisa.model.entities.MaskItem
+
 ::: puprisa.model.entities.RoiItem
 
 ::: puprisa.model.entities.CurveItem

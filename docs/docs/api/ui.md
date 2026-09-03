@@ -11,3 +11,7 @@ The UI layer contains the application windows, reusable custom widgets, and dial
 ::: puprisa.ui.widgets.scrollable_graphics_view.ScrollableGraphicsView
 
 ::: puprisa.ui.widgets.mpl_canvas.MatplotlibFigureCanvas
+
+::: puprisa.ui.widgets.draggable_roi.DraggableROI
+
+::: puprisa.ui.widgets.draggable_roi.DraggablePolygonROI

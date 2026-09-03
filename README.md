@@ -102,15 +102,32 @@ Build a static site with:
 mkdocs build -f docs/mkdocs.yml
 ```
 
+## Architecture
+
+The desktop application follows a **Model-View-ViewModel (MVVM)** design, with small controller objects for command handling:
+
+```text
+src/puprisa/
+  core/          Qt-free numerical domain: PPS stack, I/O, processing, masks, phasor, fitting
+  model/         Qt-free session state: entities and event-emitting managers
+  viewmodels/    Qt view models that bind each manager to a widget/graphics scene
+  controllers/   Qt command handlers (open dialogs, then call a manager)
+  ui/            Thin windows, dialogs, custom widgets, and Designer forms
+  utils/         Shared helpers (geometry, parsing, colours, plotting)
+```
+
+The `core` and `model` layers never import Qt, so the numerical `PPS` API **and** the session-state managers (`StackManager`, `MaskManager`, `RoiManager`, `CurveManager`, `ProcessingManager`, `PlotManager`) are fully usable from notebooks and scripts. View models subscribe to manager callback events and redraw their views; controllers translate menu and button actions into manager calls. Both windows share one `ApplicationContext`, so they see the same session data. See the [architecture guide](docs/docs/architecture.md) and the [data-flow notes](docs/docs/dev/data_flow.md) for the full picture.
+
 ## Project layout
 
 ```text
 src/puprisa/       Package source
-  core/            Numerical data, I/O, processing, masking, and phasor functions
-  model/           Application state and event-driven managers
-  controllers/     Qt action handlers
-  viewmodels/      Qt presentation and scene coordination
-  ui/              Windows, dialogs, forms, and custom widgets
+  core/            Qt-free numerical data, I/O, processing, masking, phasor, and fitting
+  model/           Qt-free entities and event-driven state managers (the MVVM Model)
+  controllers/     Qt command handlers that own dialogs and call managers
+  viewmodels/      Qt view models that keep widgets and graphics scenes current
+  ui/              Thin windows, dialogs, custom widgets, and Designer forms
+  utils/           Shared helpers used by several layers
 docs/              MkDocs configuration and source pages
 data/              Example DukeScan stack and associated metadata
 examples/          Notebook example
@@ -125,6 +142,12 @@ examples/          Notebook example
 
 ## Development
 
-The app is assembled by `ApplicationContext`: model managers are Qt-free and emit callback events; controllers perform user actions; view models keep Qt scenes and widgets current. See the [architecture guide](docs/docs/architecture.md) and [developer documentation](docs/docs/dev/data_flow.md).
+`ApplicationContext` is the composition root: it builds the Qt-free model managers in dependency order, wires cross-manager listeners, and lazily constructs `MainWindow` and `PhasorWindow`. The windows are thin MVVM shells that instantiate view models and controllers and connect them to the shared managers.
+
+- Model managers are Qt-free and emit callback events that presentation code observes.
+- View models subscribe to those events and keep a specific widget, list, or graphics scene current.
+- Controllers own dialogs and call exactly one manager method per user action.
+
+Keep new analysis in `core`, expose state changes through a validated `model` manager method, and only then add a controller action or a view-model response. See the [architecture guide](docs/docs/architecture.md) and [developer documentation](docs/docs/dev/data_flow.md).
 
 There is no automated test suite in the current repository. The validation guidance in the documentation describes focused checks for contributors.

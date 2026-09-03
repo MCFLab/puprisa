@@ -2,12 +2,14 @@
 
 Puprisa is an application and Python package for processing and analysing pump-probe microscopy image stacks. It supports the full path from loading a stack to selecting spatial or phasor-space regions, plotting their average curves, and exporting results.
 
+The desktop interface is built on a **Model-View-ViewModel (MVVM)** architecture: the numerical core and the session-state managers are pure Python and Qt-free, so the same operations remain available from notebooks and scripts, while Qt view models, controllers, and windows form the desktop presentation. See [Architecture](architecture.md) for details.
+
 ## Choose your path
 
 - New to the application? Start with [Getting Started](getting_started.md).
 - Running an experiment workflow? Read the [User Guide](user_guide.md).
-- Extending the application? See [Architecture](architecture.md) and [Data Flow](dev/data_flow.md).
-- Calling Puprisa from a notebook or script? Browse the [API Reference](api/core.md).
+- Understanding the MVVM design, or extending the application? See [Architecture](architecture.md) and [Data Flow](dev/data_flow.md).
+- Calling Puprisa from a notebook or script? Browse the [API Reference](api/core.md), and use the Qt-free [Model API](api/model.md) directly if you need programmatic session state.
 
 ## Core capabilities
 

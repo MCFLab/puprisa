@@ -19,7 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors as mcolors
 from matplotlib.axes import Axes
-from matplotlib.colors import Normalize
+from matplotlib.colors import LogNorm, Normalize
 from matplotlib.cm import ScalarMappable
 
 from typing import TYPE_CHECKING
@@ -260,20 +260,44 @@ def plot_projection(
 # ------------------------------------------------------------------
 # Render / Plot phasor
 # ------------------------------------------------------------------
+def _phasor_histogram(
+    coords: np.ndarray,
+    g_lim: tuple[float, float],
+    s_lim: tuple[float, float],
+    bins: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return a bounded 2D histogram after discarding invalid coordinates."""
+    coords = np.asarray(coords, dtype=np.float64)
+    if coords.ndim != 2 or coords.shape[1] != 2:
+        raise ValueError("coords must have shape (n_points, 2)")
+    if bins < 1:
+        raise ValueError("bins must be at least 1")
+
+    valid = np.isfinite(coords).all(axis=1)
+    g = coords[valid, 0]
+    s = coords[valid, 1]
+    bins_g = np.linspace(g_lim[0], g_lim[1], bins + 1)
+    bins_s = np.linspace(s_lim[0], s_lim[1], bins + 1)
+    return np.histogram2d(g, s, bins=[bins_g, bins_s])
+
+
 def render_phasor_rgba(
     coords: np.ndarray,
     color_hex: str,
     g_lim: tuple[float, float] = (-1.0, 1.0),
     s_lim: tuple[float, float] = (-1.0, 1.0),
     size: int = 512,
+    alpha_min: float = 30.0,
+    alpha_max: float = 180.0,
 ) -> np.ndarray:
     """Render phasor coordinates as a single-color RGBA density image.
 
-    A 2D histogram of the phasor coordinates is computed and normalized to
-    its maximum. The histogram is then composited into a fixed-color RGBA
-    image where the alpha channel encodes density. The image is suitable
-    for immediate display with ``imshow`` and can be overlaid on other
-    phasor plots.
+    A 2D histogram of the phasor coordinates is computed and mapped with a
+    logarithmic density scale. The histogram is then composited into a
+    fixed-color RGBA image where the alpha channel encodes density. The log
+    scale keeps sparsely occupied bins visible when a background bin contains
+    far more pixels. The image is suitable for immediate display with
+    ``imshow`` and can be overlaid on other phasor plots.
 
     Parameters
     ----------
@@ -282,6 +306,7 @@ def render_phasor_rgba(
         is ``g`` and the second is ``s``.
     color_hex : str
         Matplotlib color specification for the density overlay.
+        Examples: ``"#FF0000"``, ``"red"``, ``(1.0, 0.0, 0.0)``.
     g_lim : tuple[float, float], default (-1.0, 1.0)
         Lower and upper bounds of the ``g`` axis.
     s_lim : tuple[float, float], default (-1.0, 1.0)
@@ -303,25 +328,84 @@ def render_phasor_rgba(
     value, matching the convention used by ``imshow`` with
     ``origin="upper"``.
     """
-    g = coords[:, 0]
-    s = coords[:, 1]
+    hist, _, _ = _phasor_histogram(coords, g_lim, s_lim, size)
+    hist = hist.T[::-1, :]
 
-    bins_g = np.linspace(g_lim[0], g_lim[1], size + 1)
-    bins_s = np.linspace(s_lim[0], s_lim[1], size + 1)
-    hist, _, _ = np.histogram2d(g, s, bins=[bins_g, bins_s])
-    hist = hist.T[::-1, :]  # image rows: high s at top
+    alpha = np.zeros_like(hist, dtype=np.float32)
+    nonzero = hist > 0
 
-    if np.any(hist > 0):
-        hist = hist / hist.max()
+    if np.any(nonzero):
+        counts = hist[nonzero]
+        order = np.argsort(counts)
+        rank = np.empty_like(counts, dtype=np.float32)
+        rank[order] = np.linspace(0.0, 1.0, len(order), dtype=np.float32)
+        alpha[nonzero] = alpha_min + (alpha_max - alpha_min) * rank
 
     rgb_color = np.array(mcolors.to_rgb(color_hex)) * 255.0
     rgba = np.zeros((size, size, 4), dtype=np.uint8)
     rgba[..., 0] = int(rgb_color[0])
     rgba[..., 1] = int(rgb_color[1])
     rgba[..., 2] = int(rgb_color[2])
-    rgba[..., 3] = (hist * 180).astype(np.uint8)
+    rgba[..., 3] = np.clip(alpha, 0, 255).astype(np.uint8)
 
     return np.ascontiguousarray(rgba)
+
+
+def plot_phasor_hist2d(
+    pps: PPS,
+    freq: float = 0.25,
+    use_mask: bool = True,
+    ax=None,
+    g_lim: tuple[float, float] = (-1.0, 1.0),
+    s_lim: tuple[float, float] = (-1.0, 1.0),
+    bins: int = 128,
+    cmap: str = "Reds",
+    show_semicircle: bool = True,
+    colorbar: bool = True,
+) -> Axes:
+    """Plot a 2D phasor-count histogram for density verification.
+
+    Non-finite coordinates (for example, pixels outside an active mask) are
+    ignored. Nonzero bin counts use a logarithmic colour scale so isolated
+    signal points remain visible alongside a dominant background population.
+    """
+    if ax is None:
+        _, ax = plt.subplots()
+
+    coords = pps.phasor(freq=freq, use_mask=use_mask)
+    hist, g_edges, s_edges = _phasor_histogram(coords, g_lim, s_lim, bins)
+    display_hist = np.ma.masked_where(hist.T <= 0, hist.T)
+    nonzero = hist[hist > 0]
+    norm = (
+        LogNorm(vmin=1, vmax=max(2.0, float(nonzero.max())))
+        if nonzero.size
+        else None
+    )
+    image = ax.pcolormesh(
+        g_edges,
+        s_edges,
+        display_hist,
+        cmap=cmap,
+        norm=norm,
+        shading="auto",
+    )
+
+    if colorbar and nonzero.size:
+        cbar = plt.colorbar(image, ax=ax)
+        cbar.set_label("Pixels per bin (log scale)")
+
+    if show_semicircle:
+        g_upper, s_upper, g_lower, s_lower = universal_semicircle()
+        ax.plot(g_upper, s_upper, color="gray", linestyle="--", linewidth=1.0)
+        ax.plot(g_lower, s_lower, color="gray", linestyle="--", linewidth=1.0)
+
+    ax.set_xlabel("g")
+    ax.set_ylabel("s")
+    ax.set_title(f"Phasor 2D histogram @ {freq:.2f} {pps.get_phasor_unit()}")
+    ax.set_xlim(g_lim)
+    ax.set_ylim(s_lim)
+    ax.set_aspect("equal")
+    return ax
 
 def universal_semicircle(
     n_points: int = 400,
