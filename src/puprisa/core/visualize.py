@@ -38,7 +38,7 @@ def render_slice_rgb(
     vmin: float | None = None,
     vmax: float | None = None,
     mask_color: tuple[int, int, int] = (200, 200, 200),
-) -> np.ndarray:
+) -> tuple[np.ndarray, float, float]:
     """Render a single frame of a PPS stack as a uint8 RGB image.
 
     The frame is color-mapped with :func:`apply_colormap`, then every
@@ -55,31 +55,46 @@ def render_slice_rgb(
     colormap : str, default "pumpprobe"
         Matplotlib colormap name passed to :func:`apply_colormap`.
     vmin, vmax : float or None, optional
-        Lower/upper color scale bounds. When either is ``None``, the
-        corresponding bound is inferred from the data by
-        :func:`apply_colormap`.
+        Lower/upper color scale bounds. When either is ``None``,
+        they are inferred from the valid (non-masked) pixels of the frame.
     mask_color : tuple[int, int, int], default gray (200, 200, 200)
         RGB color (0-255) applied to pixels where ``pps.mask`` is False.
 
     Returns
     -------
-    np.ndarray
+    rgb : np.ndarray
         Contiguous array of shape ``(height, width, 3)`` and dtype
         ``np.uint8``. The last axis is ordered as red, green, blue.
+    vmin_used : float
+        The lower color scale bound actually applied to the data.
+    vmax_used : float
+        The upper color scale bound actually applied to the data.
 
     Notes
     -----
-    The returned array is suitable for immediate display with
+    The returned RGB array is suitable for immediate display with
     ``matplotlib.axes.Axes.imshow`` or conversion to a QImage.
     """
-
     image = pps.images[slice_index]
-    rgb, _, _ = apply_colormap(image, vmin=vmin, vmax=vmax, cmap=colormap)
-
+    if vmin is None or vmax is None:
+        mask = np.asarray(pps.mask, dtype=bool)
+        valid_image = image[mask] if np.any(mask) else image
+        if vmin is None:
+            vmin = float(valid_image.min())
+        if vmax is None:
+            vmax = float(valid_image.max())
+            if vmax <= vmin:
+                vmax = vmin + 1.0
+    rgb, vmin_used, vmax_used = apply_colormap(
+        image, vmin=vmin, vmax=vmax, cmap=colormap
+    )
     mask = np.asarray(pps.mask, dtype=bool)
     rgb[~mask] = mask_color
-
-    return np.ascontiguousarray(rgb, dtype=np.uint8)
+    return (
+        np.ascontiguousarray(rgb, dtype=np.uint8),
+        float(vmin_used),
+        float(vmax_used),
+    )
 
 def plot_slice(
     pps: PPS,
@@ -91,35 +106,22 @@ def plot_slice(
     mask_color: tuple[int, int, int] = (200, 200, 200),
     colorbar: bool = True,
 ) -> Axes:
-    """Render a PPS slice and display it on a Matplotlib axis.
-
-    Unlike :func:`render_slice_rgb`, this function also returns the
-    colorbar (by default) so the numeric color scale is visible.
+    """
+    Render a PPS slice and display it on a Matplotlib axis.
     """
     if ax is None:
         _, ax = plt.subplots()
-
-    image = pps.images[slice_index]
-    mask = np.asarray(pps.mask, dtype=bool)
-
-    valid_image = image[mask] if np.any(mask) else image
-    if vmin is None:
-        vmin = float(valid_image.min())
-    if vmax is None:
-        vmax = float(valid_image.max())
-        if vmax <= vmin:
-            vmax = vmin + 1.0
-
-    rgb, vmin_used, vmax_used = apply_colormap(
-        image, vmin=vmin, vmax=vmax, cmap=colormap
+    rgb, vmin_used, vmax_used = render_slice_rgb(
+        pps,
+        slice_index=slice_index,
+        colormap=colormap,
+        vmin=vmin,
+        vmax=vmax,
+        mask_color=mask_color,
     )
-    rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
-    rgb[~mask] = mask_color
-
     ax.imshow(rgb)
     ax.set_axis_off()
     ax.set_title(f"{pps.filename or 'Pump Probe Image Stack'} - Slice {slice_index}")
-
     if colorbar:
         sm = ScalarMappable(
             norm=Normalize(vmin=vmin_used, vmax=vmax_used),
@@ -127,7 +129,6 @@ def plot_slice(
         )
         sm.set_array([])
         plt.colorbar(sm, ax=ax)
-
     return ax
 
 # ------------------------------------------------------------------
@@ -162,15 +163,17 @@ def render_projection_rgb(
 
     Returns
     -------
-    np.ndarray
-        Contiguous array of shape ``(height, width, 3)`` and dtype
-        ``np.uint8``. The last axis is ordered as red, green, blue.
+    rgb : np.ndarray
+        RGB uint8 image.
+    vmin_used : float
+        Lower bound actually used.
+    vmax_used : float
+        Upper bound actually used.
     """
+
     projection = pps.project(mask_on=False)
     projection = np.nan_to_num(projection, nan=0.0, posinf=0.0, neginf=0.0)
-
     mask_2d = np.asarray(pps.mask, dtype=bool)
-
     valid_proj = projection[mask_2d] if np.any(mask_2d) else projection
     if vmin is None:
         vmin = float(valid_proj.min())
@@ -178,11 +181,12 @@ def render_projection_rgb(
         vmax = float(valid_proj.max())
         if vmax <= vmin:
             vmax = vmin + 1.0
-
-    rgb, _, _ = apply_colormap(projection, vmin=vmin, vmax=vmax, cmap=colormap)
+    rgb, vmin_used, vmax_used = apply_colormap(
+        projection, vmin=vmin, vmax=vmax, cmap=colormap
+    )
     rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
     rgb[~mask_2d] = mask_color
-    return rgb
+    return rgb, vmin_used, vmax_used
 
 def plot_projection(
     pps: PPS,
@@ -193,48 +197,51 @@ def plot_projection(
     mask_color: tuple[int, int, int] = (200, 200, 200),
     colorbar: bool = True,
 ) -> Axes:
-    """Render the spatial projection and display it with a colorbar.
+    """Render and display the projection image on a Matplotlib axis.
+
+    The projection of the provided :class:`PPS` object is rendered as an
+    RGB image (via :func:`render_projection_rgb`) and shown with ``imshow``.
+    The mask region is filled with ``mask_color``. If ``colorbar`` is
+    ``True``, a colorbar mapping the actually used value range
+    ``(vmin_used, vmax_used)`` to ``colormap`` is attached to the axes.
 
     Parameters
     ----------
     pps : PPS
-        The stack whose projection is displayed.
-    ax : matplotlib.axes.Axes or None, optional
-        Axis on which to draw. If None, a new figure and axis are created.
-    colormap : str, default "gray"
-        Colormap name passed to :func:`apply_colormap`.
-    vmin, vmax : float or None, optional
-        Color scale limits. If None, they are inferred from valid pixels.
-    mask_color : tuple[int, int, int]
-        RGB color (0-255) used for masked-out pixels.
-    colorbar : bool, default True
-        Whether to add a colorbar to the plot.
+        The pump-probe image stack to plot.
+    ax : matplotlib.axes.Axes, optional
+        The axes on which to draw the image. If ``None``, a new figure and
+        axes are created.
+    colormap : str, optional
+        Matplotlib colormap name used to map projection values to colors.
+        Default is ``"gray"``.
+    vmin : float, optional
+        Lower bound of the value range. If ``None``, the minimum valid
+        projection value is used.
+    vmax : float, optional
+        Upper bound of the value range. If ``None``, the maximum valid
+        projection value is used.
+    mask_color : tuple[int, int, int], optional
+        RGB color (uint8) used to fill pixels outside the mask. Default is
+        ``(200, 200, 200)``.
+    colorbar : bool, optional
+        Whether to attach a colorbar to the axes. Default is ``True``.
 
     Returns
     -------
     matplotlib.axes.Axes
-        The axis containing the displayed image.
+        The axes containing the plotted projection.
     """
     if ax is None:
         _, ax = plt.subplots()
 
-    projection = pps.project(mask_on=False)
-    projection = np.nan_to_num(projection, nan=0.0, posinf=0.0, neginf=0.0)
-
-    mask_2d = np.asarray(pps.mask, dtype=bool)
-    valid_proj = projection[mask_2d] if np.any(mask_2d) else projection
-    if vmin is None:
-        vmin = float(valid_proj.min())
-    if vmax is None:
-        vmax = float(valid_proj.max())
-        if vmax <= vmin:
-            vmax = vmin + 1.0
-
-    rgb, vmin_used, vmax_used = apply_colormap(
-        projection, vmin=vmin, vmax=vmax, cmap=colormap
+    rgb, vmin_used, vmax_used = render_projection_rgb(
+        pps,
+        colormap=colormap,
+        vmin=vmin,
+        vmax=vmax,
+        mask_color=mask_color,
     )
-    rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
-    rgb[~mask_2d] = mask_color
 
     ax.imshow(rgb)
     ax.set_axis_off()

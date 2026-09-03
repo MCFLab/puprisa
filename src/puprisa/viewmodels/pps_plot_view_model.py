@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QGraphicsScene
 
 import numpy as np
 
+from puprisa.core.visualize import render_slice_rgb
 from puprisa.model.mask_manager import MaskEvent, MaskManager
 from puprisa.model.plot_manager import PlotEvent, PlotManager
 from puprisa.model.processing_manager import ProcessingManager
@@ -115,7 +116,7 @@ class PPSPlotViewModel(QObject):
         if pps is None:
             return
         self._current_slice = max(0, min(index, len(pps.images) - 1))
-        self._render_image(pps.images[self._current_slice])
+        self._render_image()
 
     def fit_view(self) -> None:
         if self._pixmap_item is None:
@@ -139,7 +140,10 @@ class PPSPlotViewModel(QObject):
     # ------------------------------------------------------------------
     # Internal rendering
     # ------------------------------------------------------------------
-    def _render_image(self, image_data: np.ndarray) -> None:
+    def _render_image(self) -> None:
+        pps = self._current_pps()
+        if pps is None:
+            return
         if self._plot_manager is not None:
             colormap = self._plot_manager.colormap
             vmin, vmax = self._plot_manager.vmin, self._plot_manager.vmax
@@ -147,16 +151,14 @@ class PPSPlotViewModel(QObject):
             colormap = "pumpprobe"
             vmin, vmax = None, None
 
-        rgb, vmin_used, vmax_used = apply_colormap(
-            image_data, vmin=vmin, vmax=vmax, cmap=colormap
+        rgb, vmin_used, vmax_used = render_slice_rgb(
+            pps,
+            slice_index=self._current_slice,
+            colormap=colormap,
+            vmin=vmin,
+            vmax=vmax,
+            mask_color=(200, 200, 200),
         )
-
-        pps = self._current_pps()
-        if pps is not None:
-            mask = np.asarray(pps.mask, dtype=bool)
-            rgb[~mask] = [200, 200, 200]
-
-        rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
         h, w = rgb.shape[:2]
         qimage = QImage(rgb.tobytes(), w, h, rgb.strides[0], QImage.Format_RGB888).copy()
         pixmap = QPixmap.fromImage(qimage)
@@ -236,12 +238,7 @@ class PPSPlotViewModel(QObject):
             colormap = "pumpprobe"
             vmin, vmax = None, None
 
-        import matplotlib.pyplot as plt
-        from matplotlib.colors import Normalize
-        from matplotlib.cm import ScalarMappable
-
         current_slice = self._current_slice
-
         fig, (ax_img, ax_curve) = plt.subplots(
             1, 2,
             figsize=(9, 4),
@@ -250,13 +247,19 @@ class PPSPlotViewModel(QObject):
         )
 
         # --- Image panel ---
-        image_data = pps.images[current_slice]
-        rgb, _, _ = apply_colormap(image_data, vmin=vmin, vmax=vmax, cmap=colormap)
-        mask = np.asarray(pps.mask, dtype=bool)
-        rgb[~mask] = [200, 200, 200]
-        rgb = np.ascontiguousarray(rgb, dtype=np.uint8)
-
-        ax_img.imshow(rgb)
+        from puprisa.core.visualize import plot_slice
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize
+        from matplotlib.cm import ScalarMappable
+        ax_img = plot_slice(
+            pps,
+            slice_index=current_slice,
+            ax=ax_img,
+            colormap=colormap,
+            vmin=vmin,
+            vmax=vmax,
+            colorbar=False,
+        )
         stack_item = self._stack_manager.get_current_item()
         ax_img.set_title(stack_item.name if stack_item else pps.filename)
         ax_img.axis('off')

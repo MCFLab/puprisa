@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QGraphicsScene, QGraphicsItem, QGraphicsLineItem, 
 import numpy as np
 import matplotlib.colors as mcolors
 
+from puprisa.core.visualize import render_phasor_rgba, render_projection_rgb, universal_semicircle
 from puprisa.model.entities import RoiItem
 from puprisa.model.mask_manager import MaskEvent, MaskManager
 from puprisa.model.processing_manager import ProcessingEvent, ProcessingManager
@@ -142,7 +143,6 @@ class PhasorPlotViewModel(QObject):
         self.fit_phasor_view()
 
     def refresh_spatial_view(self) -> None:
-        """Render the spatial projection for the current stack."""
         self.spatial_scene.clear()
 
         current_item = self._stack_manager.get_current_item()
@@ -150,23 +150,9 @@ class PhasorPlotViewModel(QObject):
             return
 
         pps = current_item.pps
-        projection = pps.project(mask_on=False)
-        projection = np.nan_to_num(projection, nan=0.0, posinf=0.0, neginf=0.0)
+        rgb, _, _ = render_projection_rgb(pps)
 
-        h, w = projection.shape
-        mask_2d = np.asarray(pps.mask, dtype=bool)
-
-        valid_proj = projection[mask_2d] if np.any(mask_2d) else projection
-        vmin = float(valid_proj.min())
-        vmax = float(valid_proj.max())
-        if vmax <= vmin:
-            vmax = vmin + 1.0
-
-        gray = np.clip((projection - vmin) / (vmax - vmin), 0.0, 1.0)
-        gray_u8 = (gray * 255).astype(np.uint8)
-        rgb = np.stack([gray_u8] * 3, axis=-1).astype(np.float64)
-
-        # ROI overlay on phasor-space ROIs
+        h, w = rgb.shape[:2]
         coords = self._get_or_compute_phasor_coords(current_item)
         if coords is not None:
             current_stack_id = current_item.id
@@ -183,11 +169,8 @@ class PhasorPlotViewModel(QObject):
                 rgb[keep_mask, 1] = color[1]
                 rgb[keep_mask, 2] = color[2]
 
-        rgb[~mask_2d] = [200, 200, 200]
-        rgb = np.clip(rgb, 0, 255).astype(np.uint8)
-        rgb = np.ascontiguousarray(rgb)
-
-        qimage = QImage(rgb.data, w, h, w * 3, QImage.Format.Format_RGB888).copy()
+        qimage = QImage(rgb.tobytes(), w, h, rgb.strides[0],
+                        QImage.Format_RGB888).copy()
         pixmap = QPixmap.fromImage(qimage)
         self.spatial_scene.addPixmap(pixmap)
         self.fit_spatial_view()
@@ -220,27 +203,16 @@ class PhasorPlotViewModel(QObject):
     # Density pixmap construction
     # ------------------------------------------------------------------
     def _make_density_pixmap(self, coords: np.ndarray, color_hex: str) -> QPixmap:
+        rgba = render_phasor_rgba(
+            coords,
+            color_hex,
+            g_lim=self.G_LIM,
+            s_lim=self.S_LIM,
+            size=self.DENSITY_SIZE,
+        )
         size = self.DENSITY_SIZE
-        g = coords[:, 0]
-        s = coords[:, 1]
-
-        bins_g = np.linspace(self.G_LIM[0], self.G_LIM[1], size + 1)
-        bins_s = np.linspace(self.S_LIM[0], self.S_LIM[1], size + 1)
-        hist, _, _ = np.histogram2d(g, s, bins=[bins_g, bins_s])
-        hist = hist.T[::-1, :]  # image rows = s (top high), cols = g
-
-        if np.any(hist > 0):
-            hist = hist / hist.max()
-
-        rgb_color = np.array(mcolors.to_rgb(color_hex)) * 255.0
-        rgba = np.zeros((size, size, 4), dtype=np.uint8)
-        rgba[..., 0] = int(rgb_color[0])
-        rgba[..., 1] = int(rgb_color[1])
-        rgba[..., 2] = int(rgb_color[2])
-        rgba[..., 3] = (hist * 180).astype(np.uint8)
-
-        rgba = np.ascontiguousarray(rgba)
-        qimage = QImage(rgba.data, size, size, size * 4, QImage.Format.Format_RGBA8888).copy()
+        qimage = QImage(rgba.tobytes(), size, size,
+                        size * 4, QImage.Format_RGBA8888).copy()
         return QPixmap.fromImage(qimage)
 
     # ------------------------------------------------------------------
@@ -293,18 +265,14 @@ class PhasorPlotViewModel(QObject):
             self._axis_items.append(text)
 
         # Universal semicircle
-        theta = np.linspace(0.0, np.pi, 400)
-        g_upper = 0.5 * (1.0 + np.cos(theta))
-        s_upper = 0.5 * np.sin(theta)
-        g_lower = -g_upper
-        s_lower = -0.5 * np.sin(theta)
+        g_upper, s_upper, g_lower, s_lower = universal_semicircle()
 
         path = QPainterPath()
         first_pt = self._gs_to_scene_point(g_upper[0], s_upper[0])
         path.moveTo(first_pt)
-        for i in range(1, len(theta)):
+        for i in range(1, len(g_upper)):
             path.lineTo(self._gs_to_scene_point(g_upper[i], s_upper[i]))
-        for i in range(len(theta)):
+        for i in range(len(g_lower)):
             path.lineTo(self._gs_to_scene_point(g_lower[i], s_lower[i]))
         path.closeSubpath()
 
@@ -398,13 +366,8 @@ class PhasorPlotViewModel(QObject):
         ax.set_aspect("equal", adjustable="box")
         ax.grid(True, alpha=0.25)
 
-        # Universal circle / semicircle guide.
-        theta = np.linspace(0.0, np.pi, 400)
-        g_upper = 0.5 * (1.0 + np.cos(theta))
-        s_upper = 0.5 * np.sin(theta)
-        g_lower = -g_upper
-        s_lower = -0.5 * np.sin(theta)
-
+        # Universal circle/semicircle guide.
+        g_upper, s_upper, g_lower, s_lower = universal_semicircle()
         ax.plot(g_upper, s_upper, color="gray", linestyle="--", linewidth=1.0)
         ax.plot(g_lower, s_lower, color="gray", linestyle="--", linewidth=1.0)
 
@@ -440,26 +403,12 @@ class PhasorPlotViewModel(QObject):
 
 
     def _draw_spatial_projection(self, ax) -> None:
-        """Draw current stack spatial projection with phasor-ROI overlay."""
         current_item = self._stack_manager.get_current_item()
         if current_item is None:
             return
 
         pps = current_item.pps
-        projection = pps.project(mask_on=False)
-        projection = np.nan_to_num(projection, nan=0.0, posinf=0.0, neginf=0.0)
-
-        mask_2d = np.asarray(pps.mask, dtype=bool)
-        valid_proj = projection[mask_2d] if np.any(mask_2d) else projection
-
-        vmin = float(valid_proj.min())
-        vmax = float(valid_proj.max())
-        if vmax <= vmin:
-            vmax = vmin + 1.0
-
-        gray = np.clip((projection - vmin) / (vmax - vmin), 0.0, 1.0)
-        gray_u8 = (gray * 255).astype(np.uint8)
-        rgb = np.stack([gray_u8] * 3, axis=-1).astype(np.float64)
+        rgb = render_projection_rgb(pps)[0]
 
         coords = self._get_or_compute_phasor_coords(current_item)
         if coords is not None:
@@ -467,55 +416,31 @@ class PhasorPlotViewModel(QObject):
                 roi for roi in self._roi_manager.get_rois_for_stack(current_item.id)
                 if roi.space == "phasor" and roi.visible
             ]
-
             for roi in phasor_rois:
                 keep_mask = self._roi_manager.build_roi_mask(roi)
                 if keep_mask is None:
                     continue
-
                 color = np.array(mcolors.to_rgb(roi.color)) * 255.0
                 rgb[keep_mask, 0] = color[0]
                 rgb[keep_mask, 1] = color[1]
                 rgb[keep_mask, 2] = color[2]
-
-        rgb[~mask_2d] = [200, 200, 200]
-        rgb = np.clip(rgb, 0, 255).astype(np.uint8)
 
         ax.imshow(rgb)
         ax.set_title("Spatial View")
         ax.axis("off")
 
     def _draw_density_overlay(self, ax, coords: np.ndarray, color_hex: str) -> None:
-        """Draw a Matplotlib density overlay matching the Qt phasor view."""
-        size = self.DENSITY_SIZE
-
-        g = coords[:, 0]
-        s = coords[:, 1]
-
-        bins_g = np.linspace(self.G_LIM[0], self.G_LIM[1], size + 1)
-        bins_s = np.linspace(self.S_LIM[0], self.S_LIM[1], size + 1)
-
-        hist, _, _ = np.histogram2d(g, s, bins=[bins_g, bins_s])
-        hist = hist.T[::-1, :]
-
-        if np.any(hist > 0):
-            hist = hist / hist.max()
-
-        rgb_color = np.array(mcolors.to_rgb(color_hex))
-        rgba = np.zeros((size, size, 4), dtype=float)
-        rgba[..., 0] = rgb_color[0]
-        rgba[..., 1] = rgb_color[1]
-        rgba[..., 2] = rgb_color[2]
-        rgba[..., 3] = hist * (180.0 / 255.0)
-
+        """Draw a single phasor density overlay into a Matplotlib axis."""
+        rgba = render_phasor_rgba(
+            coords,
+            color_hex,
+            g_lim=self.G_LIM,
+            s_lim=self.S_LIM,
+            size=self.DENSITY_SIZE,
+        )
         ax.imshow(
             rgba,
-            extent=[
-                self.G_LIM[0],
-                self.G_LIM[1],
-                self.S_LIM[0],
-                self.S_LIM[1],
-            ],
+            extent=[self.G_LIM[0], self.G_LIM[1], self.S_LIM[0], self.S_LIM[1]],
             origin="upper",
             interpolation="nearest",
             aspect="equal",

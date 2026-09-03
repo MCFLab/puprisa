@@ -529,7 +529,7 @@ class PPS:
             raise ValueError(f"Cannot {operation} PPS instances with different axis values.")
 
     # ------------------------------------------------------------------
-    # Visuallization
+    # Visualization
     # ------------------------------------------------------------------
     def plot_slice(self, slice_index: int, ax=None, colormap: str = "pumpprobe", vmin: float | None = None, vmax: float | None = None, mask_color: tuple[int, int, int] = (200, 200, 200), colorbar: bool = True):
         """Display a single slice of this stack on a Matplotlib axis."""
@@ -540,7 +540,7 @@ class PPS:
         """Display the spatial projection of this stack on a Matplotlib axis."""
         from puprisa.core.visualize import plot_projection
         return plot_projection(self, ax=ax, colormap=colormap, vmin=vmin, vmax=vmax, mask_color=mask_color, colorbar=colorbar)
-    
+
     def plot_phasor(self, color_hex: str, freq: float = 0.25, use_mask: bool = True, ax=None, g_lim: tuple[float, float] = (-1.0, 1.0), s_lim: tuple[float, float] = (-1.0, 1.0), size: int = 512, show_semicircle: bool = True):
         """Display the phasor density of this stack on a Matplotlib axis."""
         from puprisa.core.visualize import plot_phasor
