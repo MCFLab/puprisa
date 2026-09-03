@@ -2,7 +2,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QListWidget, QListWidgetItem, QStyle
 
-from puprisa.core.mask import MaskItem
+from puprisa.model.entities import MaskItem
 from puprisa.ui.generated.dialog_mask_math import Ui_Dialog
 
 

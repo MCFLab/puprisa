@@ -225,7 +225,7 @@ class RoiManager:
             raise ValueError("ROI mask is empty")
 
         label = f"From ROI {roi.label}"
-        return self._mask_manager.add_mask(roi.stack_id, ~keep_mask, label=label, enabled=True)
+        return self._mask_manager.add_mask(roi.stack_id, keep_mask, label=label, enabled=True)
 
     # ------------------------------------------------------------------
     # Serialization

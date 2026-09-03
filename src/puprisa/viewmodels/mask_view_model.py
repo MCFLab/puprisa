@@ -8,7 +8,7 @@ automatically via StackManager events.
 from PySide6.QtCore import QObject, Qt, QSignalBlocker
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
 
-from puprisa.core.mask import MaskItem
+from puprisa.model.entities import MaskItem
 from puprisa.model.mask_manager import MaskEvent, MaskManager
 from puprisa.model.stack_manager import StackEvent, StackManager
 

@@ -18,7 +18,7 @@ class PPSDataClass:
     axis_type: str
     axis_unit: str
     image_dimensions: tuple | None = None
-    masks: dict = field(default_factory=dict)
+    mask: np.ndarray | None = None
     original_images: np.ndarray | None = None
     background_map: np.ndarray | None = None
     results: dict = field(default_factory=dict)
@@ -125,7 +125,7 @@ def load_pickle_stack(path) -> PPSDataClass:
             axis_values = save_object["axis_values"],
             axis_type = save_object["axis_type"],
             axis_unit = save_object["axis_unit"],
-            masks = save_object.get("masks", {}),
+            mask = save_object.get("mask", None),
             original_images = save_object.get("original_images", None),
             background_map = save_object.get("background_map", None),
             results = save_object.get("results", {}),
@@ -139,7 +139,7 @@ def export_as_pickle(path, data: PPSDataClass):
         "axis_values": data.axis_values,
         "axis_type": data.axis_type,
         "axis_unit": data.axis_unit,
-        "masks": data.masks,
+        "mask": data.mask,
         "original_images": data.original_images,
         "background_map": data.background_map,
         "results": data.results,

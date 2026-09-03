@@ -7,8 +7,6 @@ They operate on NumPy arrays and return NumPy arrays / scalars.
 
 import numpy as np
 from skimage.transform import downscale_local_mean
-from skimage import filters
-
 
 def nan_inf_to_zero(values: np.ndarray) -> np.ndarray:
     """Return floating data with non-finite samples replaced by zero.
@@ -153,46 +151,6 @@ def average_groups(images: np.ndarray, groups_indices: list[list[int]]) -> np.nd
     return np.stack(
         [np.mean(images[group], axis=0) for group in groups_indices]
     )
-
-
-def gaussian_threshold_mask(
-    projection: np.ndarray,
-    threshold: float | str = "Li",
-    sigma: float = 5,
-    mask: np.ndarray | None = None,
-) -> np.ndarray:
-    """Smooth a projection and threshold it into a boolean mask.
-
-    Parameters
-    ----------
-    projection : shape (h, w)
-        The projection to smooth and threshold.
-    threshold : float or "Li"
-        Numeric threshold or Li auto-threshold.
-    sigma : float
-        Gaussian smoothing sigma.
-    mask : shape (h, w), optional
-        Existing mask that the result is ANDed with.
-
-    Returns
-    -------
-    thresholded_mask : shape (h, w)
-    """
-    if sigma < 0:
-        raise ValueError("sigma must be non-negative")
-    smoothed = filters.gaussian(nan_inf_to_zero(projection), sigma=sigma)
-
-    if threshold == "Li":
-        cutoff = filters.threshold_li(smoothed) if np.ptp(smoothed) > 0 else float(smoothed.flat[0])
-    elif isinstance(threshold, (int, float)):
-        cutoff = threshold
-    else:
-        raise ValueError(f"threshold must be 'Li' or a number, got {threshold!r}")
-
-    result = smoothed > cutoff
-    if mask is not None:
-        result = result & mask
-    return result
 
 def svd_reconstruct(images: np.ndarray, n_components: int) -> np.ndarray:
     """Denoise an image stack with a rank-n_components truncated SVD.

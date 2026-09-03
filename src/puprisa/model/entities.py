@@ -22,7 +22,39 @@ class StackItem:
             name = Path(pps.filename).stem if pps.filename else "Untitled"
         return cls(id=stack_id, pps=pps, name=name, color=color)
 
+@dataclass
+class MaskItem:
+    """A single mask layer applied to a stack.
+    ``mask`` is a keep mask: ``True`` marks pixels to retain; ``False`` marks pixels to exclude.
+    """
+    id: str
+    stack_id: str
+    label: str
+    mask: np.ndarray       # True = keep
+    enabled: bool = True
 
+    def copy(self) -> "MaskItem":
+        return MaskItem(
+            id=self.id,
+            stack_id=self.stack_id,
+            label=self.label,
+            mask=self.mask.copy(),
+            enabled=self.enabled,
+        )
+
+    def to_serializable(self) -> dict:
+        """Convert this mask to a JSON-friendly dictionary.
+
+        Runtime-only fields (`id`, `stack_id`) are intentionally omitted
+        because they must be regenerated or rebound when the mask is imported
+        into a new stack/session.
+        """
+        return {
+            "label": self.label,
+            "mask": self.mask.tolist(),
+            "enabled": self.enabled,
+        }
+    
 @dataclass
 class RoiItem:
     """A single ROI defined in pixel or phasor space."""

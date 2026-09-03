@@ -1,7 +1,6 @@
 import numpy as np
-from puprisa.core.mask import PPSMask, MaskItem
 from puprisa.core.io import PPSDataClass, load_stack, export_as_tiff, export_as_pickle
-from puprisa.core.process import gaussian_threshold_mask
+from puprisa.core.mask import gaussian_threshold_mask
 
 class PPS:
     """
@@ -50,8 +49,9 @@ class PPS:
         else:
             raise ValueError(f"Invalid axis_type: {axis_type!r}. Must be 'time' or 'z'.")
 
-        # Mask handler
-        self._mask_handler = PPSMask(self.image_dimensions)
+        # Mask
+        # True for pixels to keep, False for pixels to mask out
+        self.mask = np.ones(self.image_dimensions, dtype=bool)
 
         # Background subtraction state
         self._original_images = self.images.copy()
@@ -101,52 +101,14 @@ class PPS:
             raise ValueError(f"Unsupported format: {format!r}. Use 'tiff' or 'pickle'.")
 
     # ------------------------------------------------------------------
-    # Mask (delegated to PPSMaskManager)
+    # Mask
     # ------------------------------------------------------------------
-    @property
-    def mask(self) -> np.ndarray:
-        """Effective analysis mask."""
-        return self._mask_handler.get_effective_mask()
-
-    def add_mask(self, mask, label="", enabled=True, mask_id=None):
-        return self._mask_handler.add_mask(mask, label=label, enabled=enabled, mask_id=mask_id)
-
-    def remove_mask(self, mask_id) -> None:
-        self._mask_handler.remove_mask(mask_id)
-
-    def set_mask_enabled(self, mask_id, enabled):
-        self._mask_handler.set_mask_enabled(mask_id, enabled)
-
-    def set_mask_label(self, mask_id, label):
-        self._mask_handler.set_mask_label(mask_id, label)
-
-    def get_mask(self, mask_id):
-        return self._mask_handler.get_mask(mask_id)
-
-    def reverse_mask(self, mask_id) -> None:
-        self._mask_handler.reverse_mask(mask_id)
-
-    def get_all_mask_ids(self):
-        return self._mask_handler.get_all_mask_ids()
-
-    def get_all_masks(self):
-        return self._mask_handler.get_all_masks()
-
-    def get_effective_mask(self):
-        return self._mask_handler.get_effective_mask()
-
-    def get_mask_handler(self) -> PPSMask:
-        return self._mask_handler
-
-    def clear_all_masks(self):
-        self._mask_handler.clear_all_masks()
-
-    def add_mask_from_threshold(self, threshold: str | float = "Li", sigma: float = 5.0, mask_on: bool = False, label: str | None = None) -> str:
+    def create_mask_from_threshold(self, threshold: str | float = "Li", sigma: float = 5.0, mask_on: bool = False) -> None:
         """Add a mask by thresholding the projected intensity.
 
         The projection is smoothed with a Gaussian filter and then thresholded so
-        that pixels with intensities below the threshold are masked out (kept
-        disabled), producing a mask of the low-intensity regions.
+        that pixels with intensities below the threshold are masked out, producing
+        a mask of the low-intensity regions.
 
         Parameters
         ----------
@@ -161,47 +123,37 @@ class PPS:
             If True, restrict the thresholding to the region currently covered
             by this PPS instance's effective mask; otherwise the full projection
             is considered. Defaults to ``False``.
-        label : str | None, optional
-            Label for the new mask layer. Defaults to ``"Intensity threshold"``.
-
-        Returns
-        -------
-        str
-            The id of the newly created mask layer.
         """
         projection = self.project(mask_on=False)
-        effective_mask = np.asarray(self.mask, dtype=bool) if mask_on else None
-        keep_mask = gaussian_threshold_mask(projection, threshold=threshold, sigma=sigma, mask=effective_mask)
-        label = label or f"Gaussian threshold"
-        return self.add_mask(~keep_mask, label=label, enabled=True)
+        effective_mask = self.mask if mask_on else None
+        self.mask = gaussian_threshold_mask(projection, threshold=threshold, sigma=sigma, mask=effective_mask)
 
-    def load_mask(self, path, format="json") -> None:
-        """Load and replace this PPS instance's mask layers."""
-        if format == "json":
-            import json
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        elif format == "pickle":
-            import pickle
-            with open(path, "rb") as f:
-                data = pickle.load(f)
-        else:
-            raise ValueError(f"Unsupported format: {format!r}. Use 'json' or 'pickle'.")
-        self._mask_handler.from_serializable(data)
+    def load_mask(self, path) -> None:
+        """Load a JSON mask file and replace ``self.mask``.
 
-    def save_mask(self, path, format="json") -> None:
-        data = self._mask_handler.to_serializable()
-        if format == "json":
-            import json
-            with open(path, "w") as f:
-                json.dump(data, f, indent=2)
-        elif format == "pickle":
-            import pickle
-            with open(path, "wb") as f:
-                pickle.dump(data, f)
-        else:
-            raise ValueError(f"Unsupported format: {format!r}. Use 'json' or 'pickle'.")
+        The file may contain multiple keep-mask layers, in which case
+        all enabled layers are combined with a logical AND. The result is
+        stored as ``self.mask``. If the file contains no usable layers,
+        ``self.mask`` is left unchanged.
+        """
+        from puprisa.core.mask import load_mask_from_json
 
+        mask = load_mask_from_json(path)
+        if mask is None:
+            return
+
+        if mask.shape != self.image_dimensions:
+            raise ValueError(
+                f"Mask shape {mask.shape} does not match image dimensions "
+                f"{self.image_dimensions}"
+            )
+        self.mask = mask
+
+    def save_mask(self, path: str, label: str = "", enabled: bool = True) -> None:
+        """Export the current effective mask as a JSON mask layer."""
+        from puprisa.core.mask import export_mask_to_json
+        export_mask_to_json(path, self.mask, label=label, enabled=enabled)
+        
     # ------------------------------------------------------------------
     # Processing
     # ------------------------------------------------------------------
@@ -277,15 +229,7 @@ class PPS:
 
         new_images = downsample_local_mean(self.images, factor)
         new_pps = self.__class__(new_images, self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
-
-        for mask_item in self.get_all_masks():
-            mask_downsampled = downsample_mask(mask_item.mask, factor)
-            new_pps.add_mask(
-                mask_downsampled,
-                label=mask_item.label,
-                enabled=mask_item.enabled,
-                mask_id=mask_item.id,
-            )
+        new_pps.mask = downsample_mask(self.mask, factor)
         new_pps.filename = self.filename
 
         return new_pps
@@ -338,15 +282,7 @@ class PPS:
                     axis_type=self.axis_type,
                     axis_unit=self.axis_unit,
                 )
-                # Migrate every mask layer, cropped to this spatial block.
-                for mask_item in self.get_all_masks():
-                    mask_sub = mask_item.mask[r0:r1, c0:c1]
-                    sub.add_mask(
-                        mask_sub,
-                        label=mask_item.label,
-                        enabled=mask_item.enabled,
-                        mask_id=mask_item.id,
-                    )
+                sub.mask = self.mask[r0:r1, c0:c1]
                 sub.filename = self.filename
                 if cutoff > 0:
                     valid_pixels = int(np.count_nonzero(sub.project(mask_on=True)))
@@ -411,7 +347,7 @@ class PPS:
         if not indices:
             raise ValueError("No indices provided for slicing.")
         pps_sliced = self.__class__(self.images[indices], self.axis_values[indices], axis_type=self.axis_type, axis_unit=self.axis_unit)
-        pps_sliced._mask_handler = self._mask_handler.copy()
+        pps_sliced.mask = self.mask.copy()
         return pps_sliced
 
     def apply_background_subtraction(self, indices, pixelwise=True):
@@ -480,6 +416,7 @@ class PPS:
             self._validate_computable(other, "add")            
             new_images = self.images + other.images
             new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
+            new_pps.mask = self.mask & other.mask
             return new_pps
         raise TypeError("Unsupported operand type for +")
 
@@ -488,6 +425,7 @@ class PPS:
             self._validate_computable(other, "subtract")
             new_images = self.images - other.images
             new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
+            new_pps.mask = self.mask & other.mask
             return new_pps
         raise TypeError("Unsupported operand type for -")
 
@@ -495,6 +433,7 @@ class PPS:
         if isinstance(other, (int, float)):
             new_images = self.images * other
             new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
+            new_pps.mask = self.mask.copy()
             return new_pps
         raise TypeError("Unsupported operand type for *")
 
@@ -504,6 +443,7 @@ class PPS:
                 raise ValueError("Cannot divide by zero!")
             new_images = self.images / other
             new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
+            new_pps.mask = self.mask.copy()
             return new_pps
         elif isinstance(other, PPS):
             self._validate_computable(other, "divide")
@@ -514,6 +454,7 @@ class PPS:
                 new_images = nan_inf_to_zero(new_images)  # Replace inf/nan with 0
 
             new_pps = PPS(new_images, axis_values=self.axis_values, axis_type=self.axis_type, axis_unit=self.axis_unit)
+            new_pps.mask = self.mask & other.mask
             return new_pps
         raise TypeError("Unsupported operand type for /")
 
@@ -558,10 +499,10 @@ class PPS:
     def _from_dataclass(cls, data: PPSDataClass):
         pps = cls(data.images, data.axis_values, data.axis_type, data.axis_unit)
         
-        # Restore masks
-        if data.masks:
-            pps._mask_handler.from_serializable(data.masks)
-        
+        # Restore mask
+        if data.mask is not None:
+            pps.mask = np.asarray(data.mask, dtype=bool)
+
         # Background & original images
         pps._original_images = data.original_images if data.original_images is not None else pps.images.copy()
         pps._background_map = data.background_map if data.background_map is not None else np.zeros(pps.image_dimensions)
@@ -578,7 +519,7 @@ class PPS:
             axis_values=self.axis_values.copy(),
             axis_type=self.axis_type,
             axis_unit=self.axis_unit,
-            masks=self._mask_handler.to_serializable(),
+            mask=self.mask.copy(),
             original_images=self._original_images.copy(),
             background_map=self._background_map.copy(),
             results=self.results.copy(),

@@ -31,6 +31,7 @@ class ApplicationContext:
 
         self.stack_manager.add_listener(self.roi_manager.handle_stack_event)
         self.stack_manager.add_listener(self.plot_manager.handle_stack_event)
+        self.stack_manager.add_listener(self.mask_manager.handle_stack_event)
         self.processing_manager.add_listener(self.plot_manager.handle_processing_event)
 
     def create_main_window(self):

@@ -140,7 +140,7 @@ def render_projection_rgb(
     vmin: float | None = None,
     vmax: float | None = None,
     mask_color: tuple[int, int, int] = (200, 200, 200),
-) -> np.ndarray:
+) -> tuple[np.ndarray, float, float]:
     """Render the spatial projection of a PPS stack as a uint8 RGB image.
 
     The projection is computed with :meth:`PPS.project` using

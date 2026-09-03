@@ -149,8 +149,8 @@ class MaskController(QObject):
         if stack_id is None:
             return
 
-        entry = self._mask_manager.get_mask(stack_id, mask_id)
-        if entry is None:
+        mask_item = self._mask_manager.get_mask(stack_id, mask_id)
+        if mask_item is None:
             QMessageBox.warning(self._parent, "Export Mask", "Mask not found.")
             return
 
@@ -168,14 +168,7 @@ class MaskController(QObject):
             with open(path, "w", encoding="utf-8") as file:
                 json.dump(
                     {
-                        "masks": [
-                            {
-                                "id": entry.id,
-                                "label": entry.label,
-                                "mask": entry.mask.tolist(),
-                                "enabled": entry.enabled,
-                            }
-                        ]
+                        "masks": [mask_item.to_serializable()]
                     },
                     file,
                     indent=2,
