@@ -224,6 +224,11 @@ class PPSPlotViewModel(QObject):
             Whether to normalize the ROI average curves in the right panel.
             The default is False.
         """
+        from puprisa.core.visualize import plot_slice
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize
+        from matplotlib.cm import ScalarMappable
+        
         pps = self._current_pps()
         if pps is None:
             return
@@ -247,11 +252,6 @@ class PPSPlotViewModel(QObject):
         )
 
         # --------- 1. Image panel ---------
-        from puprisa.core.visualize import plot_slice
-        import matplotlib.pyplot as plt
-        from matplotlib.colors import Normalize
-        from matplotlib.cm import ScalarMappable
-
         # Stack slice image
         ax_img = plot_slice(
             pps,

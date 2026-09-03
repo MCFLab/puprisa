@@ -369,7 +369,6 @@ class PhasorPlotViewModel(QObject):
     def _draw_phasor_plot(self, ax: Axes) -> None:
         """Draw visible-stack phasor density overlays into a Matplotlib axis."""
         frequency = self.frequency
-        ax.set_title(f"Phasor Plot @ {frequency} THz")
         ax.set_xlabel("g")
         ax.set_ylabel("s")
         ax.set_xlim(self.G_LIM)
@@ -411,6 +410,9 @@ class PhasorPlotViewModel(QObject):
                 )
                 if patch is not None:
                     ax.add_patch(patch)
+        
+        frequency_unit = current_item.pps.get_phasor_unit() if current_item is not None else "THz"
+        ax.set_title(f"Phasor Plot @ {frequency} {frequency_unit}")
         
         if visible_stacks:
             from matplotlib.patches import Patch

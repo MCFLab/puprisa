@@ -55,6 +55,18 @@ class MaskManager:
     def handle_stack_event(self, event: StackEvent) -> None:
         if event.event == "removed":
             self.handle_stack_deleted(event.stack_id)
+        elif event.event == "added":
+            self.handle_stack_added(event.stack_id)
+
+    def handle_stack_added(self, stack_id: str) -> None:
+        """Handle the addition of a new stack."""
+        # if the stack already has layers, don't add an initial layer
+        if self._items_for_stack(stack_id):
+            return
+        pps = self._get_pps(stack_id)
+        # if the stack has a non-trivial mask, add it as the initial layer
+        if not np.all(pps.mask):
+            self.add_mask(stack_id, pps.mask.copy(), label="Initial mask", enabled=True)
 
     def handle_stack_deleted(self, stack_id: str) -> int:
         """Remove all layers belonging to ``stack_id``. Returns count."""
@@ -147,7 +159,7 @@ class MaskManager:
     def clear_all_masks(self, stack_id: str) -> None:
         if not self._items_for_stack(stack_id):
             return
-
+        
         self._items = [item for item in self._items if item.stack_id != stack_id]
         self._sync_effective_mask(stack_id)
 
