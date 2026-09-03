@@ -287,7 +287,7 @@ def render_phasor_rgba(
     g_lim: tuple[float, float] = (-1.0, 1.0),
     s_lim: tuple[float, float] = (-1.0, 1.0),
     size: int = 512,
-    alpha_min: float = 30.0,
+    alpha_min: float = 0,
     alpha_max: float = 180.0,
 ) -> np.ndarray:
     """Render phasor coordinates as a single-color RGBA density image.
