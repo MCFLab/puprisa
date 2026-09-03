@@ -13,7 +13,7 @@ The package is designed for time-resolved transient-absorption data and also sup
 - Create layered exclusion masks from intensity thresholds or ROI selections.
 - Draw rectangular, circular, elliptical, or polygonal ROIs in pixel space.
 - Compute phasor coordinates for time-axis stacks, select phasor-space ROIs, and inspect their spatial locations.
-- Plot, normalize, and export ROI-average curves as CSV.
+- Plot, normalize, and export ROI Average curves as CSV.
 - Save processed stacks as TIFF or pickle; save mask layers as JSON.
 
 ## Quick start

@@ -10,7 +10,7 @@ from puprisa.model.processing_manager import ProcessingManager
 from puprisa.model.roi_manager import RoiEvent, RoiManager
 from puprisa.model.stack_manager import StackEvent, StackManager
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
-
+from puprisa.utils.curve_plot_utils import draw_roi_curves
 
 class CurveViewModel(QObject):
     """Draw ROI average curves for a specific space on an embedded canvas.
@@ -72,24 +72,19 @@ class CurveViewModel(QObject):
         current_item = self._stack_manager.get_current_item()
         if current_item is not None:
             pps = current_item.pps
-            ax.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
+            xlabel = (f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
+            slice_x = None
             if self._space == "pixel":
                 axis_values = pps.get_axis_values()
                 if 0 <= self._current_slice_index < len(axis_values):
                     slice_x = axis_values[self._current_slice_index]
-                    ax.axvline(slice_x, color="gray", linestyle="--", linewidth=1.2, alpha=0.8)
         else:
-            ax.set_xlabel("Time delay (ps)")
-
-        ax.set_ylabel("Normalized signal (a.u.)" if self._normalize else "Average signal (a.u.)")
-        ax.grid(True, alpha=0.3)
-        ax.set_title(f"ROI-Averaged Curves", fontsize=10)
-
-        for curve in curves:
-            ax.plot(curve.x, curve.y, color=curve.color, label=curve.label)
+            slice_x = None
+            xlabel = "Time delay (ps)"
+        ylabel = "Normalized signal (a.u.)" if self._normalize else "Average signal (a.u.)"
+        title = "ROI Averaged Curves"
         
-        if curves:
-            ax.legend(fontsize=8, loc="best")
+        draw_roi_curves(ax, curves, xlabel=xlabel, ylabel=ylabel, title=title, current_slice_x=slice_x)
         
         ax.relim()
         ax.autoscale_view(tight=True)

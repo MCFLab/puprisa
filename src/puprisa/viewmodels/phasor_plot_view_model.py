@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, Qt, QRectF, QPointF
 from PySide6.QtGui import QImage, QPixmap, QPen, QColor, QPainter, QPainterPath, QFont
-from PySide6.QtWidgets import QGraphicsScene, QGraphicsItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsPathItem
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsItem, QGraphicsLineItem, QGraphicsTextItem, QGraphicsPathItem, QGraphicsView
 
 import numpy as np
 import matplotlib.colors as mcolors
+from matplotlib.axes import Axes
 
 from puprisa.core.visualize import render_phasor_rgba, render_projection_rgb, universal_semicircle
 from puprisa.model.entities import RoiItem
@@ -22,6 +23,7 @@ from puprisa.model.processing_manager import ProcessingEvent, ProcessingManager
 from puprisa.model.stack_manager import StackEvent, StackManager
 from puprisa.model.roi_manager import RoiEvent, RoiManager
 from puprisa.model.curve_manager import CurveManager
+from puprisa.utils.curve_plot_utils import draw_roi_curves
 from puprisa.utils.geometry_utils import shape_to_patch
 
 
@@ -39,8 +41,8 @@ class PhasorPlotViewModel(QObject):
         roi_manager: RoiManager, 
         mask_manager: MaskManager, 
         curve_manager: CurveManager,
-        phasor_graphics_view, 
-        spatial_graphics_view, 
+        phasor_graphics_view: QGraphicsView, 
+        spatial_graphics_view: QGraphicsView, 
         parent: QObject | None = None
     ):
 
@@ -60,6 +62,7 @@ class PhasorPlotViewModel(QObject):
 
         self.spatial_scene = QGraphicsScene()
         self._spatial_view.setScene(self.spatial_scene)
+        self._spatial_pixmap_item = None
 
         # Density items
         self._density_items: list[QGraphicsItem] = []
@@ -172,7 +175,7 @@ class PhasorPlotViewModel(QObject):
         qimage = QImage(rgb.tobytes(), w, h, rgb.strides[0],
                         QImage.Format_RGB888).copy()
         pixmap = QPixmap.fromImage(qimage)
-        self.spatial_scene.addPixmap(pixmap)
+        self._spatial_pixmap_item = self.spatial_scene.addPixmap(pixmap)
         self.fit_spatial_view()
 
     def fit_phasor_view(self) -> None:
@@ -183,9 +186,16 @@ class PhasorPlotViewModel(QObject):
             self._phasor_view.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
 
     def fit_spatial_view(self) -> None:
-        rect = self.spatial_scene.itemsBoundingRect()
-        if rect.width() > 0 and rect.height() > 0:
-            self._spatial_view.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
+        if getattr(self, "_spatial_pixmap_item", None) is None:
+            return
+        image_rect = self._spatial_pixmap_item.sceneBoundingRect()
+        self.spatial_scene.setSceneRect(image_rect)
+        self._spatial_view.resetTransform()
+        self._spatial_view.fitInView(
+            image_rect,
+            Qt.AspectRatioMode.KeepAspectRatio,
+        )
+        self._spatial_view.centerOn(image_rect.center())
 
     # ------------------------------------------------------------------
     # Phasor coordinate cache
@@ -235,32 +245,37 @@ class PhasorPlotViewModel(QObject):
             self._axis_items.append(line)
 
         # Labels
+        label_font = QFont("Sans Serif", 12)
+        tick_font = QFont("Sans Serif", 12)
         g_label = QGraphicsTextItem("g")
-        g_label.setFont(QFont("Sans Serif", 8))
-        g_label.setPos(size / 2 - 5, size + 2)
+        g_label.setFont(label_font)
+        g_label.setDefaultTextColor(QColor("#000000"))
+        g_label.setPos(size / 2 - 8, size + 30)
         self.phasor_scene.addItem(g_label)
         self._axis_items.append(g_label)
 
         s_label = QGraphicsTextItem("s")
-        s_label.setFont(QFont("Sans Serif", 8))
-        s_label.setPos(-left_margin - 12, size / 2 - 8)
+        s_label.setFont(label_font)
+        s_label.setDefaultTextColor(QColor("#000000"))
+        s_label.setPos(-left_margin - 16, size / 2 - 16)
         self.phasor_scene.addItem(s_label)
         self._axis_items.append(s_label)
 
-        # Tick labels
+        # Ticks
         for g_val in [self.G_LIM[0], 0.0, self.G_LIM[1]]:
             x = (g_val - self.G_LIM[0]) / (self.G_LIM[1] - self.G_LIM[0]) * size
             text = QGraphicsTextItem(f"{g_val:.1f}")
-            text.setFont(QFont("Sans Serif", 6))
-            text.setPos(x - 8, size + 3)
+            text.setFont(tick_font)
+            text.setDefaultTextColor(QColor("#000000"))
+            text.setPos(x - 10, size + 6)
             self.phasor_scene.addItem(text)
             self._axis_items.append(text)
-
         for s_val in [self.S_LIM[0], 0.0, self.S_LIM[1]]:
             y = (self.S_LIM[1] - s_val) / (self.S_LIM[1] - self.S_LIM[0]) * size
             text = QGraphicsTextItem(f"{s_val:.1f}")
-            text.setFont(QFont("Sans Serif", 6))
-            text.setPos(-left_margin + 4, y - 6)
+            text.setFont(tick_font)
+            text.setDefaultTextColor(QColor("#000000"))
+            text.setPos(-left_margin + 6, y - 16)
             self.phasor_scene.addItem(text)
             self._axis_items.append(text)
 
@@ -351,12 +366,8 @@ class PhasorPlotViewModel(QObject):
 
         fig.show()
 
-
-    def _draw_phasor_plot(self, ax) -> None:
+    def _draw_phasor_plot(self, ax: Axes) -> None:
         """Draw visible-stack phasor density overlays into a Matplotlib axis."""
-        import matplotlib.pyplot as plt
-        from matplotlib.patches import Circle
-
         frequency = self.frequency
         ax.set_title(f"Phasor Plot @ {frequency} THz")
         ax.set_xlabel("g")
@@ -372,14 +383,14 @@ class PhasorPlotViewModel(QObject):
         ax.plot(g_lower, s_lower, color="gray", linestyle="--", linewidth=1.0)
 
         # Density overlays for all visible stacks.
+        visible_stacks = []
         for stack_item in self._stack_manager.get_all_items():
             if not stack_item.visible:
                 continue
-
+            visible_stacks.append(stack_item)
             coords = self._get_or_compute_phasor_coords(stack_item)
             if coords is None or len(coords) == 0:
                 continue
-
             self._draw_density_overlay(ax, coords, stack_item.color)
 
         # ROI outlines for current stack's phasor-space ROIs.
@@ -400,9 +411,16 @@ class PhasorPlotViewModel(QObject):
                 )
                 if patch is not None:
                     ax.add_patch(patch)
+        
+        if visible_stacks:
+            from matplotlib.patches import Patch
+            handles = [
+                Patch(color=stack_item.color, label=stack_item.name or stack_item.id)
+                for stack_item in visible_stacks
+            ]
+            ax.legend(handles=handles, fontsize=8, loc="best", framealpha=0.9)
 
-
-    def _draw_spatial_projection(self, ax) -> None:
+    def _draw_spatial_projection(self, ax: Axes) -> None:
         current_item = self._stack_manager.get_current_item()
         if current_item is None:
             return
@@ -452,35 +470,14 @@ class PhasorPlotViewModel(QObject):
         current_item = self._stack_manager.get_current_item()
         if current_item is None:
             return
-
         pps = current_item.pps
-
         curves = []
         if self._curve_manager is not None:
-            curves = self._curve_manager.compute_curves(
-                space="phasor",
-                normalize=normalize,
-            )
-
-            for curve in curves:
-                ax.plot(
-                    curve.x,
-                    curve.y,
-                    color=curve.color,
-                    label=curve.label,
-                )
-
-        ax.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
-        ax.set_ylabel(
-            "Normalized signal (a.u.)"
-            if normalize
-            else "Average signal (a.u.)"
-        )
-        ax.set_title("ROI Average Curves")
-        ax.grid(True, alpha=0.3)
-
-        if curves:
-            ax.legend(fontsize=8, loc="best")
+            curves = self._curve_manager.compute_curves(space="phasor", normalize=normalize)
+        xlabel = f"{pps.get_axis_label()} ({pps.get_axis_unit()})"
+        ylabel = "Normalized signal (a.u.)" if normalize else "Average signal (a.u.)"
+        title = "ROI Average Curves"
+        draw_roi_curves(ax, curves, xlabel=xlabel, ylabel=ylabel, title=title)
 
 
     def _single_color_cmap(self, color_hex: str):

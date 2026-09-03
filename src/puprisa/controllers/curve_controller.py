@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from puprisa.model.stack_manager import StackManager
 from puprisa.ui.dialogs.spectrum import SpectrumDialog
+from puprisa.utils.curve_plot_utils import draw_roi_curves
 from shiboken6 import isValid
 import matplotlib.pyplot as plt
 
@@ -56,25 +57,17 @@ class CurveController(QObject):
         if not curves:
             QMessageBox.warning(self._parent, "View Curves", "No curve data available.")
             return
-
         fig, ax = plt.subplots(figsize=(4, 3), layout="constrained")
-        for curve in curves:
-            ax.plot(curve.x, curve.y, linewidth=2.0, label=curve.label, color=curve.color)
-
         current_item = self._stack_manager.get_current_item()
         if current_item is not None:
             pps = current_item.pps
-            ax.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})", fontsize=10)
+            xlabel = f"{pps.get_axis_label()} ({pps.get_axis_unit()})"
         else:
-            ax.set_xlabel("Time delay (ps)", fontsize=10)
+            xlabel = "Time delay (ps)"
+        ylabel = "Normalized signal (a.u.)" if normalize else "Average signal (a.u.)"
+        title = "ROI Averaged Curves"
 
-        ax.set_ylabel("Normalized signal (a.u.)" if normalize else "Average signal (a.u.)", fontsize=10)
-        ax.set_title("ROI Average Curves", fontsize=10)
-        ax.grid(True, alpha=0.4)
-        ax.tick_params(labelsize=10)
-        if curves:
-            ax.legend(fontsize=8, loc="best", framealpha=0.9)
-
+        draw_roi_curves(ax, curves, xlabel=xlabel, ylabel=ylabel, title=title)
         fig.show()
 
     # ------------------------------------------------------------------

@@ -22,6 +22,7 @@ from puprisa.model.curve_manager import CurveManager
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
 from puprisa.ui.widgets.scrollable_graphics_view import ScrollableGraphicsView
 from puprisa.utils.color_utils import apply_colormap
+from puprisa.utils.curve_plot_utils import draw_roi_curves
 from puprisa.utils.geometry_utils import shape_to_patch
 
 
@@ -214,7 +215,6 @@ class PPSPlotViewModel(QObject):
     # ------------------------------------------------------------------
     # Standalone view
     # ------------------------------------------------------------------
-
     def view_standalone(self, normalize: bool) -> None:
         """Open a standalone Matplotlib figure for the current view.
 
@@ -246,11 +246,13 @@ class PPSPlotViewModel(QObject):
             layout='constrained'
         )
 
-        # --- Image panel ---
+        # --------- 1. Image panel ---------
         from puprisa.core.visualize import plot_slice
         import matplotlib.pyplot as plt
         from matplotlib.colors import Normalize
         from matplotlib.cm import ScalarMappable
+
+        # Stack slice image
         ax_img = plot_slice(
             pps,
             slice_index=current_slice,
@@ -284,27 +286,20 @@ class PPSPlotViewModel(QObject):
             sm.set_array([])
             fig.colorbar(sm, ax=ax_img, fraction=0.046, pad=0.04)
 
-        # --- Curve panel ---
+        # --------- 2. ROI average curves panel ---------
         curves = []
         if self._curve_manager is not None:
             curves = self._curve_manager.compute_curves(
                 space="pixel", normalize=normalize
             )
-            for curve in curves:
-                ax_curve.plot(curve.x, curve.y, color=curve.color, label=curve.label)
+        axis_values = pps.get_axis_values()
+        slice_x = None
+        if 0 <= current_slice < len(axis_values):
+            slice_x = axis_values[current_slice]
+        xlabel = f"{pps.get_axis_label()} ({pps.get_axis_unit()})"
+        ylabel = "Normalized signal (a.u.)" if normalize else "Average signal (a.u.)"
+        title = "ROI Average Curves"
 
-            axis_values = pps.get_axis_values()
-            if 0 <= current_slice < len(axis_values):
-                ax_curve.axvline(
-                    axis_values[current_slice],
-                    color="gray", linestyle="--", linewidth=1.2, alpha=0.8,
-                )
-
-        ax_curve.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
-        ax_curve.set_ylabel("Normalized signal (a.u.)" if normalize else "Average signal (a.u.)")
-        ax_curve.set_title("ROI Average Curves")
-        ax_curve.grid(True, alpha=0.3)
-        if curves:
-            ax_curve.legend(fontsize=8, loc="best")
+        draw_roi_curves(ax_curve, curves, xlabel=xlabel, ylabel=ylabel, title=title, current_slice_x=slice_x)
 
         fig.show()

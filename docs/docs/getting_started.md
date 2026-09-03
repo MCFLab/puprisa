@@ -36,7 +36,7 @@ After loading, move the slice slider to inspect individual frames. The label sho
 
 1. Select **Process → Background Subtraction → Subtract Negative Time Frames** to subtract the average pre-time-zero signal, if negative-delay frames are appropriate background frames for your measurement.
 2. Draw a pixel ROI using the shape selector and **Add** button. Drag or resize it in the image view.
-3. The curve plot updates with the ROI-average signal. Use **Curve → Export Curve** to save the numerical data as CSV.
+3. The curve plot updates with the ROI Average signal. Use **Curve → Export Curve** to save the numerical data as CSV.
 4. Select **Phasor → Phasor Analysis** for a time-axis stack. Adjust the frequency, create a phasor ROI, and read its corresponding spatial selection and curve.
 
 See the [User Guide](user_guide.md) for processing semantics, masks, exports, and caveats.

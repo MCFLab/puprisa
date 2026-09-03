@@ -119,17 +119,33 @@ def load_pickle_stack(path) -> PPSDataClass:
     with open(path, "rb") as f:
         save_object = pickle.load(f)
 
+    if "axis_values" in save_object:
         return PPSDataClass(
             images=save_object["images"],
             image_dimensions=save_object["image_dimensions"],
-            axis_values = save_object["axis_values"],
-            axis_type = save_object["axis_type"],
-            axis_unit = save_object["axis_unit"],
-            mask = save_object.get("mask", None),
-            original_images = save_object.get("original_images", None),
-            background_map = save_object.get("background_map", None),
-            results = save_object.get("results", {}),
-            filename = save_object["filename"],
+            axis_values=save_object["axis_values"],
+            axis_type=save_object["axis_type"],
+            axis_unit=save_object.get("axis_unit", "ps"),
+            mask=save_object.get("mask", None),
+            original_images=save_object.get("original_images", None),
+            background_map=save_object.get("background_map", None),
+            results=save_object.get("results", {}),
+            filename=save_object["filename"],
+        )
+
+    # Legacy support for older pickle files that used "times" instead of "axis_values"
+    # Will be removed in future versions.
+    return PPSDataClass(
+        images=save_object["images"],
+        image_dimensions=save_object["image_dimensions"],
+        axis_values=save_object["times"],
+        axis_type="time",
+        axis_unit="ps",
+        mask=save_object.get("mask", None),
+        original_images=None,
+        background_map=None,
+        results={},
+        filename=save_object["filename"],
     )
 
 def export_as_pickle(path, data: PPSDataClass):
