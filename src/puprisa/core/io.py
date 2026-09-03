@@ -77,8 +77,10 @@ def load_dukescan_stack(path, axis_type: str | None, axis_unit: str | None) -> P
             images = images[0, :, :, :]
         elif images.shape[1] == 1:
             images = images[:, 0, :, :]
+        elif images.shape[2] == 1:
+            images = images[:, :, 0, :]
         else:
-            images = images[0, :, :, :]
+            images = images[:, :, :, 0]
     elif images.ndim != 3:
         raise ValueError(f"Unexpected image array shape: {original_shape} -> {images.shape}, expected 3D array [n_images, height, width]")
 
