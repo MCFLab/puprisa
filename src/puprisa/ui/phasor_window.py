@@ -143,6 +143,7 @@ class PhasorWindow(QMainWindow):
         )
 
         self.ui.actionNormalizeCurve.toggled.connect(self.curve_view_model.set_normalize)
+        self.ui.actionCurveFit.triggered.connect(lambda: self.curve_controller.open_fit_dialog(space="phasor", normalize=self.curve_view_model.normalize))
         self.ui.actionViewCurve.triggered.connect(lambda: self.curve_controller.view_standalone(space="phasor", normalize=self.curve_view_model.normalize))
         self.ui.actionExportCurve.triggered.connect(lambda: self.curve_controller.export_curve_dialog(space="phasor", normalize=self.curve_view_model.normalize))
 
