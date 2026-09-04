@@ -6,10 +6,10 @@ Wraps ``Ui_intensityThresholdDialog`` and exposes parameters for
 """
 
 from PySide6.QtWidgets import QDialog
-from puprisa.ui.generated.dialog_intensity_threshold import Ui_intensityThresholdDialog
+from puprisa.ui.generated.dialog_mask_from_intensity_threshold import Ui_MaskFromIntensityThresholdDialog
+from puprisa.ui.generated.dialog_mask_from_zero_pixels import Ui_MaskFromZeroPixelsDialog
 
-
-class IntensityThresholdDialog(QDialog):
+class MaskFromIntensityThresholdDialog(QDialog):
     """Dialog for intensity-threshold mask parameters.
 
     Call ``get_params()`` after the dialog is accepted to obtain:
@@ -23,7 +23,7 @@ class IntensityThresholdDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.ui = Ui_intensityThresholdDialog()
+        self.ui = Ui_MaskFromIntensityThresholdDialog()
         self.ui.setupUi(self)
 
         # Sigma: default 5.0
@@ -64,4 +64,20 @@ class IntensityThresholdDialog(QDialog):
             self.ui.sigmaDoubleSpinBox.value(),
             self.ui.maskCheckBox.isChecked(),
             self.ui.applyAllCheckBox.isChecked(),  # "Apply to all stacks"
+        )
+
+class MaskFromZeroPixelsDialog(QDialog):
+    """Dialog for creating a mask that removes zero-projection pixels."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.ui = Ui_MaskFromZeroPixelsDialog()
+        self.ui.setupUi(self)
+        self.ui.maskCheckBox.setChecked(True)
+
+    def get_params(self) -> tuple[bool, bool]:
+        """Return ``(mask_on, apply_all)``."""
+        return (
+            self.ui.maskCheckBox.isChecked(),
+            self.ui.applyAllCheckBox.isChecked(),
         )

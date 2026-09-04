@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QDialog, QStyle, QLabel
 import numpy as np
 
 from puprisa.core.fit import FitOptions
-from puprisa.ui.generated.dialog_curve_fit import Ui_Dialog
+from puprisa.ui.generated.dialog_curve_fit import Ui_curveFitDialog
 
 
 class CurveFitDialog(QDialog):
@@ -20,7 +20,7 @@ class CurveFitDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.ui = Ui_Dialog()
+        self.ui = Ui_curveFitDialog()
         self.ui.setupUi(self)
 
         # ---- Replace infoIcon with the Qt standard information icon ----

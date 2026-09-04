@@ -11,7 +11,7 @@ import json
 
 from puprisa.model.mask_manager import MaskManager
 from puprisa.model.stack_manager import StackManager
-from puprisa.ui.dialogs.intensity_threshold import IntensityThresholdDialog
+from puprisa.ui.dialogs.mask_creation import MaskFromIntensityThresholdDialog, MaskFromZeroPixelsDialog
 from puprisa.ui.dialogs.mask_math import MaskMathDialog
 
 
@@ -40,7 +40,7 @@ class MaskController(QObject):
         stack_id = self._current_stack_id()
         if stack_id is None:
             return
-        dialog = IntensityThresholdDialog(self._parent)
+        dialog = MaskFromIntensityThresholdDialog(self._parent)
         if dialog.exec() == QDialog.Accepted:
             threshold, sigma, mask_on, apply_all = dialog.get_params()
             if apply_all:
@@ -68,6 +68,42 @@ class MaskController(QObject):
         except (ValueError, KeyError) as exc:
             QMessageBox.warning(self._parent, "Mask", str(exc))
 
+    def show_zero_pixel_mask_dialog(self) -> None:
+        stack_id = self._current_stack_id()
+        if stack_id is None:
+            return
+        dialog = MaskFromZeroPixelsDialog(self._parent)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        mask_on, apply_all = dialog.get_params()
+        if apply_all:
+            success = 0
+            no_zero_stacks = 0
+            for sid in self._stack_manager.get_all_stack_ids():
+                mask_id = self._mask_manager.add_mask_from_zero_pixels(sid, mask_on=mask_on)
+                if mask_id is None:
+                    no_zero_stacks += 1
+                else:
+                    success += 1
+            if success > 0:
+                QMessageBox.information(self._parent, "Mask", f"Created masks on {success} stack(s). {no_zero_stacks} stack(s) had no zero pixels.")
+            else:
+                QMessageBox.information(self._parent, "Mask", "No zero pixels found in any stack; no mask layers created.")
+        else:
+            self.add_mask_from_zero_pixels(stack_id=stack_id, mask_on=mask_on)
+
+    def add_mask_from_zero_pixels(self, stack_id: str | None = None, mask_on: bool = True, label: str | None = None, message: bool = True) -> None:
+        if stack_id is None:
+            stack_id = self._current_stack_id()
+        if stack_id is None:
+            return
+        mask_id = self._mask_manager.add_mask_from_zero_pixels(stack_id=stack_id, mask_on=mask_on, label=label)
+        if mask_id is None:
+            if message:
+                QMessageBox.information(self._parent, "Mask", "No zero pixels found; no mask layer created.")
+            return
+        if message:
+            QMessageBox.information(self._parent, "Mask", f"Mask {mask_id} created.")
     # ------------------------------------------------------------------
     # Selected mask actions
     # ------------------------------------------------------------------

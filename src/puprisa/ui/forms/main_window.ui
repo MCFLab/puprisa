@@ -361,6 +361,7 @@
     <addaction name="actionExportSelectedMask"/>
     <addaction name="actionExportMask"/>
     <addaction name="separator"/>
+    <addaction name="actionMaskZeroPixels"/>
     <addaction name="actionMaskIntensityThreshold"/>
     <addaction name="actionMaskMath"/>
     <addaction name="separator"/>
@@ -542,7 +543,7 @@
   </action>
   <action name="actionMaskIntensityThreshold">
    <property name="text">
-    <string>Mask from threshold...</string>
+    <string>Mask from Threshold...</string>
    </property>
   </action>
   <action name="actionExportSelectedMask">
@@ -588,6 +589,11 @@
   <action name="actionExportROI">
    <property name="text">
     <string>Export ROI...</string>
+   </property>
+  </action>
+  <action name="actionMaskZeroPixels">
+   <property name="text">
+    <string>Mask Zero-Valued Pixels</string>
    </property>
   </action>
  </widget>

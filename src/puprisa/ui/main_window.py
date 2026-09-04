@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):
         self.ui.actionClearAllMasks.triggered.connect(self.mask_controller.clear_all_masks)
         self.ui.actionExportSelectedMask.triggered.connect(lambda: self.mask_controller.export_selected_mask(self.mask_view_model.selected_mask_id()))
         self.ui.actionMaskIntensityThreshold.triggered.connect(self.mask_controller.show_intensity_threshold_dialog)
+        self.ui.actionMaskZeroPixels.triggered.connect(self.mask_controller.show_zero_pixel_mask_dialog)
         self.ui.actionMaskMath.triggered.connect(self.mask_controller.show_mask_math_dialog)
 
         # --------------------------------------------------------------

@@ -48,6 +48,26 @@ def gaussian_threshold_mask(
         result = result & mask
     return result
 
+def mask_from_zero_pixels(projection: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
+    """Create a keep mask from a projection by marking all non-zero pixels.
+
+    Parameters
+    ----------
+    projection : shape (h, w)
+        The projection to threshold.
+    mask : shape (h, w), optional
+        Existing mask that the result is ANDed with.
+
+    Returns
+    -------
+    mask : shape (h, w)
+        Boolean mask where True indicates a non-zero pixel.
+    """
+    result = projection != 0
+    if mask is not None:
+        result = result & mask
+    return result
+
 def load_mask_from_json(path: str | Path) -> np.ndarray | None:
     """Load multiple JSON mask layers and collapse them into one keep mask.
 

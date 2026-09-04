@@ -1,6 +1,6 @@
 import numpy as np
 from puprisa.core.io import PPSDataClass, load_stack, export_as_tiff, export_as_pickle
-from puprisa.core.mask import gaussian_threshold_mask
+from puprisa.core.mask import gaussian_threshold_mask, mask_from_zero_pixels
 
 class PPS:
     """
@@ -127,6 +127,26 @@ class PPS:
         projection = self.project(mask_on=False)
         effective_mask = self.mask if mask_on else None
         self.mask = gaussian_threshold_mask(projection, threshold=threshold, sigma=sigma, mask=effective_mask)
+
+    def create_mask_from_zero_pixels(self, mask_on: bool = True) -> None:
+        """Mask out pixels whose projection is zero.
+
+        A zero projection means the absolute value of the pixel is zero in
+        every frame (non-finite values were already replaced by zero during
+        projection).  Such pixels have no usable signal and often produce
+        phasor coordinates exactly at ``(0, 0)``.
+
+        Parameters
+        ----------
+        mask_on : bool, default True
+            If True, only zero pixels inside the current effective mask are
+            removed from ``self.mask``; existing mask boundaries are
+            preserved.
+            If False, the current mask is replaced by a new keep mask that
+            excludes every zero pixel in the full image.
+        """
+        projection = self.project(mask_on=False)
+        self.mask = mask_from_zero_pixels(projection, self.mask if mask_on else None)
 
     def load_mask(self, path) -> None:
         """Load a JSON mask file and replace ``self.mask``.

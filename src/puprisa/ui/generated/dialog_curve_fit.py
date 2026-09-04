@@ -20,43 +20,43 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QDialog,
     QPlainTextEdit, QPushButton, QRadioButton, QSizePolicy,
     QSpacerItem, QTabWidget, QVBoxLayout, QWidget)
 
-class Ui_Dialog(object):
-    def setupUi(self, Dialog):
-        if not Dialog.objectName():
-            Dialog.setObjectName(u"Dialog")
-        Dialog.resize(900, 660)
-        self.verticalLayout_10 = QVBoxLayout(Dialog)
+class Ui_curveFitDialog(object):
+    def setupUi(self, curveFitDialog):
+        if not curveFitDialog.objectName():
+            curveFitDialog.setObjectName(u"curveFitDialog")
+        curveFitDialog.resize(900, 660)
+        self.verticalLayout_10 = QVBoxLayout(curveFitDialog)
         self.verticalLayout_10.setObjectName(u"verticalLayout_10")
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName(u"horizontalLayout")
-        self.fitFuncLabel = QLabel(Dialog)
+        self.fitFuncLabel = QLabel(curveFitDialog)
         self.fitFuncLabel.setObjectName(u"fitFuncLabel")
 
         self.horizontalLayout.addWidget(self.fitFuncLabel)
 
-        self.instCheckBox = QCheckBox(Dialog)
+        self.instCheckBox = QCheckBox(curveFitDialog)
         self.instCheckBox.setObjectName(u"instCheckBox")
         self.instCheckBox.setChecked(True)
 
         self.horizontalLayout.addWidget(self.instCheckBox)
 
-        self.expDecay1CheckBox = QCheckBox(Dialog)
+        self.expDecay1CheckBox = QCheckBox(curveFitDialog)
         self.expDecay1CheckBox.setObjectName(u"expDecay1CheckBox")
         self.expDecay1CheckBox.setChecked(True)
 
         self.horizontalLayout.addWidget(self.expDecay1CheckBox)
 
-        self.expDecay2CheckBox = QCheckBox(Dialog)
+        self.expDecay2CheckBox = QCheckBox(curveFitDialog)
         self.expDecay2CheckBox.setObjectName(u"expDecay2CheckBox")
 
         self.horizontalLayout.addWidget(self.expDecay2CheckBox)
 
-        self.expDecay3CheckBox = QCheckBox(Dialog)
+        self.expDecay3CheckBox = QCheckBox(curveFitDialog)
         self.expDecay3CheckBox.setObjectName(u"expDecay3CheckBox")
 
         self.horizontalLayout.addWidget(self.expDecay3CheckBox)
 
-        self.expDecayInfCheckBox = QCheckBox(Dialog)
+        self.expDecayInfCheckBox = QCheckBox(curveFitDialog)
         self.expDecayInfCheckBox.setObjectName(u"expDecayInfCheckBox")
 
         self.horizontalLayout.addWidget(self.expDecayInfCheckBox)
@@ -70,26 +70,26 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_29 = QHBoxLayout()
         self.horizontalLayout_29.setObjectName(u"horizontalLayout_29")
-        self.pulseWidthLabel = QLabel(Dialog)
+        self.pulseWidthLabel = QLabel(curveFitDialog)
         self.pulseWidthLabel.setObjectName(u"pulseWidthLabel")
         self.pulseWidthLabel.setTextFormat(Qt.TextFormat.AutoText)
 
         self.horizontalLayout_29.addWidget(self.pulseWidthLabel)
 
-        self.infoIcon = QLabel(Dialog)
+        self.infoIcon = QLabel(curveFitDialog)
         self.infoIcon.setObjectName(u"infoIcon")
 
         self.horizontalLayout_29.addWidget(self.infoIcon)
 
-        self.specifyPulseWidthRadioButton = QRadioButton(Dialog)
-        self.buttonGroup = QButtonGroup(Dialog)
+        self.specifyPulseWidthRadioButton = QRadioButton(curveFitDialog)
+        self.buttonGroup = QButtonGroup(curveFitDialog)
         self.buttonGroup.setObjectName(u"buttonGroup")
         self.buttonGroup.addButton(self.specifyPulseWidthRadioButton)
         self.specifyPulseWidthRadioButton.setObjectName(u"specifyPulseWidthRadioButton")
 
         self.horizontalLayout_29.addWidget(self.specifyPulseWidthRadioButton)
 
-        self.pulseWidthLineEdit = QLineEdit(Dialog)
+        self.pulseWidthLineEdit = QLineEdit(curveFitDialog)
         self.pulseWidthLineEdit.setObjectName(u"pulseWidthLineEdit")
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -99,49 +99,49 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_29.addWidget(self.pulseWidthLineEdit)
 
-        self.pulseWidthUnitLabel = QLabel(Dialog)
+        self.pulseWidthUnitLabel = QLabel(curveFitDialog)
         self.pulseWidthUnitLabel.setObjectName(u"pulseWidthUnitLabel")
 
         self.horizontalLayout_29.addWidget(self.pulseWidthUnitLabel)
 
-        self.fitPulseWidthRadioButton = QRadioButton(Dialog)
+        self.fitPulseWidthRadioButton = QRadioButton(curveFitDialog)
         self.buttonGroup.addButton(self.fitPulseWidthRadioButton)
         self.fitPulseWidthRadioButton.setObjectName(u"fitPulseWidthRadioButton")
         self.fitPulseWidthRadioButton.setChecked(True)
 
         self.horizontalLayout_29.addWidget(self.fitPulseWidthRadioButton)
 
-        self.iniTpLabel = QLabel(Dialog)
+        self.iniTpLabel = QLabel(curveFitDialog)
         self.iniTpLabel.setObjectName(u"iniTpLabel")
 
         self.horizontalLayout_29.addWidget(self.iniTpLabel)
 
-        self.iniTpLineEdit = QLineEdit(Dialog)
+        self.iniTpLineEdit = QLineEdit(curveFitDialog)
         self.iniTpLineEdit.setObjectName(u"iniTpLineEdit")
 
         self.horizontalLayout_29.addWidget(self.iniTpLineEdit)
 
-        self.iniTpUnitLabel = QLabel(Dialog)
+        self.iniTpUnitLabel = QLabel(curveFitDialog)
         self.iniTpUnitLabel.setObjectName(u"iniTpUnitLabel")
 
         self.horizontalLayout_29.addWidget(self.iniTpUnitLabel)
 
-        self.lowerlimTpLabel = QLabel(Dialog)
+        self.lowerlimTpLabel = QLabel(curveFitDialog)
         self.lowerlimTpLabel.setObjectName(u"lowerlimTpLabel")
 
         self.horizontalLayout_29.addWidget(self.lowerlimTpLabel)
 
-        self.lowerlimTpLineEdit = QLineEdit(Dialog)
+        self.lowerlimTpLineEdit = QLineEdit(curveFitDialog)
         self.lowerlimTpLineEdit.setObjectName(u"lowerlimTpLineEdit")
 
         self.horizontalLayout_29.addWidget(self.lowerlimTpLineEdit)
 
-        self.upperlimTpLabel = QLabel(Dialog)
+        self.upperlimTpLabel = QLabel(curveFitDialog)
         self.upperlimTpLabel.setObjectName(u"upperlimTpLabel")
 
         self.horizontalLayout_29.addWidget(self.upperlimTpLabel)
 
-        self.upperlimTpLineEdit = QLineEdit(Dialog)
+        self.upperlimTpLineEdit = QLineEdit(curveFitDialog)
         self.upperlimTpLineEdit.setObjectName(u"upperlimTpLineEdit")
 
         self.horizontalLayout_29.addWidget(self.upperlimTpLineEdit)
@@ -151,63 +151,63 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_30 = QHBoxLayout()
         self.horizontalLayout_30.setObjectName(u"horizontalLayout_30")
-        self.t0Label = QLabel(Dialog)
+        self.t0Label = QLabel(curveFitDialog)
         self.t0Label.setObjectName(u"t0Label")
 
         self.horizontalLayout_30.addWidget(self.t0Label)
 
-        self.specifyt0RadioButton = QRadioButton(Dialog)
+        self.specifyt0RadioButton = QRadioButton(curveFitDialog)
         self.specifyt0RadioButton.setObjectName(u"specifyt0RadioButton")
 
         self.horizontalLayout_30.addWidget(self.specifyt0RadioButton)
 
-        self.t0LineEdit = QLineEdit(Dialog)
+        self.t0LineEdit = QLineEdit(curveFitDialog)
         self.t0LineEdit.setObjectName(u"t0LineEdit")
 
         self.horizontalLayout_30.addWidget(self.t0LineEdit)
 
-        self.t0unitLabel = QLabel(Dialog)
+        self.t0unitLabel = QLabel(curveFitDialog)
         self.t0unitLabel.setObjectName(u"t0unitLabel")
 
         self.horizontalLayout_30.addWidget(self.t0unitLabel)
 
-        self.fitt0RadioButton = QRadioButton(Dialog)
+        self.fitt0RadioButton = QRadioButton(curveFitDialog)
         self.fitt0RadioButton.setObjectName(u"fitt0RadioButton")
         self.fitt0RadioButton.setChecked(True)
 
         self.horizontalLayout_30.addWidget(self.fitt0RadioButton)
 
-        self.init0Label = QLabel(Dialog)
+        self.init0Label = QLabel(curveFitDialog)
         self.init0Label.setObjectName(u"init0Label")
 
         self.horizontalLayout_30.addWidget(self.init0Label)
 
-        self.initt0LineEdit = QLineEdit(Dialog)
+        self.initt0LineEdit = QLineEdit(curveFitDialog)
         self.initt0LineEdit.setObjectName(u"initt0LineEdit")
 
         self.horizontalLayout_30.addWidget(self.initt0LineEdit)
 
-        self.init0UnitLabel = QLabel(Dialog)
+        self.init0UnitLabel = QLabel(curveFitDialog)
         self.init0UnitLabel.setObjectName(u"init0UnitLabel")
 
         self.horizontalLayout_30.addWidget(self.init0UnitLabel)
 
-        self.lowerlimt0Label = QLabel(Dialog)
+        self.lowerlimt0Label = QLabel(curveFitDialog)
         self.lowerlimt0Label.setObjectName(u"lowerlimt0Label")
 
         self.horizontalLayout_30.addWidget(self.lowerlimt0Label)
 
-        self.lowerlimt0LineEdit = QLineEdit(Dialog)
+        self.lowerlimt0LineEdit = QLineEdit(curveFitDialog)
         self.lowerlimt0LineEdit.setObjectName(u"lowerlimt0LineEdit")
 
         self.horizontalLayout_30.addWidget(self.lowerlimt0LineEdit)
 
-        self.upperlimt0Label = QLabel(Dialog)
+        self.upperlimt0Label = QLabel(curveFitDialog)
         self.upperlimt0Label.setObjectName(u"upperlimt0Label")
 
         self.horizontalLayout_30.addWidget(self.upperlimt0Label)
 
-        self.upperlimt0LineEdit = QLineEdit(Dialog)
+        self.upperlimt0LineEdit = QLineEdit(curveFitDialog)
         self.upperlimt0LineEdit.setObjectName(u"upperlimt0LineEdit")
 
         self.horizontalLayout_30.addWidget(self.upperlimt0LineEdit)
@@ -217,7 +217,7 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_32 = QHBoxLayout()
         self.horizontalLayout_32.setObjectName(u"horizontalLayout_32")
-        self.groupBox = QGroupBox(Dialog)
+        self.groupBox = QGroupBox(curveFitDialog)
         self.groupBox.setObjectName(u"groupBox")
         self.verticalLayout = QVBoxLayout(self.groupBox)
         self.verticalLayout.setObjectName(u"verticalLayout")
@@ -292,7 +292,7 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_32.addWidget(self.groupBox)
 
-        self.groupBox_3 = QGroupBox(Dialog)
+        self.groupBox_3 = QGroupBox(curveFitDialog)
         self.groupBox_3.setObjectName(u"groupBox_3")
         self.verticalLayout_9 = QVBoxLayout(self.groupBox_3)
         self.verticalLayout_9.setObjectName(u"verticalLayout_9")
@@ -672,7 +672,7 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_32.addWidget(self.groupBox_3)
 
-        self.groupBox_2 = QGroupBox(Dialog)
+        self.groupBox_2 = QGroupBox(curveFitDialog)
         self.groupBox_2.setObjectName(u"groupBox_2")
         self.verticalLayout_8 = QVBoxLayout(self.groupBox_2)
         self.verticalLayout_8.setObjectName(u"verticalLayout_8")
@@ -740,12 +740,12 @@ class Ui_Dialog(object):
 
         self.verticalLayout_10.addLayout(self.horizontalLayout_32)
 
-        self.resultLabel = QLabel(Dialog)
+        self.resultLabel = QLabel(curveFitDialog)
         self.resultLabel.setObjectName(u"resultLabel")
 
         self.verticalLayout_10.addWidget(self.resultLabel)
 
-        self.resultPlainTextEdit = QPlainTextEdit(Dialog)
+        self.resultPlainTextEdit = QPlainTextEdit(curveFitDialog)
         self.resultPlainTextEdit.setObjectName(u"resultPlainTextEdit")
         self.resultPlainTextEdit.setReadOnly(True)
 
@@ -757,12 +757,12 @@ class Ui_Dialog(object):
 
         self.horizontalLayout_31.addItem(self.horizontalSpacer_3)
 
-        self.fitPushButton = QPushButton(Dialog)
+        self.fitPushButton = QPushButton(curveFitDialog)
         self.fitPushButton.setObjectName(u"fitPushButton")
 
         self.horizontalLayout_31.addWidget(self.fitPushButton)
 
-        self.exitPushButton = QPushButton(Dialog)
+        self.exitPushButton = QPushButton(curveFitDialog)
         self.exitPushButton.setObjectName(u"exitPushButton")
 
         self.horizontalLayout_31.addWidget(self.exitPushButton)
@@ -771,120 +771,120 @@ class Ui_Dialog(object):
         self.verticalLayout_10.addLayout(self.horizontalLayout_31)
 
 
-        self.retranslateUi(Dialog)
+        self.retranslateUi(curveFitDialog)
 
         self.ExpDecayTab.setCurrentIndex(0)
 
 
-        QMetaObject.connectSlotsByName(Dialog)
+        QMetaObject.connectSlotsByName(curveFitDialog)
     # setupUi
 
-    def retranslateUi(self, Dialog):
-        Dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Dialog", None))
-        self.fitFuncLabel.setText(QCoreApplication.translate("Dialog", u"Fitting Function:", None))
-        self.instCheckBox.setText(QCoreApplication.translate("Dialog", u"Instantaneous", None))
-        self.expDecay1CheckBox.setText(QCoreApplication.translate("Dialog", u"Exp Decay 1", None))
-        self.expDecay2CheckBox.setText(QCoreApplication.translate("Dialog", u"Exp Decay 2", None))
-        self.expDecay3CheckBox.setText(QCoreApplication.translate("Dialog", u"Exp Decay 3", None))
-        self.expDecayInfCheckBox.setText(QCoreApplication.translate("Dialog", u"Exp Decay (\u03c4=\u221e)", None))
-        self.pulseWidthLabel.setText(QCoreApplication.translate("Dialog", u"Pulse Width:", None))
+    def retranslateUi(self, curveFitDialog):
+        curveFitDialog.setWindowTitle(QCoreApplication.translate("curveFitDialog", u"Curve Fit", None))
+        self.fitFuncLabel.setText(QCoreApplication.translate("curveFitDialog", u"Fitting Function:", None))
+        self.instCheckBox.setText(QCoreApplication.translate("curveFitDialog", u"Instantaneous", None))
+        self.expDecay1CheckBox.setText(QCoreApplication.translate("curveFitDialog", u"Exp Decay 1", None))
+        self.expDecay2CheckBox.setText(QCoreApplication.translate("curveFitDialog", u"Exp Decay 2", None))
+        self.expDecay3CheckBox.setText(QCoreApplication.translate("curveFitDialog", u"Exp Decay 3", None))
+        self.expDecayInfCheckBox.setText(QCoreApplication.translate("curveFitDialog", u"Exp Decay (\u03c4=\u221e)", None))
+        self.pulseWidthLabel.setText(QCoreApplication.translate("curveFitDialog", u"Pulse Width:", None))
 #if QT_CONFIG(tooltip)
-        self.infoIcon.setToolTip(QCoreApplication.translate("Dialog", u"pulse width = sqrt(t_pump**2 + t_probe**2)", None))
+        self.infoIcon.setToolTip(QCoreApplication.translate("curveFitDialog", u"pulse width = sqrt(t_pump**2 + t_probe**2)", None))
 #endif // QT_CONFIG(tooltip)
-        self.infoIcon.setText(QCoreApplication.translate("Dialog", u"info", None))
-        self.specifyPulseWidthRadioButton.setText(QCoreApplication.translate("Dialog", u"Specify", None))
-        self.pulseWidthLineEdit.setText(QCoreApplication.translate("Dialog", u"100", None))
-        self.pulseWidthUnitLabel.setText(QCoreApplication.translate("Dialog", u"fs", None))
-        self.fitPulseWidthRadioButton.setText(QCoreApplication.translate("Dialog", u"Let the program fit", None))
-        self.iniTpLabel.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniTpLineEdit.setText(QCoreApplication.translate("Dialog", u"100", None))
-        self.iniTpUnitLabel.setText(QCoreApplication.translate("Dialog", u"fs", None))
-        self.lowerlimTpLabel.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimTpLineEdit.setText(QCoreApplication.translate("Dialog", u"1e-6", None))
-        self.upperlimTpLabel.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimTpLineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.t0Label.setText(QCoreApplication.translate("Dialog", u"Time Shift (t0):", None))
-        self.specifyt0RadioButton.setText(QCoreApplication.translate("Dialog", u"Specify", None))
-        self.t0LineEdit.setText(QCoreApplication.translate("Dialog", u"0", None))
-        self.t0unitLabel.setText(QCoreApplication.translate("Dialog", u"ps", None))
-        self.fitt0RadioButton.setText(QCoreApplication.translate("Dialog", u"Let the program fit", None))
-        self.init0Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.initt0LineEdit.setText(QCoreApplication.translate("Dialog", u"0", None))
-        self.init0UnitLabel.setText(QCoreApplication.translate("Dialog", u"ps", None))
-        self.lowerlimt0Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimt0LineEdit.setText(QCoreApplication.translate("Dialog", u"-1", None))
-        self.upperlimt0Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimt0LineEdit.setText(QCoreApplication.translate("Dialog", u"1", None))
-        self.groupBox.setTitle(QCoreApplication.translate("Dialog", u"Instantaneous", None))
-        self.instPicture.setText(QCoreApplication.translate("Dialog", u"Instantaneous Picture", None))
-        self.A0Label.setText(QCoreApplication.translate("Dialog", u"Coefficient A0", None))
-        self.iniA0Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniA0LineEdit.setText(QCoreApplication.translate("Dialog", u"1.00", None))
-        self.lowerlimA0Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimA0LineEdit.setText(QCoreApplication.translate("Dialog", u"-inf", None))
-        self.upperlimA0Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimA0LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.groupBox_3.setTitle(QCoreApplication.translate("Dialog", u"Exponential Decay", None))
-        self.expDecayPicture.setText(QCoreApplication.translate("Dialog", u"Exp Decay Picture", None))
-        self.A1Label.setText(QCoreApplication.translate("Dialog", u"Coefficient A1", None))
-        self.iniA1Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniA1LineEdit.setText(QCoreApplication.translate("Dialog", u"1.00", None))
-        self.lowerlimA1Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimA1LineEdit.setText(QCoreApplication.translate("Dialog", u"-inf", None))
-        self.upperlimA1Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimA1LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.T1Label.setText(QCoreApplication.translate("Dialog", u"Lifetime \u03c41", None))
-        self.iniT1Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniT1LineEdit.setText(QCoreApplication.translate("Dialog", u"1.00", None))
-        self.iniT1UnitLabel.setText(QCoreApplication.translate("Dialog", u"ps", None))
-        self.lowerlimT1Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimT1LineEdit.setText(QCoreApplication.translate("Dialog", u"1e-6", None))
-        self.upperlimT1Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimT1LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.ExpDecayTab.setTabText(self.ExpDecayTab.indexOf(self.tab), QCoreApplication.translate("Dialog", u"Decay 1", None))
-        self.A2Label.setText(QCoreApplication.translate("Dialog", u"Coefficient A2", None))
-        self.iniA2Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniA2LineEdit.setText(QCoreApplication.translate("Dialog", u"1.00", None))
-        self.lowerlimA2Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimA2LineEdit.setText(QCoreApplication.translate("Dialog", u"-inf", None))
-        self.upperlimA2Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimA2LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.T2Label.setText(QCoreApplication.translate("Dialog", u"Lifetime \u03c42", None))
-        self.iniT2Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniT2LineEdit.setText(QCoreApplication.translate("Dialog", u"10.00", None))
-        self.initT2UnitLabel.setText(QCoreApplication.translate("Dialog", u"ps", None))
-        self.lowerlimT2Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimT2LineEdit.setText(QCoreApplication.translate("Dialog", u"1e-6", None))
-        self.upperlimT2Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimT2LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.ExpDecayTab.setTabText(self.ExpDecayTab.indexOf(self.tab_2), QCoreApplication.translate("Dialog", u"Decay 2", None))
-        self.A3Label.setText(QCoreApplication.translate("Dialog", u"Coefficient A3", None))
-        self.iniA3Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniA3LineEdit.setText(QCoreApplication.translate("Dialog", u"1.00", None))
-        self.lowerlimA3Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimA3LineEdit.setText(QCoreApplication.translate("Dialog", u"-inf", None))
-        self.upperlimA3Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimA3LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.T3Label.setText(QCoreApplication.translate("Dialog", u"Lifetime \u03c43", None))
-        self.iniT3Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniT3LineEdit.setText(QCoreApplication.translate("Dialog", u"0.10", None))
-        self.initT3UnitLabel.setText(QCoreApplication.translate("Dialog", u"ps", None))
-        self.lowerlimT3Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimT3LineEdit.setText(QCoreApplication.translate("Dialog", u"1e-6", None))
-        self.upperlimT3Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimT3LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.ExpDecayTab.setTabText(self.ExpDecayTab.indexOf(self.tab_3), QCoreApplication.translate("Dialog", u"Decay 3", None))
-        self.groupBox_2.setTitle(QCoreApplication.translate("Dialog", u"Exponential Decay (\u03c4=\u221e)", None))
-        self.expDecayInfPicture.setText(QCoreApplication.translate("Dialog", u"Exp Decay Inf Picture", None))
-        self.A4Label.setText(QCoreApplication.translate("Dialog", u"Coefficient A4", None))
-        self.iniA4Label.setText(QCoreApplication.translate("Dialog", u"Initial Value:", None))
-        self.iniA4LineEdit.setText(QCoreApplication.translate("Dialog", u"1.00", None))
-        self.lowerlimA4Label.setText(QCoreApplication.translate("Dialog", u"Lower Bound:", None))
-        self.lowerlimA4LineEdit.setText(QCoreApplication.translate("Dialog", u"-inf", None))
-        self.upperlimA4Label.setText(QCoreApplication.translate("Dialog", u"Upper Bound:", None))
-        self.upperlimA4LineEdit.setText(QCoreApplication.translate("Dialog", u"inf", None))
-        self.resultLabel.setText(QCoreApplication.translate("Dialog", u"Results", None))
-        self.fitPushButton.setText(QCoreApplication.translate("Dialog", u"Fit", None))
-        self.exitPushButton.setText(QCoreApplication.translate("Dialog", u"Exit", None))
+        self.infoIcon.setText(QCoreApplication.translate("curveFitDialog", u"info", None))
+        self.specifyPulseWidthRadioButton.setText(QCoreApplication.translate("curveFitDialog", u"Specify", None))
+        self.pulseWidthLineEdit.setText(QCoreApplication.translate("curveFitDialog", u"100", None))
+        self.pulseWidthUnitLabel.setText(QCoreApplication.translate("curveFitDialog", u"fs", None))
+        self.fitPulseWidthRadioButton.setText(QCoreApplication.translate("curveFitDialog", u"Let the program fit", None))
+        self.iniTpLabel.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniTpLineEdit.setText(QCoreApplication.translate("curveFitDialog", u"100", None))
+        self.iniTpUnitLabel.setText(QCoreApplication.translate("curveFitDialog", u"fs", None))
+        self.lowerlimTpLabel.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimTpLineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1e-6", None))
+        self.upperlimTpLabel.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimTpLineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.t0Label.setText(QCoreApplication.translate("curveFitDialog", u"Time Shift (t0):", None))
+        self.specifyt0RadioButton.setText(QCoreApplication.translate("curveFitDialog", u"Specify", None))
+        self.t0LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"0", None))
+        self.t0unitLabel.setText(QCoreApplication.translate("curveFitDialog", u"ps", None))
+        self.fitt0RadioButton.setText(QCoreApplication.translate("curveFitDialog", u"Let the program fit", None))
+        self.init0Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.initt0LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"0", None))
+        self.init0UnitLabel.setText(QCoreApplication.translate("curveFitDialog", u"ps", None))
+        self.lowerlimt0Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimt0LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"-1", None))
+        self.upperlimt0Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimt0LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1", None))
+        self.groupBox.setTitle(QCoreApplication.translate("curveFitDialog", u"Instantaneous", None))
+        self.instPicture.setText(QCoreApplication.translate("curveFitDialog", u"Instantaneous Picture", None))
+        self.A0Label.setText(QCoreApplication.translate("curveFitDialog", u"Coefficient A0", None))
+        self.iniA0Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniA0LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1.00", None))
+        self.lowerlimA0Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimA0LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"-inf", None))
+        self.upperlimA0Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimA0LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.groupBox_3.setTitle(QCoreApplication.translate("curveFitDialog", u"Exponential Decay", None))
+        self.expDecayPicture.setText(QCoreApplication.translate("curveFitDialog", u"Exp Decay Picture", None))
+        self.A1Label.setText(QCoreApplication.translate("curveFitDialog", u"Coefficient A1", None))
+        self.iniA1Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniA1LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1.00", None))
+        self.lowerlimA1Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimA1LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"-inf", None))
+        self.upperlimA1Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimA1LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.T1Label.setText(QCoreApplication.translate("curveFitDialog", u"Lifetime \u03c41", None))
+        self.iniT1Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniT1LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1.00", None))
+        self.iniT1UnitLabel.setText(QCoreApplication.translate("curveFitDialog", u"ps", None))
+        self.lowerlimT1Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimT1LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1e-6", None))
+        self.upperlimT1Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimT1LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.ExpDecayTab.setTabText(self.ExpDecayTab.indexOf(self.tab), QCoreApplication.translate("curveFitDialog", u"Decay 1", None))
+        self.A2Label.setText(QCoreApplication.translate("curveFitDialog", u"Coefficient A2", None))
+        self.iniA2Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniA2LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1.00", None))
+        self.lowerlimA2Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimA2LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"-inf", None))
+        self.upperlimA2Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimA2LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.T2Label.setText(QCoreApplication.translate("curveFitDialog", u"Lifetime \u03c42", None))
+        self.iniT2Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniT2LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"10.00", None))
+        self.initT2UnitLabel.setText(QCoreApplication.translate("curveFitDialog", u"ps", None))
+        self.lowerlimT2Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimT2LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1e-6", None))
+        self.upperlimT2Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimT2LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.ExpDecayTab.setTabText(self.ExpDecayTab.indexOf(self.tab_2), QCoreApplication.translate("curveFitDialog", u"Decay 2", None))
+        self.A3Label.setText(QCoreApplication.translate("curveFitDialog", u"Coefficient A3", None))
+        self.iniA3Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniA3LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1.00", None))
+        self.lowerlimA3Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimA3LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"-inf", None))
+        self.upperlimA3Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimA3LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.T3Label.setText(QCoreApplication.translate("curveFitDialog", u"Lifetime \u03c43", None))
+        self.iniT3Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniT3LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"0.10", None))
+        self.initT3UnitLabel.setText(QCoreApplication.translate("curveFitDialog", u"ps", None))
+        self.lowerlimT3Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimT3LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1e-6", None))
+        self.upperlimT3Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimT3LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.ExpDecayTab.setTabText(self.ExpDecayTab.indexOf(self.tab_3), QCoreApplication.translate("curveFitDialog", u"Decay 3", None))
+        self.groupBox_2.setTitle(QCoreApplication.translate("curveFitDialog", u"Exponential Decay (\u03c4=\u221e)", None))
+        self.expDecayInfPicture.setText(QCoreApplication.translate("curveFitDialog", u"Exp Decay Inf Picture", None))
+        self.A4Label.setText(QCoreApplication.translate("curveFitDialog", u"Coefficient A4", None))
+        self.iniA4Label.setText(QCoreApplication.translate("curveFitDialog", u"Initial Value:", None))
+        self.iniA4LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"1.00", None))
+        self.lowerlimA4Label.setText(QCoreApplication.translate("curveFitDialog", u"Lower Bound:", None))
+        self.lowerlimA4LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"-inf", None))
+        self.upperlimA4Label.setText(QCoreApplication.translate("curveFitDialog", u"Upper Bound:", None))
+        self.upperlimA4LineEdit.setText(QCoreApplication.translate("curveFitDialog", u"inf", None))
+        self.resultLabel.setText(QCoreApplication.translate("curveFitDialog", u"Results", None))
+        self.fitPushButton.setText(QCoreApplication.translate("curveFitDialog", u"Fit", None))
+        self.exitPushButton.setText(QCoreApplication.translate("curveFitDialog", u"Exit", None))
     # retranslateUi
 

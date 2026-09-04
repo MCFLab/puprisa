@@ -14,7 +14,7 @@ import numpy as np
 
 from puprisa.model.entities import MaskItem
 from puprisa.model.stack_manager import StackEvent, StackManager
-from puprisa.core.mask import gaussian_threshold_mask
+from puprisa.core.mask import gaussian_threshold_mask, mask_from_zero_pixels
 
 
 @dataclass(frozen=True)
@@ -268,6 +268,27 @@ class MaskManager:
         )
         default_label = label or f"Intensity threshold"
         return self.add_mask(stack_id, keep_mask, label=default_label, enabled=True)
+
+    def add_mask_from_zero_pixels(
+        self,
+        stack_id: str,
+        mask_on: bool = True,
+        label: str | None = None,
+    ) -> str | None:
+        """Create a keep-mask layer from zero-valued pixels."""
+        pps = self._get_pps(stack_id)
+        projection = pps.project(mask_on=False)
+        zero_pixels = np.asarray(projection == 0.0, dtype=bool)
+        if mask_on:
+            relevant_zero = zero_pixels & pps.mask
+        else:
+            relevant_zero = zero_pixels
+        if not np.any(relevant_zero):
+            return None
+        base = pps.mask.copy() if mask_on else np.ones(pps.image_dimensions, dtype=bool)
+        keep_mask = base & ~relevant_zero
+        label = label or "Zero pixels"
+        return self.add_mask(stack_id, keep_mask, label=label, enabled=True)
 
     # ------------------------------------------------------------------
     # Serialization helpers

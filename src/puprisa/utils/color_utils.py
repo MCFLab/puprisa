@@ -17,15 +17,14 @@ MATLAB_COLORS = [
 ]
 
 PHASOR_COLORS = [
-    '#0000ff',  # blue
-    '#ff0000',  # red
-    '#00ff00',  # green
-    '#ffa500',  # orange
-    '#ffff00',  # yellow
-    '#ff00ff',  # magenta
-    '#00ffff',  # cyan
-]
-
+    '#023eff',  # blue
+    '#ff7c00',  # orange
+    '#ffc400',  # yellow
+    '#8b2be2',  # purple
+    '#1ac938',  # green
+    '#00d7ff',  # cyan
+    '#e8000b',  # red
+ ]
 
 def default_cmap():
     """Return the custom 'pumpprobe' colormap."""

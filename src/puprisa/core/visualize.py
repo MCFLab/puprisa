@@ -287,17 +287,16 @@ def render_phasor_rgba(
     g_lim: tuple[float, float] = (-1.0, 1.0),
     s_lim: tuple[float, float] = (-1.0, 1.0),
     size: int = 512,
-    alpha_min: float = 0,
-    alpha_max: float = 180.0,
+    alpha_min: float = 0.0,
+    alpha_max: float = 255.0,
 ) -> np.ndarray:
     """Render phasor coordinates as a single-color RGBA density image.
 
-    A 2D histogram of the phasor coordinates is computed and mapped with a
-    logarithmic density scale. The histogram is then composited into a
-    fixed-color RGBA image where the alpha channel encodes density. The log
-    scale keeps sparsely occupied bins visible when a background bin contains
-    far more pixels. The image is suitable for immediate display with
-    ``imshow`` and can be overlaid on other phasor plots.
+    A 2D histogram of the phasor coordinates is computed and then linearly
+    normalized to its maximum value.  The histogram is composited into a
+    fixed-color RGBA image where the alpha channel encodes density.  The
+    image is suitable for immediate display with ``imshow`` and can be
+    overlaid on other phasor plots.
 
     Parameters
     ----------
@@ -313,13 +312,18 @@ def render_phasor_rgba(
         Lower and upper bounds of the ``s`` axis.
     size : int, default 512
         Output image size in pixels. The returned image is square.
+    alpha_min : float, default 0.0
+        Minimum alpha value used for bins with the lowest count.
+    alpha_max : float, default 255.0
+        Maximum alpha value used for the bin with the highest count.
 
     Returns
     -------
     np.ndarray
         Contiguous array of shape ``(size, size, 4)`` and dtype
         ``np.uint8``. The first three channels are the requested color;
-        the alpha channel is the normalized histogram scaled to 0-180.
+        the alpha channel is the linearly normalized histogram scaled to
+        ``[alpha_min, alpha_max]``.
 
     Notes
     -----
@@ -329,17 +333,14 @@ def render_phasor_rgba(
     ``origin="upper"``.
     """
     hist, _, _ = _phasor_histogram(coords, g_lim, s_lim, size)
-    hist = hist.T[::-1, :]
+    hist = hist.T[::-1, :]  # image rows: high s at top
 
     alpha = np.zeros_like(hist, dtype=np.float32)
-    nonzero = hist > 0
+    occupied = hist > 0
 
-    if np.any(nonzero):
-        counts = hist[nonzero]
-        order = np.argsort(counts)
-        rank = np.empty_like(counts, dtype=np.float32)
-        rank[order] = np.linspace(0.0, 1.0, len(order), dtype=np.float32)
-        alpha[nonzero] = alpha_min + (alpha_max - alpha_min) * rank
+    if np.any(occupied):
+        hist_norm = hist / hist.max()
+        alpha[occupied] = alpha_min + (alpha_max - alpha_min) * hist_norm[occupied]
 
     rgb_color = np.array(mcolors.to_rgb(color_hex)) * 255.0
     rgba = np.zeros((size, size, 4), dtype=np.uint8)
