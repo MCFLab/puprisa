@@ -17,8 +17,9 @@ import matplotlib.colors as mcolors
 from matplotlib.axes import Axes
 
 from puprisa.core.visualize import render_phasor_rgba, render_projection_rgb, universal_semicircle
-from puprisa.model.entities import RoiItem
+from puprisa.model.entities import RoiItem, StackItem
 from puprisa.model.mask_manager import MaskEvent, MaskManager
+from puprisa.model.plot_manager import PlotEvent, PlotManager
 from puprisa.model.processing_manager import ProcessingEvent, ProcessingManager
 from puprisa.model.stack_manager import StackEvent, StackManager
 from puprisa.model.roi_manager import RoiEvent, RoiManager
@@ -30,14 +31,14 @@ from puprisa.utils.geometry_utils import shape_to_patch
 class PhasorPlotViewModel(QObject):
     """Render phasor density overlays and the spatial projection."""
 
-    DENSITY_SIZE = 512
     G_LIM = (-1.0, 1.0)
     S_LIM = (-1.0, 1.0)
 
     def __init__(
         self,
         stack_manager: StackManager, 
-        processing_manager: ProcessingManager, 
+        processing_manager: ProcessingManager,
+        plot_manager: PlotManager,
         roi_manager: RoiManager, 
         mask_manager: MaskManager, 
         curve_manager: CurveManager,
@@ -49,6 +50,7 @@ class PhasorPlotViewModel(QObject):
         super().__init__(parent)
         self._stack_manager = stack_manager
         self._processing_manager = processing_manager
+        self._plot_manager = plot_manager
         self._roi_manager = roi_manager
         self._mask_manager = mask_manager
         self._curve_manager = curve_manager
@@ -70,6 +72,7 @@ class PhasorPlotViewModel(QObject):
 
         # Runtime frequency and phasor cache
         self.frequency = 0.25
+        self._density_size = self._plot_manager.phasor_bins
         self._build_axes()
         self.fit_phasor_view()
 
@@ -78,15 +81,16 @@ class PhasorPlotViewModel(QObject):
         self._processing_manager.add_listener(self._on_processing_event)
         self._roi_manager.add_listener(self._on_roi_event)
         self._mask_manager.add_listener(self._on_mask_event)
+        self._plot_manager.add_listener(self._on_plot_event)
 
     # ------------------------------------------------------------------
     # Model event handlers
     # ------------------------------------------------------------------
     def _on_stack_event(self, event: StackEvent) -> None:
-        if event.event in ("added", "removed", "visibility_changed", "current_changed"):
-            if event.event == "current_changed":
-                self.refresh_spatial_view()
+        if event.event in ("added", "removed", "visibility_changed"):
             self.refresh_density()
+        if event.event == "current_changed":
+            self.refresh_spatial_view()
 
     def _on_processing_event(self, event: ProcessingEvent) -> None:
         if event.event == "data_changed":
@@ -110,6 +114,13 @@ class PhasorPlotViewModel(QObject):
                 stack_item.phasor_coords = None
             self.refresh_density()
             self.refresh_spatial_view()
+
+    def _on_plot_event(self, event: PlotEvent) -> None:
+        if event.event == "phasor_changed":
+            if event.phasor_bins != self._density_size:
+                self._density_size = event.phasor_bins
+                self._build_axes()
+            self.refresh_density()
 
     # ------------------------------------------------------------------
     # Public API
@@ -181,7 +192,7 @@ class PhasorPlotViewModel(QObject):
     def fit_phasor_view(self) -> None:
         rect = self.phasor_scene.itemsBoundingRect()
         if rect.width() > 0 and rect.height() > 0:
-            rect = rect.adjusted(-10, -5, 10, 5)
+            rect = rect.adjusted(-5, -5, 5, 5)
             self.phasor_scene.setSceneRect(rect)
             self._phasor_view.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
 
@@ -204,7 +215,9 @@ class PhasorPlotViewModel(QObject):
         for stack_item in self._stack_manager.get_all_items():
             stack_item.phasor_coords = None
 
-    def _get_or_compute_phasor_coords(self, stack_item)-> np.ndarray | None:
+    def _get_or_compute_phasor_coords(self, stack_item: StackItem) -> np.ndarray | None:
+        if stack_item is None or stack_item.pps.axis_type != "time":
+            return None
         if stack_item.phasor_coords is None:
             stack_item.phasor_coords = stack_item.pps.phasor(freq=self.frequency, use_mask=True)
         return stack_item.phasor_coords
@@ -218,9 +231,11 @@ class PhasorPlotViewModel(QObject):
             color_hex,
             g_lim=self.G_LIM,
             s_lim=self.S_LIM,
-            size=self.DENSITY_SIZE,
+            size=self._density_size,
+            alpha_min=self._plot_manager.phasor_alpha_min,
+            alpha_max=self._plot_manager.phasor_alpha_max
         )
-        size = self.DENSITY_SIZE
+        size = self._density_size
         qimage = QImage(rgba.tobytes(), size, size,
                         size * 4, QImage.Format_RGBA8888).copy()
         return QPixmap.fromImage(qimage)
@@ -229,9 +244,12 @@ class PhasorPlotViewModel(QObject):
     # Axes / universal semicircle
     # ------------------------------------------------------------------
     def _build_axes(self) -> None:
-        size = self.DENSITY_SIZE
-        left_margin = 40
+        size = self._density_size
         border_pen = QPen(QColor(0, 0, 0), 1)
+
+        for item in self._axis_items:
+            self.phasor_scene.removeItem(item)
+        self._axis_items.clear()
 
         # Border
         for line in [
@@ -243,41 +261,6 @@ class PhasorPlotViewModel(QObject):
             line.setPen(border_pen)
             self.phasor_scene.addItem(line)
             self._axis_items.append(line)
-
-        # Labels
-        label_font = QFont("Sans Serif", 12)
-        tick_font = QFont("Sans Serif", 12)
-        g_label = QGraphicsTextItem("g")
-        g_label.setFont(label_font)
-        g_label.setDefaultTextColor(QColor("#000000"))
-        g_label.setPos(size / 2 - 8, size + 30)
-        self.phasor_scene.addItem(g_label)
-        self._axis_items.append(g_label)
-
-        s_label = QGraphicsTextItem("s")
-        s_label.setFont(label_font)
-        s_label.setDefaultTextColor(QColor("#000000"))
-        s_label.setPos(-left_margin - 16, size / 2 - 16)
-        self.phasor_scene.addItem(s_label)
-        self._axis_items.append(s_label)
-
-        # Ticks
-        for g_val in [self.G_LIM[0], 0.0, self.G_LIM[1]]:
-            x = (g_val - self.G_LIM[0]) / (self.G_LIM[1] - self.G_LIM[0]) * size
-            text = QGraphicsTextItem(f"{g_val:.1f}")
-            text.setFont(tick_font)
-            text.setDefaultTextColor(QColor("#000000"))
-            text.setPos(x - 10, size + 6)
-            self.phasor_scene.addItem(text)
-            self._axis_items.append(text)
-        for s_val in [self.S_LIM[0], 0.0, self.S_LIM[1]]:
-            y = (self.S_LIM[1] - s_val) / (self.S_LIM[1] - self.S_LIM[0]) * size
-            text = QGraphicsTextItem(f"{s_val:.1f}")
-            text.setFont(tick_font)
-            text.setDefaultTextColor(QColor("#000000"))
-            text.setPos(-left_margin + 6, y - 16)
-            self.phasor_scene.addItem(text)
-            self._axis_items.append(text)
 
         # Universal semicircle
         g_upper, s_upper, g_lower, s_lower = universal_semicircle()
@@ -305,8 +288,8 @@ class PhasorPlotViewModel(QObject):
             item.setZValue(5)
 
     def _gs_to_scene_point(self, g: float, s: float) -> QPointF:
-        x = (g - self.G_LIM[0]) / (self.G_LIM[1] - self.G_LIM[0]) * self.DENSITY_SIZE
-        y = (self.S_LIM[1] - s) / (self.S_LIM[1] - self.S_LIM[0]) * self.DENSITY_SIZE
+        x = (g - self.G_LIM[0]) / (self.G_LIM[1] - self.G_LIM[0]) * self._density_size
+        y = (self.S_LIM[1] - s) / (self.S_LIM[1] - self.S_LIM[0]) * self._density_size
         return QPointF(x, y)
 
     # ------------------------------------------------------------------
@@ -322,7 +305,7 @@ class PhasorPlotViewModel(QObject):
             layout="constrained",
         )
 
-        self._draw_phasor_plot(ax_phasor)
+        self._draw_phasor_plot(ax_phasor, draw_roi=False)
         fig.show()
 
 
@@ -360,13 +343,13 @@ class PhasorPlotViewModel(QObject):
         ax_spatial = fig.add_subplot(gs[0, 1])
         ax_curve = fig.add_subplot(gs[1, :])
 
-        self._draw_phasor_plot(ax_phasor)
+        self._draw_phasor_plot(ax_phasor, draw_roi=True)
         self._draw_spatial_projection(ax_spatial)
         self._draw_roi_curves(ax_curve, normalize=normalize)
 
         fig.show()
 
-    def _draw_phasor_plot(self, ax: Axes) -> None:
+    def _draw_phasor_plot(self, ax: Axes, draw_roi: bool) -> None:
         """Draw visible-stack phasor density overlays into a Matplotlib axis."""
         frequency = self.frequency
         ax.set_xlabel("g")
@@ -408,7 +391,7 @@ class PhasorPlotViewModel(QObject):
                     edgecolor=roi.color,
                     linewidth=1.5,
                 )
-                if patch is not None:
+                if patch is not None and draw_roi:
                     ax.add_patch(patch)
         
         frequency_unit = current_item.pps.get_phasor_unit() if current_item is not None else "THz"
@@ -456,7 +439,9 @@ class PhasorPlotViewModel(QObject):
             color_hex,
             g_lim=self.G_LIM,
             s_lim=self.S_LIM,
-            size=self.DENSITY_SIZE,
+            size=self._density_size,
+            alpha_min=self._plot_manager.phasor_alpha_min,
+            alpha_max=self._plot_manager.phasor_alpha_max
         )
         ax.imshow(
             rgba,

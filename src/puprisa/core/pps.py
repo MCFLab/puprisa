@@ -502,7 +502,7 @@ class PPS:
         from puprisa.core.visualize import plot_projection
         return plot_projection(self, ax=ax, colormap=colormap, vmin=vmin, vmax=vmax, mask_color=mask_color, colorbar=colorbar)
 
-    def plot_phasor(self, color_hex: str, freq: float = 0.25, use_mask: bool = True, ax=None, g_lim: tuple[float, float] = (-1.0, 1.0), s_lim: tuple[float, float] = (-1.0, 1.0), size: int = 512, show_semicircle: bool = True):
+    def plot_phasor(self, color_hex: str, freq: float = 0.25, use_mask: bool = True, ax=None, g_lim: tuple[float, float] = (-1.0, 1.0), s_lim: tuple[float, float] = (-1.0, 1.0), size: int = 256, show_semicircle: bool = True):
         """Display the phasor density of this stack on a Matplotlib axis."""
         from puprisa.core.visualize import plot_phasor
         return plot_phasor(self, color_hex=color_hex, freq=freq, use_mask=use_mask, ax=ax, g_lim=g_lim, s_lim=s_lim, size=size, show_semicircle=show_semicircle)

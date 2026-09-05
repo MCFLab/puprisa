@@ -15,7 +15,7 @@ import numpy as np
 from puprisa.core.visualize import render_slice_rgb
 from puprisa.model.mask_manager import MaskEvent, MaskManager
 from puprisa.model.plot_manager import PlotEvent, PlotManager
-from puprisa.model.processing_manager import ProcessingManager
+from puprisa.model.processing_manager import ProcessingEvent, ProcessingManager
 from puprisa.model.stack_manager import StackEvent, StackManager
 from puprisa.model.roi_manager import RoiManager
 from puprisa.model.curve_manager import CurveManager
@@ -98,7 +98,7 @@ class PPSPlotViewModel(QObject):
         if event.stack_id == current_item.id and event.event == "effective_changed":
             self.display_slice(self._current_slice)
 
-    def _on_processing_event(self, event) -> None:
+    def _on_processing_event(self, event: ProcessingEvent) -> None:
         current_item = self._stack_manager.get_current_item()
         if current_item is None:
             return
@@ -106,8 +106,9 @@ class PPSPlotViewModel(QObject):
             self.display_slice(self._current_slice)
 
     def _on_plot_event(self, event: PlotEvent) -> None:
-        if self._current_pps() is not None:
-            self.display_slice(self._current_slice)
+        if event.event in ("colormap_changed", "color_scale_changed"):
+            if self._current_pps() is not None:
+                self.display_slice(self._current_slice)
 
     # ------------------------------------------------------------------
     # Public rendering API

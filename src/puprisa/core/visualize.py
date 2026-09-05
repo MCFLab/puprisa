@@ -286,7 +286,7 @@ def render_phasor_rgba(
     color_hex: str,
     g_lim: tuple[float, float] = (-1.0, 1.0),
     s_lim: tuple[float, float] = (-1.0, 1.0),
-    size: int = 512,
+    size: int = 256,
     alpha_min: float = 0.0,
     alpha_max: float = 255.0,
 ) -> np.ndarray:
@@ -310,7 +310,7 @@ def render_phasor_rgba(
         Lower and upper bounds of the ``g`` axis.
     s_lim : tuple[float, float], default (-1.0, 1.0)
         Lower and upper bounds of the ``s`` axis.
-    size : int, default 512
+    size : int, default 256
         Output image size in pixels. The returned image is square.
     alpha_min : float, default 0.0
         Minimum alpha value used for bins with the lowest count.
@@ -453,7 +453,7 @@ def plot_phasor(
     ax=None,
     g_lim: tuple[float, float] = (-1.0, 1.0),
     s_lim: tuple[float, float] = (-1.0, 1.0),
-    size: int = 512,
+    size: int = 256,
     show_semicircle: bool = True,
 ) -> Axes:
     """Compute and display a phasor density image.
@@ -477,7 +477,7 @@ def plot_phasor(
         Axis on which to draw. If None, a new figure and axis are created.
     g_lim, s_lim : tuple[float, float]
         Bounds of the phasor ``(g, s)`` coordinate axes.
-    size : int, default 512
+    size : int, default 256
         Output square image size in pixels.
     show_semicircle : bool, default True
         If True, the universal phasor semicircle is drawn as a reference.

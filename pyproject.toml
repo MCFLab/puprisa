@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "puprisa"
-version = "0.1.1"
-description = "Pump-probe microscopy analysis"
+version = "1.0.0"
+description = "Pump-Probe Image Stack Analysis"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

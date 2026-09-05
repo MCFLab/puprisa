@@ -28,11 +28,11 @@ class RoiSceneBridge():
         """Create and return a new QGraphicsItem for ``roi``."""
         raise NotImplementedError()
 
-    def sync_item_from_params(self, roi: RoiItem) -> None:
+    def sync_item_from_params(self, roi: RoiItem, item: QGraphicsItem) -> None:
         """Update an existing item's geometry from ``roi.params``."""
         raise NotImplementedError()
 
-    def extract_params_from_item(self, roi: RoiItem) -> dict:
+    def extract_params_from_item(self, roi: RoiItem, item: QGraphicsItem) -> dict:
         """Return fresh params read from the item's current scene geometry."""
         raise NotImplementedError()
 
@@ -40,11 +40,16 @@ class RoiSceneBridge():
         """Return the scene-space rectangle item movement is restricted to."""
         raise NotImplementedError()
 
-    def set_item_color(self, roi: RoiItem, color: str) -> None:
+    def set_item_color(self, item: QGraphicsItem, color: str) -> None:
         """Recolor an existing item."""
-        item = roi.graphics_item
         if item is not None:
             item.set_roi_color(color)
+
+    def set_density_size(self, new_size: int) -> None:
+        """Set the density size for phasor-space bridges.
+        Pixel-space bridges should ignore this call.
+        """
+        pass
 
     @staticmethod
     def _scene_polygon_to_local(scene_polygon: QPolygonF) -> tuple[QPolygonF, QPointF]:
@@ -79,21 +84,31 @@ class PhasorRoiSceneBridge(RoiSceneBridge):
 
     G_LIM = (-1.0, 1.0)
     S_LIM = (-1.0, 1.0)
-    DENSITY_SIZE = 512
 
-    def __init__(self) -> None:
-        self.scene_rect = QRectF(0, 0, self.DENSITY_SIZE, self.DENSITY_SIZE)
+    def __init__(self, density_size: int) -> None:
+        self._density_size = density_size
+        self.scene_rect = QRectF(0, 0, self._density_size, self._density_size)
+
+    @property
+    def density_size(self):
+        return self._density_size
+    
+    def set_density_size(self, new_size: int) -> None:
+        if new_size < 2:
+            raise ValueError("density size must be larger than 2")
+        self._density_size = new_size
+        self.scene_rect = QRectF(0, 0, new_size, new_size)
 
     # ------------------------------ 1. Coordinate Mapping ------------------------------
 
     def _scene_point_to_gs(self, pt: QPointF) -> tuple[float, float]:
-        g = self.G_LIM[0] + (pt.x() / self.DENSITY_SIZE) * (self.G_LIM[1] - self.G_LIM[0])
-        s = self.S_LIM[1] - (pt.y() / self.DENSITY_SIZE) * (self.S_LIM[1] - self.S_LIM[0])
+        g = self.G_LIM[0] + (pt.x() / self._density_size) * (self.G_LIM[1] - self.G_LIM[0])
+        s = self.S_LIM[1] - (pt.y() / self._density_size) * (self.S_LIM[1] - self.S_LIM[0])
         return g, s
 
     def _gs_to_scene_point(self, g: float, s: float) -> QPointF:
-        x = ((g - self.G_LIM[0]) / (self.G_LIM[1] - self.G_LIM[0]) * self.DENSITY_SIZE)
-        y = ((self.S_LIM[1] - s) / (self.S_LIM[1] - self.S_LIM[0]) * self.DENSITY_SIZE)
+        x = ((g - self.G_LIM[0]) / (self.G_LIM[1] - self.G_LIM[0]) * self._density_size)
+        y = ((self.S_LIM[1] - s) / (self.S_LIM[1] - self.S_LIM[0]) * self._density_size)
         return QPointF(x, y)
 
     # ------------------------------ 2. Geometry Conversion ------------------------------
@@ -170,8 +185,7 @@ class PhasorRoiSceneBridge(RoiSceneBridge):
         item.setPos(scene_rect.topLeft())
         return item
 
-    def sync_item_from_params(self, roi: RoiItem) -> None:
-        item = roi.graphics_item
+    def sync_item_from_params(self, roi: RoiItem, item: QGraphicsItem) -> None:
         if item is None:
             return
         with item.silent_geometry_change():
@@ -186,8 +200,7 @@ class PhasorRoiSceneBridge(RoiSceneBridge):
                 item.setRect(item_rect)
                 item.setPos(scene_rect.topLeft())
 
-    def extract_params_from_item(self, roi: RoiItem) -> dict:
-        item = roi.graphics_item
+    def extract_params_from_item(self, roi: RoiItem, item: QGraphicsItem) -> dict:
         if item is None:
             return roi.params
 
@@ -297,8 +310,7 @@ class PixelRoiSceneBridge(RoiSceneBridge):
         item.setPos(scene_rect.topLeft())
         return item
 
-    def sync_item_from_params(self, roi: RoiItem) -> None:
-        item = roi.graphics_item
+    def sync_item_from_params(self, roi: RoiItem, item: QGraphicsItem) -> None:
         if item is None:
             return
 
@@ -314,8 +326,7 @@ class PixelRoiSceneBridge(RoiSceneBridge):
                 item.setRect(item_rect)
                 item.setPos(scene_rect.topLeft())
 
-    def extract_params_from_item(self, roi: RoiItem) -> dict:
-        item = roi.graphics_item
+    def extract_params_from_item(self, roi: RoiItem, item: QGraphicsItem) -> dict:
         if item is None:
             return roi.params
 

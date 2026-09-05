@@ -126,6 +126,7 @@ class MainWindow(QMainWindow):
         self.roi_view_model = RoiViewModel(
             roi_manager=ctx.roi_manager,
             stack_manager=ctx.stack_manager,
+            plot_manager=ctx.plot_manager,
             list_widget=self.ui.roiListWidget,
             scene=self.plot_view_model._scene,
             bridge=self.pixel_bridge,

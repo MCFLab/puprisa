@@ -120,6 +120,8 @@ def load_mathematica_stack(path, axis_type: str | None, axis_unit: str | None) -
 def load_pickle_stack(path) -> PPSDataClass:
     with open(path, "rb") as f:
         save_object = pickle.load(f)
+        images = save_object["images"]
+        mask = save_object.get("mask", None)
 
     if "axis_values" in save_object:
         return PPSDataClass(
@@ -128,16 +130,14 @@ def load_pickle_stack(path) -> PPSDataClass:
             axis_values=save_object["axis_values"],
             axis_type=save_object["axis_type"],
             axis_unit=save_object.get("axis_unit", "ps"),
-            mask=save_object.get("mask", None),
+            mask=mask,
             original_images=save_object.get("original_images", None),
             background_map=save_object.get("background_map", None),
             results=save_object.get("results", {}),
             filename=save_object["filename"],
         )
     else:
-        images = save_object["images"]
         images = np.squeeze(images)
-        mask = save_object.get("mask", None)
         mask = np.squeeze(mask) if mask is not None else None
         
         # Legacy support for older pickle files that used "times" instead of "axis_values"

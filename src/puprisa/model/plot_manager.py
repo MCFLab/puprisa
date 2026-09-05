@@ -10,12 +10,14 @@ from puprisa.model.stack_manager import StackManager
 @dataclass(frozen=True)
 class PlotEvent:
     """Emitted whenever colormap or color-scale settings change."""
-    event: str  # "colormap_changed" or "color_scale_changed"
+    event: str  # "colormap_changed" or "color_scale_changed" or # "phasor_changed"
     colormap: str | None = None
     color_scale_mode: str | None = None
     vmin: float | None = None
     vmax: float | None = None
-
+    phasor_bins: int | None = None
+    phasor_alpha_min: float | None = None
+    phasor_alpha_max: float | None = None
 
 class PlotManager:
     """Central state for colormap and color-scale settings."""
@@ -32,6 +34,9 @@ class PlotManager:
         self._color_scale_mode = self.MODE_STD_DEV
         self._vmin: float | None = None
         self._vmax: float | None = None
+        self._phasor_bins: int = 256
+        self._phasor_alpha_min: float = 0.0
+        self._phasor_alpha_max: float = 255.0
 
         self._listeners: list[Callable[[PlotEvent], None]] = []
 
@@ -69,6 +74,18 @@ class PlotManager:
     @property
     def vmax(self):
         return self._vmax
+
+    @property
+    def phasor_bins(self):
+        return self._phasor_bins
+
+    @property
+    def phasor_alpha_min(self):
+        return self._phasor_alpha_min
+
+    @property
+    def phasor_alpha_max(self):
+        return self._phasor_alpha_max
 
     # ------------------------------------------------------------------
     # Public API
@@ -109,6 +126,19 @@ class PlotManager:
         self._vmax = vmax
         self._color_scale_mode = self.MODE_CUSTOM
         self._notify(PlotEvent(event="color_scale_changed", color_scale_mode=self.MODE_CUSTOM, vmin=self._vmin, vmax=self._vmax))
+
+    def set_phasor(self, bins: int, alpha_min: float, alpha_max: float) -> None:
+        """Set the phasor plot settings."""
+        if bins < 2:
+            raise ValueError("bins must be at least 2")
+        if alpha_min < 0 or alpha_max < 0 or alpha_min > alpha_max:
+            raise ValueError("alpha_min must be smaller than alpha_max and both must be non-negative")
+        if bins == self._phasor_bins and alpha_min == self._phasor_alpha_min and alpha_max == self._phasor_alpha_max:
+            return
+        self._phasor_bins = bins
+        self._phasor_alpha_min = alpha_min
+        self._phasor_alpha_max = alpha_max
+        self._notify(PlotEvent(event="phasor_changed", phasor_bins=bins, phasor_alpha_min=alpha_min, phasor_alpha_max=alpha_max))
 
     # ------------------------------------------------------------------
     # Range calculations

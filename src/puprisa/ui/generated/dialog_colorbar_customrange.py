@@ -37,6 +37,8 @@ class Ui_colorbarCustomRangeDialog(object):
 
         self.minDoubleSpinBox = QDoubleSpinBox(colorbarCustomRangeDialog)
         self.minDoubleSpinBox.setObjectName(u"minDoubleSpinBox")
+        self.minDoubleSpinBox.setMinimum(-100000.000000000000000)
+        self.minDoubleSpinBox.setMaximum(100000.000000000000000)
 
         self.horizontalLayout.addWidget(self.minDoubleSpinBox)
 
@@ -52,6 +54,8 @@ class Ui_colorbarCustomRangeDialog(object):
 
         self.maxDoubleSpinBox = QDoubleSpinBox(colorbarCustomRangeDialog)
         self.maxDoubleSpinBox.setObjectName(u"maxDoubleSpinBox")
+        self.maxDoubleSpinBox.setMinimum(-100000.000000000000000)
+        self.maxDoubleSpinBox.setMaximum(100000.000000000000000)
 
         self.horizontalLayout_2.addWidget(self.maxDoubleSpinBox)
 

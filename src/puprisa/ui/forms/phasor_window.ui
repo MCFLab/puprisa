@@ -258,6 +258,9 @@
     <property name="title">
      <string>View</string>
     </property>
+    <addaction name="actionHistogramBin"/>
+    <addaction name="actionAlphaRange"/>
+    <addaction name="separator"/>
     <addaction name="actionSavePhasorView"/>
     <addaction name="actionSaveView"/>
    </widget>
@@ -353,6 +356,16 @@
   <action name="actionExportSelectedROI">
    <property name="text">
     <string>Export Selected ROI...</string>
+   </property>
+  </action>
+  <action name="actionHistogramBin">
+   <property name="text">
+    <string>Histogram Bin...</string>
+   </property>
+  </action>
+  <action name="actionAlphaRange">
+   <property name="text">
+    <string>Alpha Range...</string>
    </property>
   </action>
  </widget>

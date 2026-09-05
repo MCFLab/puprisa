@@ -13,6 +13,7 @@ from puprisa.app_context import ApplicationContext
 from puprisa.controllers.curve_controller import CurveController
 from puprisa.controllers.mask_controller import MaskController
 from puprisa.controllers.phasor_freq_controller import PhasorFrequencyController
+from puprisa.controllers.plot_controller import PlotController
 from puprisa.controllers.roi_controller import RoiController
 from puprisa.controllers.stack_controller import StackController
 from puprisa.ui.generated.ui_phasor_window import Ui_PhasorWindow
@@ -77,6 +78,7 @@ class PhasorWindow(QMainWindow):
         self.phasor_plot_view_model = PhasorPlotViewModel(
             stack_manager=ctx.stack_manager,
             processing_manager=ctx.processing_manager,
+            plot_manager=ctx.plot_manager,
             roi_manager=ctx.roi_manager,
             mask_manager=ctx.mask_manager,
             curve_manager=ctx.curve_manager,
@@ -89,6 +91,13 @@ class PhasorWindow(QMainWindow):
             spinbox=self.ui.freqSpinBox,
             parent=self,
         )
+        self.plot_controller = PlotController(
+            plot_manager=ctx.plot_manager,
+            parent_widget=self,
+        )
+
+        self.ui.actionAlphaRange.triggered.connect(self.plot_controller.show_phasor_alpha_dialog)
+        self.ui.actionHistogramBin.triggered.connect(self.plot_controller.show_phasor_histogram_bin_dialog)
         self.frequency_controller.frequencyChanged.connect(self.phasor_plot_view_model.set_frequency)
         self.phasor_plot_view_model.set_frequency(self.frequency_controller.frequency())
         self.ui.phasorGraphicsView.wheelSliceChanged.connect(self.frequency_controller.change_frequency_by_delta)
@@ -96,10 +105,11 @@ class PhasorWindow(QMainWindow):
         # --------------------------------------------------------------
         # ROI list + scene
         # --------------------------------------------------------------
-        self.phasor_bridge = PhasorRoiSceneBridge()
+        self.phasor_bridge = PhasorRoiSceneBridge(density_size=ctx.plot_manager.phasor_bins)
         self.roi_view_model = RoiViewModel(
             roi_manager=ctx.roi_manager,
             stack_manager=ctx.stack_manager,
+            plot_manager=ctx.plot_manager,
             list_widget=self.ui.phasorRoiListWidget,
             scene=self.phasor_plot_view_model.phasor_scene,
             bridge=self.phasor_bridge,

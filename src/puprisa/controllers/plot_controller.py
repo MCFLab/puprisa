@@ -6,10 +6,11 @@ never on ViewModel objects.
 """
 
 from PySide6.QtCore import QObject
-from PySide6.QtWidgets import QDialog, QMessageBox, QWidget
+from PySide6.QtWidgets import QDialog, QMessageBox, QWidget, QInputDialog
 
 from puprisa.model.plot_manager import PlotManager
 from puprisa.ui.dialogs.colorbar_custom_range import ColorbarCustomRangeDialog
+from puprisa.ui.dialogs.phasor_alpha import PhasorAlphaDialog
 
 
 class PlotController(QObject):
@@ -64,3 +65,32 @@ class PlotController(QObject):
                 self._plot_manager.set_custom_range(vmin, vmax)
             except ValueError as exc:
                 QMessageBox.warning(self._parent, "Custom Range", str(exc))
+
+    def show_phasor_alpha_dialog(self) -> None:
+        """Open the phasor alpha range dialog and apply the selected values."""
+        dialog = PhasorAlphaDialog(self._parent)
+        dialog.ui.alphaMinDoubleSpinBox.setValue(self._plot_manager.phasor_alpha_min)
+        dialog.ui.alphaMaxDoubleSpinBox.setValue(self._plot_manager.phasor_alpha_max)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        alpha_min = dialog.ui.alphaMinDoubleSpinBox.value()
+        alpha_max = dialog.ui.alphaMaxDoubleSpinBox.value()
+        try:
+            self._plot_manager.set_phasor(
+                bins=self._plot_manager.phasor_bins,
+                alpha_min=alpha_min,
+                alpha_max=alpha_max,
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self._parent, "Phasor Alpha Range", str(exc))
+
+    def show_phasor_histogram_bin_dialog(self) -> None:
+        """Ask for phasor histogram bin count and apply it."""
+        current_bins = self._plot_manager.phasor_bins
+        value, ok = QInputDialog.getInt(self._parent, "Histogram Bin", "Number of bins (>= 2):", value=current_bins, minValue=2, maxValue=10000, step=1)
+        if not ok:
+            return
+        try:
+            self._plot_manager.set_phasor(bins=value, alpha_min=self._plot_manager.phasor_alpha_min, alpha_max=self._plot_manager.phasor_alpha_max)
+        except ValueError as exc:
+            QMessageBox.warning(self._parent, "Histogram Bin", str(exc))

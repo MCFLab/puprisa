@@ -7,11 +7,12 @@ Coordinate-space differences (pixel vs phasor) are delegated to a
 """
 from PySide6.QtCore import QObject, Qt, Signal, QSignalBlocker
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import QListWidget, QListWidgetItem, QGraphicsScene
+from PySide6.QtWidgets import QListWidget, QListWidgetItem, QGraphicsScene, QGraphicsItem
 
 import numpy as np
 
 from puprisa.model.entities import RoiItem
+from puprisa.model.plot_manager import PlotEvent, PlotManager
 from puprisa.model.roi_manager import RoiEvent, RoiManager
 from puprisa.model.stack_manager import StackEvent, StackManager
 from puprisa.utils.color_utils import _matplotlib_color_to_qt
@@ -27,6 +28,7 @@ class RoiViewModel(QObject):
         self,
         roi_manager: RoiManager,
         stack_manager: StackManager,
+        plot_manager: PlotManager,
         list_widget: QListWidget,
         scene: QGraphicsScene,
         bridge: RoiSceneBridge,
@@ -36,14 +38,19 @@ class RoiViewModel(QObject):
         super().__init__(parent)
         self._roi_manager = roi_manager
         self._stack_manager = stack_manager
+        self._plot_manager = plot_manager
         self._list_widget = list_widget
         self._scene = scene
         self._bridge = bridge
         self._space = space
 
+        # A mapping of ROI IDs to their corresponding QGraphicsScene items
+        self._graphics_items: dict[str, QGraphicsItem] = {} # roi_id -> QGraphicsItem
+        
         # Model -> View
         self._roi_manager.add_listener(self._on_roi_event)
         self._stack_manager.add_listener(self._on_stack_event)
+        self._plot_manager.add_listener(self._on_plot_event)
 
         # View -> Model for checkbox toggles only
         self._list_widget.itemChanged.connect(self._on_item_changed)
@@ -70,7 +77,9 @@ class RoiViewModel(QObject):
         elif event.event == "label_changed":
             self._rebuild()
         elif event.event == "color_changed":
-            self._bridge.set_item_color(event.roi, event.roi.color)
+            item = self._graphics_items.get(event.roi.id)
+            if item is not None:
+                self._bridge.set_item_color(item, event.roi.color)
             self._rebuild()
         elif event.event == "visibility_changed":
             self._update_scene_visibility(event.roi)
@@ -80,6 +89,11 @@ class RoiViewModel(QObject):
         if event.event == "current_changed":
             self._update_all_scene_visibility()
             self._rebuild()
+
+    def _on_plot_event(self, event: PlotEvent) -> None:
+        if event.event == "phasor_changed" and self._space == "phasor":
+            self._bridge.set_density_size(event.phasor_bins)
+            self._refresh_all_scene_geometry()
 
     # ------------------------------------------------------------------
     # View -> Model
@@ -102,7 +116,7 @@ class RoiViewModel(QObject):
     # ------------------------------------------------------------------
     def _create_scene_item(self, roi: RoiItem) -> None:
         item = self._bridge.create_item(roi)
-        roi.graphics_item = item
+        self._graphics_items[roi.id] = item
         item.setZValue(10)
         item.set_roi_changed_callback(lambda: self._on_graphics_item_changed(roi.id))
         item.set_movement_bounds(self._bridge.movement_bounds(roi))
@@ -110,19 +124,19 @@ class RoiViewModel(QObject):
         self._update_scene_visibility(roi)
 
     def _remove_scene_item(self, roi: RoiItem) -> None:
-        item = roi.graphics_item
+        item = self._graphics_items.pop(roi.id, None)
         if item is not None:
             self._scene.removeItem(item)
-            roi.graphics_item = None
 
     def _sync_scene_item_geometry(self, roi: RoiItem) -> None:
-        """Programmatic params change -> update the item geometry."""
-        if roi.graphics_item is not None:
-            self._bridge.sync_item_from_params(roi)
+        """Programmatic params change -> update the graphics item geometry."""
+        item = self._graphics_items.get(roi.id)
+        if item is not None:
+            self._bridge.sync_item_from_params(roi, item)
             self._update_scene_visibility(roi)
 
     def _update_scene_visibility(self, roi: RoiItem) -> None:
-        item = roi.graphics_item
+        item = self._graphics_items.get(roi.id)
         if item is not None:
             current_stack_id = self._stack_manager.get_current_stack_id()
             show = roi.visible and roi.stack_id == current_stack_id
@@ -138,8 +152,20 @@ class RoiViewModel(QObject):
         roi = self._roi_manager.get_roi_by_id(roi_id)
         if roi is None:
             return
-        params = self._bridge.extract_params_from_item(roi)
+        item = self._graphics_items.get(roi_id)
+        if item is None:
+            return
+        params = self._bridge.extract_params_from_item(roi, item)
         self._roi_manager.update_params(roi_id, params)
+
+    def _refresh_all_scene_geometry(self):
+        for roi in self._roi_manager.get_all_rois():
+            if roi.space != self._space:
+                continue
+            item = self._graphics_items.get(roi.id)
+            if item is not None:
+                self._bridge.sync_item_from_params(roi, item)
+                item.set_movement_bounds(self._bridge.movement_bounds(roi))
 
     # ------------------------------------------------------------------
     # List widget synchronization

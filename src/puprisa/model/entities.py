@@ -67,7 +67,6 @@ class RoiItem:
     label: str
     color: str
     visible: bool = True
-    graphics_item: Any = field(default=None, repr=False)
 
     # ------------------------------------------------------------------
     # Serialization
@@ -75,7 +74,7 @@ class RoiItem:
     def to_serializable(self) -> dict:
         """Convert this ROI to a JSON-friendly dictionary.
 
-        Runtime-only fields (`id`, `stack_id`, `graphics_item`) are
+        Runtime-only fields (`id`, `stack_id`) are
         intentionally omitted because they must be regenerated or rebound
         when the ROI is imported into a new stack/session.
         """
