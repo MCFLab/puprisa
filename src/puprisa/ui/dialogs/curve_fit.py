@@ -2,6 +2,7 @@
 """Curve fitting dialog wrapper."""
 
 from pathlib import Path
+from importlib.resources import files
 
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QPixmap, QIcon
@@ -32,10 +33,10 @@ class CurveFitDialog(QDialog):
         )
 
         # --- Load and set the SVG images for the fitting components ----
-        base = Path(__file__).parent.parent / "resources"
-        self._set_label_icon(self.ui.instPicture, base / "instantaneous.svg")
-        self._set_label_icon(self.ui.expDecayPicture, base / "exp_decay.svg")
-        self._set_label_icon(self.ui.expDecayInfPicture, base / "exp_decay_inf.svg")
+        resources = files("puprisa").joinpath("ui/resources")
+        self._set_label_icon(self.ui.instPicture, resources / "instantaneous.svg")
+        self._set_label_icon(self.ui.expDecayPicture, resources / "exp_decay.svg")
+        self._set_label_icon(self.ui.expDecayInfPicture, resources / "exp_decay_inf.svg")
 
         # ---- Dynamically disable corresponding parameter sections based on checkboxes ----
         self.ui.instCheckBox.toggled.connect(self.ui.groupBox.setEnabled)
