@@ -21,7 +21,7 @@ from puprisa.model.roi_manager import RoiManager
 from puprisa.model.curve_manager import CurveManager
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
 from puprisa.ui.widgets.scrollable_graphics_view import ScrollableGraphicsView
-from puprisa.utils.color_utils import apply_colormap
+from puprisa.utils.color_utils import apply_colormap, format_decimal
 from puprisa.utils.curve_plot_utils import draw_roi_curves
 from puprisa.utils.geometry_utils import shape_to_patch
 
@@ -199,7 +199,7 @@ class PPSPlotViewModel(QObject):
         ticks.append(vmax_used)
 
         ax.set_xticks(ticks)
-        ax.set_xticklabels([f"{t:.2g}" for t in ticks], fontsize=8)
+        ax.set_xticklabels([format_decimal(t) for t in ticks], fontsize=8)
         ax.tick_params(axis="x", labelsize=10, pad=4)
         ax.set_xlim(vmin_used, vmax_used)
         ax.set_ylim(0, 1)

@@ -101,3 +101,45 @@ def apply_colormap(
     rgba = cm_obj(normalized)
     rgb_image = (rgba[..., :3] * 255).astype(np.uint8)
     return rgb_image, vmin_used, vmax_used
+
+def format_decimal(value: float) -> str:
+    """Format a float as a compact human-readable string with adaptive precision.
+
+    The formatting rules scale with the magnitude of the number so that labels
+    remain short and legible across a wide dynamic range:
+
+    - |value| >= 100  : rounded to an integer (e.g. 1234.5 -> "1235").
+    - 1 <= |value| < 100  : 3 significant digits (e.g. 12.3456 -> "12.3").
+    - 0.001 <= |value| < 1 : 3 decimal places (e.g. 0.45678 -> "0.457").
+    - |value| < 0.001 : scientific notation with 2 decimals (e.g. 0.00012 -> "1.20e-04").
+
+    Zero is always formatted as "0" (without a sign).
+
+    Args:
+        value: The float value to format.
+
+    Returns:
+        A compact string representation of ``value`` suitable for plot labels,
+        legends, or tick text.
+
+    Examples:
+        >>> format_decimal(0.0)
+        '0'
+        >>> format_decimal(-1234.5)
+        '-1235'
+        >>> format_decimal(0.45678)
+        '0.457'
+        >>> format_decimal(0.00012)
+        '1.20e-04'
+    """
+    if value == 0.0:
+        return "0"
+    sign = "-" if value < 0 else ""
+    abs_value = abs(value)
+    if abs_value >= 100.0:
+        return f"{sign}{int(round(abs_value))}"
+    if abs_value >= 1.0:
+        return f"{sign}{abs_value:.3g}"
+    if abs_value >= 0.001:
+        return f"{sign}{abs_value:.3f}"
+    return f"{sign}{abs_value:.2e}"
