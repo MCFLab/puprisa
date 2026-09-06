@@ -16,6 +16,7 @@ from puprisa.controllers.processing_controller import ProcessingController
 from puprisa.controllers.roi_controller import RoiController
 from puprisa.controllers.stack_controller import StackController
 from puprisa.ui.generated.ui_main_window import Ui_MainWindow
+from puprisa.ui.dialogs.about import AboutDialog
 from puprisa.viewmodels.curve_view_model import CurveViewModel
 from puprisa.viewmodels.mask_view_model import MaskViewModel
 from puprisa.viewmodels.pps_plot_view_model import PPSPlotViewModel
@@ -196,7 +197,8 @@ class MainWindow(QMainWindow):
 
         # Phasor window
         self.ui.actionPhasor.triggered.connect(self._open_phasor_window)
-
+        # About dialog
+        self.ui.actionAbout.triggered.connect(self._show_about_dialog)
     # ------------------------------------------------------------------
     # Phasor window
     # ------------------------------------------------------------------
@@ -211,3 +213,10 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         QTimer.singleShot(0, self.plot_view_model.fit_view)
+
+    # ------------------------------------------------------------------
+    # About dialog
+    # ------------------------------------------------------------------
+    def _show_about_dialog(self) -> None:
+        dialog = AboutDialog(self)
+        dialog.exec()

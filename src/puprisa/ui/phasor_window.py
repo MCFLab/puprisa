@@ -16,6 +16,7 @@ from puprisa.controllers.phasor_freq_controller import PhasorFrequencyController
 from puprisa.controllers.plot_controller import PlotController
 from puprisa.controllers.roi_controller import RoiController
 from puprisa.controllers.stack_controller import StackController
+from puprisa.ui.dialogs.about import AboutDialog
 from puprisa.ui.generated.ui_phasor_window import Ui_PhasorWindow
 from puprisa.viewmodels.curve_view_model import CurveViewModel
 from puprisa.viewmodels.mask_view_model import MaskViewModel
@@ -162,6 +163,18 @@ class PhasorWindow(QMainWindow):
         # --------------------------------------------------------------
         self.ui.actionSavePhasorView.triggered.connect(self.phasor_plot_view_model.view_phasor)
         self.ui.actionSaveView.triggered.connect(self.phasor_plot_view_model.view_standalone)
+
+        # --------------------------------------------------------------
+        # Help menu
+        # --------------------------------------------------------------
+        self.ui.actionAbout.triggered.connect(self._show_about_dialog)
+
+    # ------------------------------------------------------------------
+    # About dialog
+    # ------------------------------------------------------------------
+    def _show_about_dialog(self) -> None:
+        dialog = AboutDialog(self)
+        dialog.exec()
 
     # ------------------------------------------------------------------
     # Fit views on show / resize

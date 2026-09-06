@@ -6,7 +6,7 @@ from puprisa.app_context import ApplicationContext
 
 def main():
     app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon(str(Path(__file__).parent / "ui" / "resources" / "qt.svg")))
+    app.setWindowIcon(QIcon(str(Path(__file__).parent / "ui" / "resources" / "icon.svg")))
     ctx = ApplicationContext()
     main_win = ctx.create_main_window()
     main_win.show()
