@@ -115,8 +115,8 @@ class MaskManager:
         return mask_id
 
     def remove_mask(self, stack_id: str, mask_id: str) -> None:
-        for i, item in enumerate(self._items_for_stack(stack_id)):
-            if item.id == mask_id:
+        for i, item in enumerate(self._items):
+            if item.stack_id == stack_id and item.id == mask_id:
                 del self._items[i]
                 self._sync_effective_mask(stack_id)
 

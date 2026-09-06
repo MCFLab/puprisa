@@ -194,6 +194,7 @@ class PhasorPlotViewModel(QObject):
         if rect.width() > 0 and rect.height() > 0:
             rect = rect.adjusted(-5, -5, 5, 5)
             self.phasor_scene.setSceneRect(rect)
+            self._phasor_view.resetTransform()
             self._phasor_view.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
 
     def fit_spatial_view(self) -> None:
@@ -202,10 +203,7 @@ class PhasorPlotViewModel(QObject):
         image_rect = self._spatial_pixmap_item.sceneBoundingRect()
         self.spatial_scene.setSceneRect(image_rect)
         self._spatial_view.resetTransform()
-        self._spatial_view.fitInView(
-            image_rect,
-            Qt.AspectRatioMode.KeepAspectRatio,
-        )
+        self._spatial_view.fitInView(image_rect, Qt.AspectRatioMode.KeepAspectRatio)
         self._spatial_view.centerOn(image_rect.center())
 
     # ------------------------------------------------------------------
