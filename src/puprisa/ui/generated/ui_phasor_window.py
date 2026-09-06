@@ -69,6 +69,8 @@ class Ui_PhasorWindow(object):
         self.verticalLayout.setObjectName(u"verticalLayout")
         self.phasorGraphicsView = ScrollableGraphicsView(self.centralwidget)
         self.phasorGraphicsView.setObjectName(u"phasorGraphicsView")
+        self.phasorGraphicsView.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.phasorGraphicsView.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self.verticalLayout.addWidget(self.phasorGraphicsView)
 
