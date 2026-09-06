@@ -40,6 +40,11 @@ class Ui_AboutDialog(object):
 
         self.label_2 = QLabel(AboutDialog)
         self.label_2.setObjectName(u"label_2")
+        sizePolicy = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_2.sizePolicy().hasHeightForWidth())
+        self.label_2.setSizePolicy(sizePolicy)
         font = QFont()
         font.setPointSize(32)
         self.label_2.setFont(font)
