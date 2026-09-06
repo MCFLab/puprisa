@@ -395,7 +395,7 @@ class PhasorPlotViewModel(QObject):
                     ax.add_patch(patch)
         
         frequency_unit = current_item.pps.get_phasor_unit() if current_item is not None else "THz"
-        ax.set_title(f"Phasor Plot @ {frequency} {frequency_unit}")
+        ax.set_title(f"Phasor Plot @ {frequency:.2f} {frequency_unit}")
         
         if visible_stacks:
             from matplotlib.patches import Patch
