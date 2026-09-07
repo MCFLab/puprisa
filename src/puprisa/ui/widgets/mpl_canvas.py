@@ -9,7 +9,9 @@ class MatplotlibFigureCanvas(FigureCanvasQTAgg):
         figure: Optional :class:`matplotlib.figure.Figure` instance to embed.
             When omitted, a new figure is created.
     """
-    def __init__(self, parent=None, figure=None):
+    figure: Figure
+    
+    def __init__(self, parent=None, figure: Figure | None = None):
         if figure is None:
             figure = Figure()
         super().__init__(figure)

@@ -528,7 +528,7 @@ def plot_average_curve(
     ax=None,
     normalize: bool = False,
     color: str | None = None,
-    linewidth: float = 1.5,
+    linewidth: float = 1,
 ) -> Axes:
     """Plot the average curve of a PPS stack.
 
@@ -545,7 +545,7 @@ def plot_average_curve(
         If True, the curve is scaled so its maximum absolute value is 1.
     color : str or None, optional
         Matplotlib color for the curve.
-    linewidth : float, default 1.5
+    linewidth : float, default 1
         Line width.
 
     Returns
@@ -554,7 +554,7 @@ def plot_average_curve(
         The axis containing the average curve.
     """
     if ax is None:
-        _, ax = plt.subplots()
+        _, ax = plt.subplots(layout="constrained")
 
     y = np.asarray(pps.avg(mask_on=True), dtype=np.float64)
     if normalize:
@@ -564,7 +564,7 @@ def plot_average_curve(
 
     x = np.asarray(pps.get_axis_values(), dtype=np.float64)
 
-    ax.plot(x, y, color=color, linewidth=linewidth)
+    ax.plot(x, y, color=color, linewidth=linewidth, marker='o', markersize=1.5)
     ax.set_xlabel(f"{pps.get_axis_label()} ({pps.get_axis_unit()})")
     ax.set_ylabel("Normalized signal (a.u.)" if normalize else "Average signal (a.u.)")
     ax.set_title(f"{pps.filename or 'Average Curve'}")

@@ -35,7 +35,7 @@ def draw_roi_curves(
         The axis containing the drawn curves.
     """
     for curve in curves:
-        ax.plot(curve.x, curve.y, color=curve.color, label=curve.label)
+        ax.plot(curve.x, curve.y, color=curve.color, label=curve.label, marker='o', markersize=1.5, linewidth=1)
 
     if xlabel:
         ax.set_xlabel(xlabel)
@@ -46,7 +46,7 @@ def draw_roi_curves(
     ax.grid(True, alpha=0.3)
 
     if current_slice_x is not None:
-        ax.axvline(current_slice_x, color="gray", linestyle="--", linewidth=1.2, alpha=0.8)
+        ax.axvline(current_slice_x, color="gray", linestyle="--", linewidth=1, alpha=0.8)
 
     if curves:
         ax.legend(fontsize=8, loc="best")
