@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "puprisa"
-version = "1.0.0"
+version = "1.0.1"
 description = "Pump-Probe Image Stack Analysis"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,6 +16,29 @@ dependencies = [
   "scipy",
   "tifffile",
   "PySide6"
+]
+
+authors = [
+    { name = "Ryan Su", email = "ryan.su@duke.edu" },
+    { name = "Xiaotian Feng", email = "xf58@duke.edu" },
+    { name = "David Grass", email = "david.grass@duke.edu" },
+    { name = "Martin Fischer", email = "martin.fischer@duke.edu" }
+]
+
+license = "MIT"
+
+keywords = [
+    "pump-probe",
+    "microscopy",
+    "image-analysis",
+    "phasor",
+]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
 ]
 
 [project.scripts]

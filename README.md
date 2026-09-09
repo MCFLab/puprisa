@@ -16,15 +16,38 @@ The package is designed for time-resolved transient-absorption data and also sup
 - Plot, normalize, and export ROI Average curves as CSV.
 - Save processed stacks as TIFF or pickle; save mask layers as JSON.
 
-## Quick start
+## Installation
 
-Puprisa requires Python 3.10 or later. From the repository root:
+Python 3.10 or later is required.
+
+### Option 1: Install from PyPI (recommended for most users)
+
+```bash
+pip install puprisa
+```
+
+Once installed, launch the desktop application:
+
+```bash
+puprisa
+```
+
+### Option 2: Install from source
+
+This method is suitable for users who need the latest development version or who plan to modify the code.
+
+Clone the repository and navigate into it:
+
+```bash
+git clone <repository-url>
+cd <repository-directory>
+```
+
+Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv
 ```
-
-Activate the environment:
 
 ```powershell
 # Windows PowerShell
@@ -32,33 +55,36 @@ Activate the environment:
 ```
 
 ```bash
-# macOS or Linux
+# macOS / Linux
 source .venv/bin/activate
 ```
 
-Install the project in editable mode:
+Install the project:
 
 ```bash
-python -m pip install --upgrade pip
+python -m pip install .
+```
+
+Alternatively, for an editable installation (development mode), which allows changes to the source code to take effect immediately:
+
+```bash
 python -m pip install -e .
 ```
 
-Launch the desktop application:
+After installation, start the application:
 
 ```bash
 puprisa
 ```
 
-The checked-in example data can be opened directly from `data/example_stack_DS_CH1.tif`. Its companion log file supplies the time-delay axis.
-
 ## Typical workflow
 
-1. Open one or more stacks with **File → Open Stack**.
-2. Select a stack, browse frames with the slice control, and choose an appropriate colour scale.
+1. Open one or more stacks with **File / Open Stack**.
+2. Select a stack, browse frames with the slice control, and choose an appropriate color scale.
 3. Apply background subtraction, normalization, or SVD denoising if required. These operations modify the selected stack; downsampling and stack math instead create a new derived stack.
-4. Build an exclusion mask with **Mask → Mask from threshold**, or draw a pixel ROI and convert it to a mask.
-5. Add pixel-space ROIs to calculate spatially resolved average curves. Use **Curve → Export Curve** to write CSV output.
-6. For a time-axis stack, open **Phasor → Phasor Analysis**. Choose a modulation frequency, draw phasor-space ROIs, and inspect their spatial projections and average curves.
+4. Build an exclusion mask with **Mask / Mask from threshold**, or draw a pixel ROI and convert it to a mask.
+5. Add pixel-space ROIs to calculate spatially resolved average curves. Use **Curve / Export Curve** to write CSV output.
+6. For a time-axis stack, open **Phasor / Phasor Analysis**. Choose a modulation frequency, draw phasor-space ROIs, and inspect their spatial projections and average curves.
 
 For detailed operating instructions, see the [user guide](docs/docs/user_guide.md). The complete MkDocs site lives under `docs/`.
 
@@ -67,10 +93,10 @@ For detailed operating instructions, see the [user guide](docs/docs/user_guide.m
 ```python
 from puprisa.core.pps import PPS
 
-stack = PPS.load("data/example_stack_DS_CH1.tif")
-stack.apply_background_subtraction(
-    indices=[i for i, delay in enumerate(stack.axis_values) if delay < 0]
-)
+stack = PPS.load("data/melanin_DS_CH1.tif")
+stack.apply_background_subtraction(indices=range(3), pixelwise=True)
+stack.create_mask_from_threshold()
+stack.plot_slice(slice_index=1)
 
 projection = stack.project()
 phasor_coordinates = stack.phasor(freq=0.25)
@@ -118,25 +144,10 @@ src/puprisa/
 
 The `core` and `model` layers never import Qt, so the numerical `PPS` API **and** the session-state managers (`StackManager`, `MaskManager`, `RoiManager`, `CurveManager`, `ProcessingManager`, `PlotManager`) are fully usable from notebooks and scripts. View models subscribe to manager callback events and redraw their views; controllers translate menu and button actions into manager calls. Both windows share one `ApplicationContext`, so they see the same session data. See the [architecture guide](docs/docs/architecture.md) and the [data-flow notes](docs/docs/dev/data_flow.md) for the full picture.
 
-## Project layout
-
-```text
-src/puprisa/       Package source
-  core/            Qt-free numerical data, I/O, processing, masking, phasor, and fitting
-  model/           Qt-free entities and event-driven state managers (the MVVM Model)
-  controllers/     Qt command handlers that own dialogs and call managers
-  viewmodels/      Qt view models that keep widgets and graphics scenes current
-  ui/              Thin windows, dialogs, custom widgets, and Designer forms
-  utils/           Shared helpers used by several layers
-docs/              MkDocs configuration and source pages
-data/              Example DukeScan stack and associated metadata
-examples/          Notebook example
-```
-
 ## Important analysis semantics
 
-- A mask layer uses `True` for pixels to **exclude**. The effective `PPS.mask` uses `True` for pixels that remain in the analysis.
-- A processing operation acts on the selected stack and invalidates its cached phasor coordinates. Background reset restores the stack's baseline image copy; it does not undo every later destructive operation.
+- A mask layer uses `True` for pixels to keep. The effective mask is calculated and saved in `PPS.mask` .
+- A processing operation acts on the selected stack and invalidates its cached phasor coordinates. Background reset restores the stack's baseline image copy; it does not completely undo normalization or other destructive operations.
 - ROI curves include both the selected ROI and the stack's effective analysis mask.
 - Phasor analysis is available only for stacks whose axis type is `time`.
 
@@ -151,3 +162,53 @@ examples/          Notebook example
 Keep new analysis in `core`, expose state changes through a validated `model` manager method, and only then add a controller action or a view-model response. See the [architecture guide](docs/docs/architecture.md) and [developer documentation](docs/docs/dev/data_flow.md).
 
 There is no automated test suite in the current repository. The validation guidance in the documentation describes focused checks for contributors.
+
+## Dependencies
+
+Core dependencies:
+
+- **numpy**: Numerical array operations and linear algebra
+- **matplotlib**: Plotting and visualization
+- **scikit-image**: Image processing, filtering, and thresholding algorithms
+- **scipy**: Scientific computing, optimization, and special functions
+- **pandas**: Data import and manipulation
+- **pyside6**: GUI
+
+See [pyproject.toml](pyproject.toml) for complete list with pinned versions.
+
+## Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please ensure your code follows Python best practices and includes appropriate documentation.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for the full license text.
+
+## Citation
+
+If you use Puprisa in your research, please cite:
+
+```latex
+@software{puprisa2026,
+  author       = {Su, Ryan and Feng, Xiaotian and Grass, David and Fischer, Martin C. and Warren, Warren S.},
+  title        = {Puprisa: Pump-Probe Image Stack Analysis},
+  year         = {2026},
+  publisher    = {Duke University},
+  url          = {?}
+}
+```
+
+## Support
+
+For questions, issues, or feature requests:
+
+- Open an issue on the repository
+- Contact: [xiaotian.feng@duke.edu](mailto: xiaotian.feng@duke.edu)

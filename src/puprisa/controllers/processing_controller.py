@@ -113,14 +113,32 @@ class ProcessingController(QObject):
     # ------------------------------------------------------------------
     def reset_background_subtraction(self) -> None:
         """Reset the background subtraction for the current stack."""
-        stack_id = self._stack_manager.get_current_stack_id()
-        if stack_id is None:
+        current_stack_id = self._stack_manager.get_current_stack_id()
+        if current_stack_id is None:
             QMessageBox.warning(self._parent, "Background Subtraction", "Please select a stack first.")
             return
-        try:
-            self._processing_manager.reset_background_subtraction(stack_id)
-        except ValueError as exc:
-            QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
+        all_stack_ids = self._stack_manager.get_all_stack_ids()
+        if len(all_stack_ids) <= 1:
+            targets = [current_stack_id]
+        else:
+            answer = QMessageBox.question(
+                self._parent,
+                "Background Subtraction",
+                "Reset background subtraction for all stacks?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
+            )
+            if answer == QMessageBox.StandardButton.Yes:
+                targets = all_stack_ids
+            elif answer == QMessageBox.StandardButton.No:
+                targets = [current_stack_id]
+            else:
+                return
+        for stack_id in targets:
+            try:
+                self._processing_manager.reset_background_subtraction(stack_id)
+            except ValueError as exc:
+                QMessageBox.critical(self._parent, "Background Subtraction", str(exc))
+                return
 
     # ------------------------------------------------------------------
     # SVD Denoising

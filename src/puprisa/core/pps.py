@@ -374,9 +374,9 @@ class PPS:
         """Update display images by subtracting a background map."""
         from .process import compute_background_map, subtract_background
 
-        bg_map = compute_background_map(self._original_images, indices, pixelwise=pixelwise)
+        bg_map = compute_background_map(self.images, indices, pixelwise=pixelwise)
         self._background_map = bg_map
-        self.images = subtract_background(self._original_images, bg_map)
+        self.images = subtract_background(self.images, bg_map)
 
     def reset_background_subtraction(self):
         """Restore original images."""

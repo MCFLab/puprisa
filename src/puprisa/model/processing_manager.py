@@ -84,7 +84,7 @@ class ProcessingManager:
         pps = stack_item.pps
         bg_map = np.full(pps.image_dimensions, value, dtype=np.float64)
         pps._background_map = bg_map
-        pps.images = subtract_background(pps._original_images, bg_map)
+        pps.images = subtract_background(pps.images, bg_map)
         stack_item.phasor_coords = None
         self._notify(ProcessingEvent(event="data_changed", stack_id=stack_item.id))
         return stack_item.id

@@ -264,7 +264,14 @@ class PPSPlotViewModel(QObject):
             colorbar=False,
         )
         stack_item = self._stack_manager.get_current_item()
-        ax_img.set_title(stack_item.name if stack_item else pps.filename)
+
+        stack_name = stack_item.name if stack_item else pps.filename
+        slice_axis_value = pps.get_axis_values()[current_slice]
+        if pps.axis_type == "time":
+            title = f"{stack_name} (t = {format_decimal(slice_axis_value)} {pps.get_axis_unit()})"
+        else:
+            title = f"{stack_name} (z = {format_decimal(slice_axis_value)} {pps.get_axis_unit()})"
+        ax_img.set_title(title)
         ax_img.axis('off')
 
         # ROI outlines
