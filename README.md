@@ -211,4 +211,4 @@ If you use Puprisa in your research, please cite:
 For questions, issues, or feature requests:
 
 - Open an issue on the repository
-- Contact: [xiaotian.feng@duke.edu](mailto: xiaotian.feng@duke.edu)
+- Contact: [martin.fischer@duke.edu](mailto: martin.fischer@duke.edu)

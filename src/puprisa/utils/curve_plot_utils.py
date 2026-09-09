@@ -6,7 +6,6 @@ from __future__ import annotations
 from matplotlib.axes import Axes
 from puprisa.model.entities import CurveItem
 
-
 def draw_roi_curves(
     ax: Axes,
     curves: list[CurveItem],
