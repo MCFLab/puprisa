@@ -202,7 +202,7 @@ If you use Puprisa in your research, please cite:
   title        = {Puprisa: Pump-Probe Image Stack Analysis},
   year         = {2026},
   publisher    = {Duke University},
-  url          = {?}
+  url          = {http://github.com/MCFLab/puprisa}
 }
 ```
 
