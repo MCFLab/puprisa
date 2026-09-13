@@ -16,11 +16,11 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QGraphicsView,
-    QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QMainWindow, QMenu, QMenuBar, QPushButton,
-    QSizePolicy, QSlider, QStatusBar, QVBoxLayout,
-    QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QDoubleSpinBox,
+    QGraphicsView, QHBoxLayout, QLabel, QListWidget,
+    QListWidgetItem, QMainWindow, QMenu, QMenuBar,
+    QPushButton, QSizePolicy, QSlider, QStatusBar,
+    QVBoxLayout, QWidget)
 
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
 from puprisa.ui.widgets.scrollable_graphics_view import ScrollableGraphicsView
@@ -35,8 +35,6 @@ class Ui_PhasorWindow(object):
         self.actionNormalizeCurve = QAction(PhasorWindow)
         self.actionNormalizeCurve.setObjectName(u"actionNormalizeCurve")
         self.actionNormalizeCurve.setCheckable(True)
-        self.actionExit = QAction(PhasorWindow)
-        self.actionExit.setObjectName(u"actionExit")
         self.actionAbout = QAction(PhasorWindow)
         self.actionAbout.setObjectName(u"actionAbout")
         self.actionSaveView = QAction(PhasorWindow)
@@ -57,10 +55,18 @@ class Ui_PhasorWindow(object):
         self.actionExportROI.setObjectName(u"actionExportROI")
         self.actionExportSelectedROI = QAction(PhasorWindow)
         self.actionExportSelectedROI.setObjectName(u"actionExportSelectedROI")
-        self.actionHistogramBin = QAction(PhasorWindow)
-        self.actionHistogramBin.setObjectName(u"actionHistogramBin")
-        self.actionAlphaRange = QAction(PhasorWindow)
-        self.actionAlphaRange.setObjectName(u"actionAlphaRange")
+        self.actionPhasorBin = QAction(PhasorWindow)
+        self.actionPhasorBin.setObjectName(u"actionPhasorBin")
+        self.actionPhasorAlphaRange = QAction(PhasorWindow)
+        self.actionPhasorAlphaRange.setObjectName(u"actionPhasorAlphaRange")
+        self.actionSaveStackTIFF = QAction(PhasorWindow)
+        self.actionSaveStackTIFF.setObjectName(u"actionSaveStackTIFF")
+        self.actionSaveStackPickle = QAction(PhasorWindow)
+        self.actionSaveStackPickle.setObjectName(u"actionSaveStackPickle")
+        self.actionClearAllStacks = QAction(PhasorWindow)
+        self.actionClearAllStacks.setObjectName(u"actionClearAllStacks")
+        self.actionSaveHistogramView = QAction(PhasorWindow)
+        self.actionSaveHistogramView.setObjectName(u"actionSaveHistogramView")
         self.centralwidget = QWidget(PhasorWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout_6 = QHBoxLayout(self.centralwidget)
@@ -135,6 +141,9 @@ class Ui_PhasorWindow(object):
 
         self.stackListWidget = QListWidget(self.centralwidget)
         self.stackListWidget.setObjectName(u"stackListWidget")
+        self.stackListWidget.setDragEnabled(True)
+        self.stackListWidget.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.stackListWidget.setDefaultDropAction(Qt.DropAction.MoveAction)
 
         self.verticalLayout_2.addWidget(self.stackListWidget)
 
@@ -279,12 +288,16 @@ class Ui_PhasorWindow(object):
         self.menubar.addAction(self.menuExport.menuAction())
         self.menuFile.addAction(self.actionOpenStack)
         self.menuFile.addSeparator()
-        self.menuFile.addAction(self.actionExit)
+        self.menuFile.addAction(self.actionSaveStackTIFF)
+        self.menuFile.addAction(self.actionSaveStackPickle)
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionClearAllStacks)
         self.menuExport.addAction(self.actionAbout)
-        self.menuView.addAction(self.actionHistogramBin)
-        self.menuView.addAction(self.actionAlphaRange)
+        self.menuView.addAction(self.actionPhasorBin)
+        self.menuView.addAction(self.actionPhasorAlphaRange)
         self.menuView.addSeparator()
         self.menuView.addAction(self.actionSavePhasorView)
+        self.menuView.addAction(self.actionSaveHistogramView)
         self.menuView.addAction(self.actionSaveView)
         self.menuCurve.addAction(self.actionNormalizeCurve)
         self.menuCurve.addAction(self.actionCurveFit)
@@ -306,7 +319,6 @@ class Ui_PhasorWindow(object):
         PhasorWindow.setWindowTitle(QCoreApplication.translate("PhasorWindow", u"Phasor Window", None))
         self.actionOpenStack.setText(QCoreApplication.translate("PhasorWindow", u"Open Stack", None))
         self.actionNormalizeCurve.setText(QCoreApplication.translate("PhasorWindow", u"Normalize Curve", None))
-        self.actionExit.setText(QCoreApplication.translate("PhasorWindow", u"Exit", None))
         self.actionAbout.setText(QCoreApplication.translate("PhasorWindow", u"About", None))
         self.actionSaveView.setText(QCoreApplication.translate("PhasorWindow", u"Save View...", None))
         self.actionSavePhasorView.setText(QCoreApplication.translate("PhasorWindow", u"Save Phasor View...", None))
@@ -317,8 +329,12 @@ class Ui_PhasorWindow(object):
         self.actionImportROI.setText(QCoreApplication.translate("PhasorWindow", u"Import ROI...", None))
         self.actionExportROI.setText(QCoreApplication.translate("PhasorWindow", u"Export ROI...", None))
         self.actionExportSelectedROI.setText(QCoreApplication.translate("PhasorWindow", u"Export Selected ROI...", None))
-        self.actionHistogramBin.setText(QCoreApplication.translate("PhasorWindow", u"Histogram Bin...", None))
-        self.actionAlphaRange.setText(QCoreApplication.translate("PhasorWindow", u"Alpha Range...", None))
+        self.actionPhasorBin.setText(QCoreApplication.translate("PhasorWindow", u"Phasor Bin...", None))
+        self.actionPhasorAlphaRange.setText(QCoreApplication.translate("PhasorWindow", u"Phasor Alpha Range...", None))
+        self.actionSaveStackTIFF.setText(QCoreApplication.translate("PhasorWindow", u"Save Stack as TIFF", None))
+        self.actionSaveStackPickle.setText(QCoreApplication.translate("PhasorWindow", u"Save Stack as Pickle", None))
+        self.actionClearAllStacks.setText(QCoreApplication.translate("PhasorWindow", u"Clear All Stacks", None))
+        self.actionSaveHistogramView.setText(QCoreApplication.translate("PhasorWindow", u"Save Histogram View...", None))
         self.Frequency.setText(QCoreApplication.translate("PhasorWindow", u"Frequency", None))
         self.stackMgrLabel.setText(QCoreApplication.translate("PhasorWindow", u"Multi Stack Manager", None))
         self.stackAddButton.setText(QCoreApplication.translate("PhasorWindow", u"Add", None))

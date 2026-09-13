@@ -507,11 +507,11 @@ class PPS:
         from puprisa.core.visualize import plot_phasor
         return plot_phasor(self, color_hex=color_hex, freq=freq, use_mask=use_mask, ax=ax, g_lim=g_lim, s_lim=s_lim, size=size, show_semicircle=show_semicircle)
 
-    def plot_phasor_hist2d(self, freq: float = 0.25, use_mask: bool = True, ax=None, g_lim: tuple[float, float] = (-1.0, 1.0), s_lim: tuple[float, float] = (-1.0, 1.0), bins: int = 128, cmap: str = "Reds", show_semicircle: bool = True, colorbar: bool = True):
-        """Display a log-scaled 2D histogram of this stack's phasor coordinates."""
-        from puprisa.core.visualize import plot_phasor_hist2d
-        return plot_phasor_hist2d(self, freq=freq, use_mask=use_mask, ax=ax, g_lim=g_lim, s_lim=s_lim, bins=bins, cmap=cmap, show_semicircle=show_semicircle, colorbar=colorbar)
-    
+    def plot_phasor_hist1d(self, freq: float = 0.25, use_mask: bool = True, axs=None, bins: int = 128, color: str | None = None, alpha: float = 0.7, label: str | None = None):
+        """Plot separate 1D histograms of the phasor g and s coordinates."""
+        from puprisa.core.visualize import plot_phasor_hist1d
+        return plot_phasor_hist1d(self, freq=freq, use_mask=use_mask, axs=axs, bins=bins, color=color, alpha=alpha, label=label)
+
     def plot_average_curve(self, ax=None, normalize: bool = False, color: str | None = None, linewidth: float = 1.5):
         """Plot the average curve of this stack on a Matplotlib axis."""
         from puprisa.core.visualize import plot_average_curve

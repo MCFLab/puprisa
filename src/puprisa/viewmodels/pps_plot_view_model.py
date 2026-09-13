@@ -80,9 +80,12 @@ class PPSPlotViewModel(QObject):
         if pps is None:
             self._clear()
             return
-        self._current_slice = 0
         self._last_pixmap_size = None
-        self.display_slice(0)
+        if self._current_slice >= len(pps.images):
+            self._current_slice = 0
+            self.display_slice(0)
+        else:
+            self.display_slice(self._current_slice)
 
     # ------------------------------------------------------------------
     # Model event handlers
@@ -216,6 +219,30 @@ class PPSPlotViewModel(QObject):
     # ------------------------------------------------------------------
     # Standalone view
     # ------------------------------------------------------------------
+    def view_current_slice(self) -> None:
+        """Open a standalone Matplotlib figure showing only the current slice."""
+        pps = self._current_pps()
+        if pps is None:
+            return
+        
+        from puprisa.core.visualize import plot_slice
+        import matplotlib.pyplot as plt
+
+        colormap = self._plot_manager.colormap if self._plot_manager else "pumpprobe"
+        vmin, vmax = self._plot_manager.vmin, self._plot_manager.vmax if self._plot_manager else (None, None)
+
+        fig, ax = plt.subplots(figsize=(6, 6), layout="constrained")
+        plot_slice(pps, slice_index=self._current_slice, ax=ax, colormap=colormap, vmin=vmin, vmax=vmax, colorbar=True)
+        stack_item = self._stack_manager.get_current_item()
+        stack_name = stack_item.name if stack_item else pps.filename
+        slice_axis_value = pps.get_axis_values()[self._current_slice]
+        if pps.axis_type == "time":
+            title = f"{stack_name} (t = {format_decimal(slice_axis_value)} {pps.get_axis_unit()})"
+        else:
+            title = f"{stack_name} (z = {format_decimal(slice_axis_value)} {pps.get_axis_unit()})"
+        ax.set_title(title)
+        fig.show()
+
     def view_standalone(self, normalize: bool) -> None:
         """Open a standalone Matplotlib figure for the current view.
 

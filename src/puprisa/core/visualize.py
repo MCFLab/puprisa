@@ -351,62 +351,81 @@ def render_phasor_rgba(
 
     return np.ascontiguousarray(rgba)
 
-
-def plot_phasor_hist2d(
+def plot_phasor_hist1d(
     pps: PPS,
     freq: float = 0.25,
     use_mask: bool = True,
-    ax=None,
-    g_lim: tuple[float, float] = (-1.0, 1.0),
-    s_lim: tuple[float, float] = (-1.0, 1.0),
+    axs: tuple[Axes, Axes] | None = None,
     bins: int = 128,
-    cmap: str = "Reds",
-    show_semicircle: bool = True,
-    colorbar: bool = True,
-) -> Axes:
-    """Plot a 2D phasor-count histogram for density verification.
+    color: str | None = None,
+    alpha: float = 0.7,
+    label: str | None = None,
+) -> tuple[Axes, Axes]:
+    """Plot separate 1D histograms of the phasor g and s coordinates.
 
     Non-finite coordinates (for example, pixels outside an active mask) are
-    ignored. Nonzero bin counts use a logarithmic colour scale so isolated
-    signal points remain visible alongside a dominant background population.
+    ignored. The histograms share the same bin width on the interval
+    ``[-1, 1]``.
+
+    Parameters
+    ----------
+    pps : PPS
+        The stack whose phasor coordinates are analysed.
+    freq : float, default 0.25
+        Phasor frequency in the reciprocal unit of ``pps.axis_unit``.
+    use_mask : bool, default True
+        Whether the effective mask is applied when computing phasor
+        coordinates.
+    axs : tuple[matplotlib.axes.Axes, matplotlib.axes.Axes] or None, optional
+        Optional two axes for the g and s histograms. If None, a new
+        figure with two side-by-side subplots is created.
+    bins : int, default 128
+        Number of histogram bins for each coordinate.
+    color : str or None, optional
+        Matplotlib color for the histogram bars.
+        If None, use the default Matplotlib color.
+    alpha : float, default 0.7
+        Histogram fill opacity.
+    label : str or None, optional
+        Optional label for the histogram, used in the legend. If None, no legend is drawn.
+
+    Returns
+    -------
+    ax_g, ax_s : matplotlib.axes.Axes
+        The axes containing the g and s histograms, respectively.
     """
-    if ax is None:
-        _, ax = plt.subplots()
-
     coords = pps.phasor(freq=freq, use_mask=use_mask)
-    hist, g_edges, s_edges = _phasor_histogram(coords, g_lim, s_lim, bins)
-    display_hist = np.ma.masked_where(hist.T <= 0, hist.T)
-    nonzero = hist[hist > 0]
-    norm = (
-        LogNorm(vmin=1, vmax=max(2.0, float(nonzero.max())))
-        if nonzero.size
-        else None
-    )
-    image = ax.pcolormesh(
-        g_edges,
-        s_edges,
-        display_hist,
-        cmap=cmap,
-        norm=norm,
-        shading="auto",
-    )
+    g = coords[:, 0]
+    s = coords[:, 1]
 
-    if colorbar and nonzero.size:
-        cbar = plt.colorbar(image, ax=ax)
-        cbar.set_label("Pixels per bin (log scale)")
+    valid = np.isfinite(g) & np.isfinite(s)
+    g = g[valid]
+    s = s[valid]
 
-    if show_semicircle:
-        g_upper, s_upper, g_lower, s_lower = universal_semicircle()
-        ax.plot(g_upper, s_upper, color="gray", linestyle="--", linewidth=1.0)
-        ax.plot(g_lower, s_lower, color="gray", linestyle="--", linewidth=1.0)
+    if axs is None:
+        fig, (ax_g, ax_s) = plt.subplots(1, 2, figsize=(10, 4), layout="constrained")
+    else:
+        ax_g, ax_s = axs
 
-    ax.set_xlabel("g")
-    ax.set_ylabel("s")
-    ax.set_title(f"Phasor 2D histogram @ {freq:.2f} {pps.get_phasor_unit()}")
-    ax.set_xlim(g_lim)
-    ax.set_ylim(s_lim)
-    ax.set_aspect("equal")
-    return ax
+    bins_edges = np.linspace(-1.0, 1.0, bins + 1)
+
+    ax_g.hist(g, bins=bins_edges, color=color, alpha=alpha, label=label)
+    ax_g.set_xlabel("g")
+    ax_g.set_ylabel("Pixel count")
+    ax_g.set_title(f"g histogram @ {freq:.2f} {pps.get_phasor_unit()}")
+    ax_g.grid(True, alpha=0.3)
+
+    ax_s.hist(s, bins=bins_edges, color=color, alpha=alpha, label=label)
+    ax_s.set_xlabel("s")
+    ax_s.set_ylabel("Pixel count")
+    ax_s.set_title(f"s histogram @ {freq:.2f} {pps.get_phasor_unit()}")
+    ax_s.grid(True, alpha=0.3)
+
+    if label is not None:
+        ax_g.legend(loc="best")
+        ax_s.legend(loc="best")
+
+    return ax_g, ax_s
 
 def universal_semicircle(
     n_points: int = 400,

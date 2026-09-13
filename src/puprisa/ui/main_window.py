@@ -49,12 +49,12 @@ class MainWindow(QMainWindow):
 
         self.stack_view_model.colorChangeRequested.connect(self.stack_controller.change_stack_color)
         self.ui.stackAddButton.clicked.connect(self.stack_controller.open_stack_dialog)
-        self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model._selected_stack_index()))
-        self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model._selected_stack_index()))
         self.ui.actionOpenStack.triggered.connect(self.stack_controller.open_stack_dialog)
-        self.ui.actionSaveStackTIFF.triggered.connect(lambda: self.stack_controller.save_selected_stack(index=self.stack_view_model._selected_stack_index(), format="tiff"))
-        self.ui.actionSaveStackPickle.triggered.connect(lambda: self.stack_controller.save_selected_stack(index=self.stack_view_model._selected_stack_index(), format="pickle"))
-        self.ui.actionExit.triggered.connect(self.close)
+        self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model.selected_stack_id()))
+        self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model.selected_stack_id()))
+        self.ui.actionSaveStackTIFF.triggered.connect(lambda: self.stack_controller.save_selected_stack(self.stack_view_model.selected_stack_id(), format="tiff"))
+        self.ui.actionSaveStackPickle.triggered.connect(lambda: self.stack_controller.save_selected_stack(self.stack_view_model.selected_stack_id(), format="pickle"))
+        self.ui.actionClearAllStacks.triggered.connect(self.stack_controller.clear_all_stacks)
 
         # --------------------------------------------------------------
         # Mask list: ViewModel + Controller  (creates before ROI because
@@ -177,6 +177,7 @@ class MainWindow(QMainWindow):
         self.ui.actionExportCurve.triggered.connect(lambda: self.curve_controller.export_curve_dialog(space="pixel", normalize=self.curve_view_model.normalize))
         self.slice_controller.sliceChanged.connect(self.curve_view_model.set_current_slice)
         self.ui.actionSaveView.triggered.connect(lambda: self.plot_view_model.view_standalone(normalize=self.curve_view_model.normalize))
+        self.ui.actionSaveSliceView.triggered.connect(self.plot_view_model.view_current_slice)
         
         # --------------------------------------------------------------
         # Processing: Controller only (no viewmodel, no UI widgets)

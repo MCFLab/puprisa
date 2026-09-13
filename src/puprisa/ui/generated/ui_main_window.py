@@ -16,11 +16,11 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel,
-    QListWidget, QListWidgetItem, QMainWindow, QMenu,
-    QMenuBar, QPushButton, QSizePolicy, QSlider,
-    QSplitter, QStatusBar, QTabWidget, QVBoxLayout,
-    QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QComboBox, QHBoxLayout,
+    QLabel, QListWidget, QListWidgetItem, QMainWindow,
+    QMenu, QMenuBar, QPushButton, QSizePolicy,
+    QSlider, QSplitter, QStatusBar, QTabWidget,
+    QVBoxLayout, QWidget)
 
 from puprisa.ui.widgets.mpl_canvas import MatplotlibFigureCanvas
 from puprisa.ui.widgets.scrollable_graphics_view import ScrollableGraphicsView
@@ -33,8 +33,6 @@ class Ui_MainWindow(object):
         MainWindow.setTabShape(QTabWidget.TabShape.Rounded)
         self.actionOpenStack = QAction(MainWindow)
         self.actionOpenStack.setObjectName(u"actionOpenStack")
-        self.actionExit = QAction(MainWindow)
-        self.actionExit.setObjectName(u"actionExit")
         self.actionStandardDeviation = QAction(MainWindow)
         self.actionStandardDeviation.setObjectName(u"actionStandardDeviation")
         self.actionFullRange = QAction(MainWindow)
@@ -109,6 +107,10 @@ class Ui_MainWindow(object):
         self.actionExportROI.setObjectName(u"actionExportROI")
         self.actionMaskZeroPixels = QAction(MainWindow)
         self.actionMaskZeroPixels.setObjectName(u"actionMaskZeroPixels")
+        self.actionClearAllStacks = QAction(MainWindow)
+        self.actionClearAllStacks.setObjectName(u"actionClearAllStacks")
+        self.actionSaveSliceView = QAction(MainWindow)
+        self.actionSaveSliceView.setObjectName(u"actionSaveSliceView")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.horizontalLayout_6 = QHBoxLayout(self.centralwidget)
@@ -180,6 +182,9 @@ class Ui_MainWindow(object):
 
         self.stackListWidget = QListWidget(self.centralwidget)
         self.stackListWidget.setObjectName(u"stackListWidget")
+        self.stackListWidget.setDragEnabled(True)
+        self.stackListWidget.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.stackListWidget.setDefaultDropAction(Qt.DropAction.MoveAction)
 
         self.managerVLayout.addWidget(self.stackListWidget)
 
@@ -352,10 +357,11 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.actionSaveStackTIFF)
         self.menuFile.addAction(self.actionSaveStackPickle)
         self.menuFile.addSeparator()
-        self.menuFile.addAction(self.actionExit)
+        self.menuFile.addAction(self.actionClearAllStacks)
         self.menuView.addAction(self.menuColormap.menuAction())
         self.menuView.addAction(self.menuColorbarScale.menuAction())
         self.menuView.addSeparator()
+        self.menuView.addAction(self.actionSaveSliceView)
         self.menuView.addAction(self.actionSaveView)
         self.menuColorbarScale.addAction(self.actionStandardDeviation)
         self.menuColorbarScale.addAction(self.actionFullRange)
@@ -405,7 +411,6 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"Main Window", None))
         self.actionOpenStack.setText(QCoreApplication.translate("MainWindow", u"Open Stack", None))
-        self.actionExit.setText(QCoreApplication.translate("MainWindow", u"Exit", None))
         self.actionStandardDeviation.setText(QCoreApplication.translate("MainWindow", u"Standard Deviation", None))
         self.actionFullRange.setText(QCoreApplication.translate("MainWindow", u"Full Range", None))
         self.actionCustomRange.setText(QCoreApplication.translate("MainWindow", u"Custom Range...", None))
@@ -442,6 +447,8 @@ class Ui_MainWindow(object):
         self.actionSpectrum.setText(QCoreApplication.translate("MainWindow", u"Calculate Spectrum...", None))
         self.actionExportROI.setText(QCoreApplication.translate("MainWindow", u"Export ROI...", None))
         self.actionMaskZeroPixels.setText(QCoreApplication.translate("MainWindow", u"Mask Zero-Valued Pixels", None))
+        self.actionClearAllStacks.setText(QCoreApplication.translate("MainWindow", u"Clear All Stacks", None))
+        self.actionSaveSliceView.setText(QCoreApplication.translate("MainWindow", u"Save Slice View...", None))
         self.sliceNumberLabel.setText(QCoreApplication.translate("MainWindow", u"Slice", None))
         self.axisLabel.setText(QCoreApplication.translate("MainWindow", u"AxisLabel", None))
         self.stackMgrLabel.setText(QCoreApplication.translate("MainWindow", u"Multi Stack Manager", None))

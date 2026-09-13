@@ -16,7 +16,7 @@ import numpy as np
 import matplotlib.colors as mcolors
 from matplotlib.axes import Axes
 
-from puprisa.core.visualize import render_phasor_rgba, render_projection_rgb, universal_semicircle
+from puprisa.core.visualize import plot_phasor_hist1d, render_phasor_rgba, render_projection_rgb, universal_semicircle
 from puprisa.model.entities import RoiItem, StackItem
 from puprisa.model.mask_manager import MaskEvent, MaskManager
 from puprisa.model.plot_manager import PlotEvent, PlotManager
@@ -297,15 +297,43 @@ class PhasorPlotViewModel(QObject):
         """Open a standalone Matplotlib figure containing only the phasor plot."""
         import matplotlib.pyplot as plt
 
-        fig, ax_phasor = plt.subplots(
-            1, 1,
-            figsize=(5, 5),
-            layout="constrained",
-        )
-
+        fig, ax_phasor = plt.subplots(1, 1, figsize=(5, 5), layout="constrained")
         self._draw_phasor_plot(ax_phasor, draw_roi=False)
         fig.show()
 
+    def view_phasor_hist1d(self) -> None:
+        """Open a standalone figure with g and s histograms.
+
+        All currently visible time-axis stacks are drawn with their stack
+        colours so the distributions can be compared.
+        """
+        import matplotlib.pyplot as plt
+
+        visible_items = [
+            item for item in self._stack_manager.get_all_items()
+            if item.visible and item.pps.axis_type == "time"
+        ]
+        if not visible_items:
+            return
+
+        fig, (ax_g, ax_s) = plt.subplots(1, 2, figsize=(10, 4), layout="constrained")
+        
+        for stack_item in visible_items:
+            coords = self._get_or_compute_phasor_coords(stack_item)
+            if coords is None:
+                continue
+            plot_phasor_hist1d(
+                stack_item.pps,
+                freq=self.frequency,
+                use_mask=True,
+                axs=(ax_g, ax_s),
+                bins=self._density_size,
+                color=stack_item.color,
+                alpha=0.55,
+                label=stack_item.name or stack_item.id
+            )
+
+        fig.show()
 
     def view_standalone(self, normalize: bool = False) -> None:
         """Open a standalone Matplotlib figure with phasor, spatial, and ROI curves.

@@ -116,7 +116,17 @@
        </widget>
       </item>
       <item>
-       <widget class="QListWidget" name="stackListWidget"/>
+       <widget class="QListWidget" name="stackListWidget">
+        <property name="dragEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="dragDropMode">
+         <enum>QAbstractItemView::DragDropMode::InternalMove</enum>
+        </property>
+        <property name="defaultDropAction">
+         <enum>Qt::DropAction::MoveAction</enum>
+        </property>
+       </widget>
       </item>
       <item>
        <layout class="QHBoxLayout" name="stackHLayout">
@@ -295,7 +305,7 @@
     <addaction name="actionSaveStackTIFF"/>
     <addaction name="actionSaveStackPickle"/>
     <addaction name="separator"/>
-    <addaction name="actionExit"/>
+    <addaction name="actionClearAllStacks"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -321,6 +331,7 @@
     <addaction name="menuColormap"/>
     <addaction name="menuColorbarScale"/>
     <addaction name="separator"/>
+    <addaction name="actionSaveSliceView"/>
     <addaction name="actionSaveView"/>
    </widget>
    <widget class="QMenu" name="menuProcess">
@@ -403,11 +414,6 @@
   <action name="actionOpenStack">
    <property name="text">
     <string>Open Stack</string>
-   </property>
-  </action>
-  <action name="actionExit">
-   <property name="text">
-    <string>Exit</string>
    </property>
   </action>
   <action name="actionStandardDeviation">
@@ -594,6 +600,16 @@
   <action name="actionMaskZeroPixels">
    <property name="text">
     <string>Mask Zero-Valued Pixels</string>
+   </property>
+  </action>
+  <action name="actionClearAllStacks">
+   <property name="text">
+    <string>Clear All Stacks</string>
+   </property>
+  </action>
+  <action name="actionSaveSliceView">
+   <property name="text">
+    <string>Save Slice View...</string>
    </property>
   </action>
  </widget>

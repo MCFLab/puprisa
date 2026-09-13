@@ -84,7 +84,7 @@ class Ui_AboutDialog(object):
         self.label.setText(QCoreApplication.translate("AboutDialog", u"Icon", None))
         self.label_2.setText(QCoreApplication.translate("AboutDialog", u"PUPRISA", None))
         self.label_3.setText(QCoreApplication.translate("AboutDialog", u"Pump Probe Image Stack Analysis (PUPRISA)", None))
-        self.label_4.setText(QCoreApplication.translate("AboutDialog", u"Version 1.0.0 (Build 2026.09)", None))
+        self.label_4.setText(QCoreApplication.translate("AboutDialog", u"Version 1.0.2 (Build 2026.09)", None))
         self.label_5.setText(QCoreApplication.translate("AboutDialog", u"Copyright \u00a9 Warren Lab, Duke University", None))
     # retranslateUi
 

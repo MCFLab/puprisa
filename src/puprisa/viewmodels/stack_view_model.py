@@ -37,6 +37,7 @@ class StackViewModel(QObject):
         self._list_widget.currentRowChanged.connect(self._on_row_changed)
         self._list_widget.itemChanged.connect(self._on_item_changed)
         self._list_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self._list_widget.model().rowsMoved.connect(self._on_rows_moved)
         
         # Initial population
         self._rebuild()
@@ -50,6 +51,8 @@ class StackViewModel(QObject):
         elif event.event == "removed":
             self._rebuild()
         elif event.event == "renamed":
+            self._rebuild()
+        elif event.event == "reordered":
             self._rebuild()
         elif event.event == "color_changed":
             self._rebuild()
@@ -66,7 +69,19 @@ class StackViewModel(QObject):
     def _on_row_changed(self, row: int) -> None:
         """User clicked a row: tell the model to switch current stack."""
         if row >= 0:
-            self._manager.switch_stack(row)
+            item = self._list_widget.item(row)
+            stack_id = item.data(Qt.ItemDataRole.UserRole)
+            self._manager.switch_stack(stack_id)
+
+    def _on_rows_moved(self, parent, start, end, destination, row):
+        stack_ids = [
+            self._list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+            for i in range(self._list_widget.count())
+        ]
+        try:
+            self._manager.reorder_stacks(stack_ids)
+        except ValueError:
+            self._rebuild()
 
     def _on_item_changed(self, item: QListWidgetItem) -> None:
         """User toggled a checkbox: tell the model."""
@@ -120,10 +135,9 @@ class StackViewModel(QObject):
             Qt.ItemFlag.ItemIsUserCheckable
             | Qt.ItemFlag.ItemIsSelectable
             | Qt.ItemFlag.ItemIsEnabled
+            | Qt.ItemFlag.ItemIsDragEnabled
         )
-        item.setCheckState(
-            Qt.CheckState.Checked if stack_item.visible else Qt.CheckState.Unchecked
-        )
+        item.setCheckState(Qt.CheckState.Checked if stack_item.visible else Qt.CheckState.Unchecked)
 
         qcolor = _matplotlib_color_to_qt(stack_item.color)
         pixmap = QPixmap(12, 12)
@@ -135,5 +149,6 @@ class StackViewModel(QObject):
     # ------------------------------------------------------------------
     # Widget query helpers
     # ------------------------------------------------------------------
-    def _selected_stack_index(self) -> int:
-        return self._list_widget.currentRow()
+    def selected_stack_id(self) -> str | None:
+        item = self._list_widget.currentItem()
+        return item.data(Qt.ItemDataRole.UserRole) if item else None

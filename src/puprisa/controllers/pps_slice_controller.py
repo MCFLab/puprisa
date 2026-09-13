@@ -46,21 +46,24 @@ class PPSSliceController(QObject):
         item = event.stack_item
         pps = item.pps if item else None
         if pps is None or len(pps.images) == 0:
-            self._slider.setEnabled(False)
-            self._slider.setMaximum(0)
-            self._slider.setValue(0)
+            with QSignalBlocker(self._slider):
+                self._slider.setEnabled(False)
+                self._slider.setMaximum(0)
+                self._slider.setValue(0)
             self._slice_label.setText("Slice")
-            self._axis_label.setText("")
+            self._axis_label.setText("AxisLabel")
             self._current_slice = 0
             self.sliceChanged.emit(0)
             return
 
+        new_slice = self._current_slice if self._current_slice < len(pps.images) else 0
         with QSignalBlocker(self._slider):
             self._slider.setEnabled(True)
             self._slider.setMaximum(len(pps.images) - 1)
-            self._slider.setValue(0)
-        self._current_slice = 0
+            self._slider.setValue(new_slice)
+        self._current_slice = new_slice
         self._update_labels()
+        self.sliceChanged.emit(new_slice)
 
     # ------------------------------------------------------------------
     # View -> Model
@@ -74,8 +77,6 @@ class PPSSliceController(QObject):
         if new_slice != self._current_slice:
             self._current_slice = new_slice
             self._slider.setValue(new_slice)
-            self._update_labels()
-            self.sliceChanged.emit(new_slice)
 
     def _on_slider_changed(self, value: int) -> None:
         current_item = self._stack_manager.get_current_item()

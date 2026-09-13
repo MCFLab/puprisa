@@ -331,7 +331,11 @@ class RoiManager:
         return color
 
     def _default_label(self, roi_id: str, stack_id: str) -> str:
-        return f"{roi_id} in {stack_id}"
+        stack_item = self._stack_manager.get_item_by_id(stack_id)
+        if stack_item is not None and stack_item.name is not None:
+            return f"{roi_id} in {stack_item.name}"
+        else:
+            return f"{roi_id} in {stack_id}"
 
     @staticmethod
     def _params_equal(a: dict, b: dict) -> bool:

@@ -50,9 +50,12 @@ class PhasorWindow(QMainWindow):
 
         self.stack_view_model.colorChangeRequested.connect(self.stack_controller.change_stack_color)
         self.ui.stackAddButton.clicked.connect(self.stack_controller.open_stack_dialog)
-        self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model._selected_stack_index()))
-        self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model._selected_stack_index()))
+        self.ui.stackRenameButton.clicked.connect(lambda: self.stack_controller.rename_selected_stack(self.stack_view_model.selected_stack_id()))
+        self.ui.stackDeleteButton.clicked.connect(lambda: self.stack_controller.delete_selected_stack(self.stack_view_model.selected_stack_id()))
+        self.ui.actionSaveStackTIFF.triggered.connect(lambda: self.stack_controller.save_selected_stack(self.stack_view_model.selected_stack_id(), format="tiff"))
+        self.ui.actionSaveStackPickle.triggered.connect(lambda: self.stack_controller.save_selected_stack(self.stack_view_model.selected_stack_id(), format="pickle"))
         self.ui.actionOpenStack.triggered.connect(self.stack_controller.open_stack_dialog)
+        self.ui.actionClearAllStacks.triggered.connect(self.stack_controller.clear_all_stacks)
 
         # --------------------------------------------------------------
         # Mask list
@@ -97,8 +100,8 @@ class PhasorWindow(QMainWindow):
             parent_widget=self,
         )
 
-        self.ui.actionAlphaRange.triggered.connect(self.plot_controller.show_phasor_alpha_dialog)
-        self.ui.actionHistogramBin.triggered.connect(self.plot_controller.show_phasor_histogram_bin_dialog)
+        self.ui.actionPhasorAlphaRange.triggered.connect(self.plot_controller.show_phasor_alpha_dialog)
+        self.ui.actionPhasorBin.triggered.connect(self.plot_controller.show_phasor_histogram_bin_dialog)
         self.frequency_controller.frequencyChanged.connect(self.phasor_plot_view_model.set_frequency)
         self.phasor_plot_view_model.set_frequency(self.frequency_controller.frequency())
         self.ui.phasorGraphicsView.wheelSliceChanged.connect(self.frequency_controller.change_frequency_by_delta)
@@ -162,6 +165,7 @@ class PhasorWindow(QMainWindow):
         # View menu / fit on show and resize
         # --------------------------------------------------------------
         self.ui.actionSavePhasorView.triggered.connect(self.phasor_plot_view_model.view_phasor)
+        self.ui.actionSaveHistogramView.triggered.connect(self.phasor_plot_view_model.view_phasor_hist1d)
         self.ui.actionSaveView.triggered.connect(self.phasor_plot_view_model.view_standalone)
 
         # --------------------------------------------------------------

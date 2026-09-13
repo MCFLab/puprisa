@@ -12,8 +12,8 @@ from puprisa.utils.color_utils import PHASOR_COLORS
 class StackEvent:
     """Emitted whenever stack collection or metadata changes."""
 
-    event: str                   # "added" / "removed" / "renamed" / "color_changed" /
-                                # "visibility_changed" / "current_changed"
+    event: str                  # "added" / "removed" / "renamed" / "reordered" /
+                                # "visibility_changed" / "current_changed" / "color_changed"
     stack_id: str | None = None
     stack_item: StackItem | None = None
 
@@ -24,7 +24,7 @@ class StackManager:
     def __init__(self):
         self._items: list[StackItem] = []
         self._listeners: list[Callable[[StackEvent], None]] = []
-        self._current_index: int = -1
+        self._current_id: str | None = None
         self._id_counter: int = 0
         self._color_index: int = 0
 
@@ -53,39 +53,43 @@ class StackManager:
             stack_id, pps, name=name, color=self._next_color()
         )
         self._items.append(item)
-        self._current_index = len(self._items) - 1
+        self._current_id = stack_id
 
         self._notify(StackEvent(event="added", stack_id=stack_id, stack_item=item))
         self._notify(StackEvent(event="current_changed", stack_id=stack_id, stack_item=item))
         return stack_id
 
-    def delete_stack(self, index: int) -> str:
-        """Delete a stack by list index."""
-        if not 0 <= index < len(self._items):
-            raise IndexError(f"Index out of range: {index}")
-
-        item = self._items.pop(index)
-        was_current = self._current_index == index
-
-        if was_current:
-            self._current_index = min(index, len(self._items) - 1)
-        elif self._current_index > index:
-            self._current_index -= 1
-
+    def delete_stack(self, stack_id: str) -> str:
+        """Delete a stack by ID and return the ID of the deleted stack."""
+        item = self.get_item_by_id(stack_id)
+        if item is None:
+            raise KeyError(f"Unknown stack_id: {stack_id!r}")
+        # Find the original index of the item to be removed
+        original_index = self.get_index_by_id(stack_id)
+        # Remove the item from the list
+        self._items.pop(original_index)
+        # Check if the removed item was the current stack
+        was_current = self._current_id == stack_id
         self._notify(StackEvent(event="removed", stack_id=item.id, stack_item=item))
-
+        # If the removed item was the current stack, update the current stack
         if was_current:
-            current = self.get_current_item()
-            self._notify(StackEvent(event="current_changed", stack_id=current.id if current else None, stack_item=current))
+            # If there are still items left, set the current stack to the next item in the list
+            if self._items:
+                new_index = min(original_index, len(self._items) - 1)
+                self._current_id = self._items[new_index].id
+            else: # If the list is now empty, set the current stack to None
+                self._current_id = None
+            self._notify(StackEvent(event="current_changed", stack_id=self._current_id, stack_item=self.get_current_item()))
         return item.id
 
-    def rename_stack(self, index: int, new_name: str) -> None:
-        if not 0 <= index < len(self._items):
-            raise IndexError(f"Index out of range: {index}")
+    def rename_stack(self, stack_id: str, new_name: str) -> None:
+        """Rename a stack by ID."""
+        item = self.get_item_by_id(stack_id)
+        if item is None:
+            raise KeyError(f"Unknown stack_id: {stack_id!r}")
         new_name = new_name.strip()
         if not new_name:
-            raise ValueError("Stack name cannot be empty")
-        item = self._items[index]
+            raise ValueError("Stack name cannot be empty.")
         item.name = new_name
         self._notify(StackEvent(event="renamed", stack_id=item.id, stack_item=item))
 
@@ -105,16 +109,27 @@ class StackManager:
         item.visible = visible
         self._notify(StackEvent(event="visibility_changed", stack_id=stack_id, stack_item=item))
 
-    def switch_stack(self, index: int) -> None:
-        if 0 <= index < len(self._items):
-            if self._current_index == index:
+    def switch_stack(self, stack_id: str | None) -> None:
+        """Switch the current stack to the one identified by ``stack_id``."""
+        if stack_id is not None:
+            item = self.get_item_by_id(stack_id)
+            if item is None:
+                raise KeyError(f"Unknown stack_id: {stack_id!r}")
+            if self._current_id == stack_id:
                 return
-            self._current_index = index
-            item = self._items[index]
+            self._current_id = stack_id
         else:
-            self._current_index = -1
+            self._current_id = None
             item = None
-        self._notify(StackEvent(event="current_changed", stack_id=item.id if item else None, stack_item=item))
+        self._notify(StackEvent(event="current_changed", stack_id=stack_id, stack_item=item))
+
+    def reorder_stacks(self, stack_ids: list[str]) -> None:
+        """Reorder stack items in place to match the given stack IDs."""
+        if set(stack_ids) != {item.id for item in self._items}:
+            raise ValueError("stack_ids must contain exactly the current stack IDs")
+        rank = {stack_id: i for i, stack_id in enumerate(stack_ids)}
+        self._items.sort(key=lambda item: rank[item.id])
+        self._notify(StackEvent(event="reordered", stack_id=self._current_id, stack_item=self.get_current_item()))
 
     def save_stack(self, stack_id: str, path, format: str) -> None:
         """Save the stack identified by ``stack_id`` using the requested format."""
@@ -123,13 +138,21 @@ class StackManager:
             raise KeyError(f"Unknown stack_id: {stack_id!r}")
         item.pps.save(path, format=format)
 
+    def clear_all_stacks(self) -> None:
+        """Remove all stacks."""
+        if not self._items:
+            return
+        while self._items:
+            item = self._items.pop()
+            self._notify(StackEvent(event="removed", stack_id=item.id, stack_item=item))
+        self._current_id = None
+        self._notify(StackEvent(event="current_changed", stack_id=None, stack_item=None))
+
     # ------------------------------------------------------------------
     # Queries
     # ------------------------------------------------------------------ 
     def get_current_item(self) -> StackItem | None:
-        if 0 <= self._current_index < len(self._items):
-            return self._items[self._current_index]
-        return None
+        return self.get_item_by_id(self._current_id) if self._current_id is not None else None
 
     def get_current_pps(self) -> PPS | None:
         item = self.get_current_item()
@@ -139,6 +162,9 @@ class StackManager:
         item = self.get_current_item()
         return item.id if item else None
 
+    def get_index_by_id(self, stack_id: str) -> int | None:
+        return next((i for i, s in enumerate(self._items) if s.id == stack_id), None)
+    
     def get_item_by_id(self, stack_id: str) -> StackItem | None:
         return next((s for s in self._items if s.id == stack_id), None)
 
