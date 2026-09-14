@@ -141,8 +141,10 @@ class RoiController(QObject):
     def _handle_edit_copy_all(self, source_roi: RoiItem, params: dict) -> None:
         """Create a new ROI on every available stack with the same parameters."""
         try:
-            stack_ids = self._stack_manager.get_all_stack_ids()
-            for sid in stack_ids:
+            self._roi_manager.update_params(source_roi.id, params)
+            all_stack_ids = self._stack_manager.get_all_stack_ids()
+            other_stack_ids = [sid for sid in all_stack_ids if sid != source_roi.stack_id]
+            for sid in other_stack_ids:
                 self._roi_manager.add_roi(
                     stack_id=sid,
                     space=source_roi.space,
