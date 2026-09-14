@@ -106,15 +106,9 @@ class RoiController(QObject):
             QMessageBox.warning(self._parent, "Edit ROI", "ROI not found.")
             return
         dialog = EditRoiDialog(roi, parent=self._parent)
-        dialog.okClicked.connect(
-            lambda params, rid=roi_id: self._handle_edit_ok(rid, params)
-        )
-        dialog.copyClicked.connect(
-            lambda params, r=roi: self._handle_edit_copy(r, params)
-        )
-        dialog.copyAllClicked.connect(
-            lambda params, r=roi: self._handle_edit_copy_all(r, params)
-        )
+        dialog.okClicked.connect(lambda params, rid=roi_id: self._handle_edit_ok(rid, params))
+        dialog.copyClicked.connect(lambda params, r=roi: self._handle_edit_copy(r, params))
+        dialog.copyAllClicked.connect(lambda params, r=roi: self._handle_edit_copy_all(r, params))
         dialog.exec()
 
     # ------------------------------------------------------------------
@@ -165,20 +159,11 @@ class RoiController(QObject):
         if stack_id is None:
             QMessageBox.warning(self._parent, "Import ROIs for Current Stack", "Please select a stack first.")
             return
-        path, _ = QFileDialog.getOpenFileName(
-            self._parent,
-            "Import ROIs for Current Stack",
-            "",
-            "JSON (*.json);;All Files (*)",
-        )
+        path, _ = QFileDialog.getOpenFileName(self._parent, "Import ROIs for Current Stack", "", "JSON (*.json);;All Files (*)")
         if not path:
             return
         try:
-            new_ids = self._roi_manager.import_rois_from_json(
-                path,
-                stack_id=stack_id,
-                space=self._space,
-            )
+            new_ids = self._roi_manager.import_rois_from_json(path, stack_id=stack_id, space=self._space)
             QMessageBox.information(
                 self._parent,
                 "Import ROIs for Current Stack",

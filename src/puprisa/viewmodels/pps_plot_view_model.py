@@ -212,9 +212,15 @@ class PPSPlotViewModel(QObject):
 
     def _clear(self) -> None:
         self._current_slice = 0
+        self._last_pixmap_size = None
+
         if self._pixmap_item is not None:
             self._scene.removeItem(self._pixmap_item)
             self._pixmap_item = None
+
+        if self._colorbar is not None:
+            self._colorbar.figure.clear()
+            self._colorbar.draw_idle()
 
     # ------------------------------------------------------------------
     # Standalone view

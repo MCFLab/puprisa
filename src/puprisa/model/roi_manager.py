@@ -5,6 +5,7 @@ from typing import Callable
 from pathlib import Path
 import json
 import numpy as np
+from copy import deepcopy
 
 from puprisa.model.entities import RoiItem, StackItem
 from puprisa.model.mask_manager import MaskManager
@@ -134,7 +135,7 @@ class RoiManager:
             stack_id=stack_id,
             space=space,
             shape=shape,
-            params=params,
+            params=deepcopy(params),
             label=label or self._default_label(roi_id, stack_id),
             color=color or self._next_color(),
             visible=visible and stack_item.visible
@@ -150,7 +151,7 @@ class RoiManager:
         roi = self.get_roi_by_id(roi_id)
         if roi is None or self._params_equal(roi.params, params):
             return
-        roi.params = params
+        roi.params = deepcopy(params)
         self._notify(RoiEvent(event="params_changed", roi_id=roi.id, roi=roi, stack_id=roi.stack_id))
 
     def update_label(self, roi_id: str, label: str) -> None:

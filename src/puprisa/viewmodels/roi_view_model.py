@@ -21,7 +21,6 @@ from puprisa.viewmodels.roi_scene_bridge import RoiSceneBridge
 class RoiViewModel(QObject):
     """Synchronize RoiManager state with a list widget and scene."""
 
-    roiSelectionChanged = Signal(str)          # roi_id | ""
     colorChangeRequested = Signal(str)          # roi_id
 
     def __init__(
@@ -181,7 +180,6 @@ class RoiViewModel(QObject):
                 self._list_widget.addItem(item)
                 if roi.id == selected_id:
                     self._list_widget.setCurrentItem(item)
-        self.roiSelectionChanged.emit(selected_id or "")
 
     @staticmethod
     def _make_item(roi: RoiItem) -> QListWidgetItem:

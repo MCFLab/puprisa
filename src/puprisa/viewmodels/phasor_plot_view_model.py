@@ -87,7 +87,7 @@ class PhasorPlotViewModel(QObject):
     # Model event handlers
     # ------------------------------------------------------------------
     def _on_stack_event(self, event: StackEvent) -> None:
-        if event.event in ("added", "removed", "visibility_changed"):
+        if event.event in ("added", "removed", "visibility_changed", "color_changed", "reordered"):
             self.refresh_density()
         if event.event == "current_changed":
             self.refresh_spatial_view()
@@ -158,6 +158,7 @@ class PhasorPlotViewModel(QObject):
 
     def refresh_spatial_view(self) -> None:
         self.spatial_scene.clear()
+        self._spatial_pixmap_item = None
 
         current_item = self._stack_manager.get_current_item()
         if current_item is None:

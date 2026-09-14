@@ -164,9 +164,7 @@ class ProcessingManager:
         """
         first = self._get_stack_item(first_stack_id)
         first_coefficient = float(first_coefficient)
-        if not np.isfinite(first_coefficient):
-            raise ValueError("Stack 1 coefficient must be finite")
-
+        
         if operation == "multiply":
             new_pps = first.pps * first_coefficient
             generated_name = f"{first_coefficient:.2f} x {first.name}"
