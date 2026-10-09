@@ -157,6 +157,7 @@ class PhasorWindow(QMainWindow):
         )
 
         self.ui.actionNormalizeCurve.toggled.connect(self.curve_view_model.set_normalize)
+        self.ui.actionNormalizeOption.triggered.connect(self.curve_controller.open_normalize_option_dialog)
         self.ui.actionCurveFit.triggered.connect(lambda: self.curve_controller.open_fit_dialog(space="phasor", normalize=self.curve_view_model.normalize))
         self.ui.actionViewCurve.triggered.connect(lambda: self.curve_controller.view_standalone(space="phasor", normalize=self.curve_view_model.normalize))
         self.ui.actionExportCurve.triggered.connect(lambda: self.curve_controller.export_curve_dialog(space="phasor", normalize=self.curve_view_model.normalize))
@@ -166,7 +167,7 @@ class PhasorWindow(QMainWindow):
         # --------------------------------------------------------------
         self.ui.actionSavePhasorView.triggered.connect(self.phasor_plot_view_model.view_phasor)
         self.ui.actionSaveHistogramView.triggered.connect(self.phasor_plot_view_model.view_phasor_hist1d)
-        self.ui.actionSaveView.triggered.connect(self.phasor_plot_view_model.view_standalone)
+        self.ui.actionSaveView.triggered.connect(lambda: self.phasor_plot_view_model.view_standalone(normalize=self.curve_view_model.normalize))
 
         # --------------------------------------------------------------
         # Help menu

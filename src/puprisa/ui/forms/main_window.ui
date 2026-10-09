@@ -395,6 +395,8 @@
      <string>Curve</string>
     </property>
     <addaction name="actionNormalizeCurve"/>
+    <addaction name="actionNormalizeOption"/>
+    <addaction name="separator"/>
     <addaction name="actionCurveFit"/>
     <addaction name="actionSpectrum"/>
     <addaction name="separator"/>
@@ -610,6 +612,11 @@
   <action name="actionSaveSliceView">
    <property name="text">
     <string>Save Slice View...</string>
+   </property>
+  </action>
+  <action name="actionNormalizeOption">
+   <property name="text">
+    <string>Normalize Option</string>
    </property>
   </action>
  </widget>

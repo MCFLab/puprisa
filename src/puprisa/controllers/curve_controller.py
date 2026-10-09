@@ -1,9 +1,10 @@
 # puprisa/controllers/curve_controller.py
 """Qt controller for curve-related user actions."""
 from PySide6.QtCore import QObject, Qt
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
+from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget, QDialog
 
 from puprisa.model.stack_manager import StackManager
+from puprisa.ui.dialogs.normalize_curve import NormalizeOptionDialog
 from puprisa.ui.dialogs.spectrum import SpectrumDialog
 from puprisa.utils.curve_plot_utils import draw_roi_curves
 from shiboken6 import isValid
@@ -28,6 +29,27 @@ class CurveController(QObject):
         self._parent = parent_widget
         self._fit_dialog: CurveFitDialog | None = None
         self._spectrum_dialog: SpectrumDialog | None = None
+
+    # ------------------------------------------------------------------
+    # Normalize Curve
+    # ------------------------------------------------------------------
+    def open_normalize_option_dialog(self) -> None:
+        current_item = self._stack_manager.get_current_item()
+        if current_item is None:
+            QMessageBox.warning(self._parent, "Normalize Curve", "Please select a stack first.")
+            return
+        pps = current_item.pps
+
+        dialog = NormalizeOptionDialog(
+            axis_values=pps.get_axis_values(),
+            axis_unit=pps.get_axis_unit(),
+            axis_symbol="t" if pps.axis_type == "time" else "z",
+            normalize_option=self._curve_manager.normalize_option,
+            parent=self._parent,
+        )
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._curve_manager.set_normalize_option(dialog.get_normalize_option())
 
     # ------------------------------------------------------------------
     # Export Curve

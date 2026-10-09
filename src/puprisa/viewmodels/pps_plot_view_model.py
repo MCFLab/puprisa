@@ -330,9 +330,7 @@ class PPSPlotViewModel(QObject):
         # --------- 2. ROI average curves panel ---------
         curves = []
         if self._curve_manager is not None:
-            curves = self._curve_manager.compute_curves(
-                space="pixel", normalize=normalize
-            )
+            curves = self._curve_manager.compute_curves(space="pixel", normalize=normalize)
         axis_values = pps.get_axis_values()
         slice_x = None
         if 0 <= current_slice < len(axis_values):

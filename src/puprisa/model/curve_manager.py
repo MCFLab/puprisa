@@ -15,7 +15,7 @@ from puprisa.model.stack_manager import StackManager
 @dataclass(frozen=True)
 class CurveEvent:
     """Emitted after curves are computed."""
-    event: str                   # "computed"
+    event: str                   # "computed" | "normalize_option_changed"
     curve_count: int = 0
 
 
@@ -31,6 +31,21 @@ class CurveManager:
         self._stack_manager = stack_manager
         self._roi_manager = roi_manager
         self._listeners: list[Callable[[CurveEvent], None]] = []
+
+        self._normalize_option: str | int = "max"
+
+    # ------------------------------------------------------------------
+    # Normalization option
+    # ------------------------------------------------------------------
+    @property
+    def normalize_option(self) -> str | int:
+        return self._normalize_option
+    
+    def set_normalize_option(self, option: str | int) -> None:
+        if self._normalize_option == option:
+            return
+        self._normalize_option = option
+        self._notify(CurveEvent(event="normalize_option_changed"))
 
     # ------------------------------------------------------------------
     # Listener management
@@ -58,7 +73,8 @@ class CurveManager:
         space : str or None
             If given, only ROIs of this space are considered.
         normalize : bool
-            If True, each curve is scaled so its maximum absolute value is 1.
+            If True, normalize each curve using the manager's current
+            normalization option.
         """
         roi_items = self._roi_manager.get_analysis_visible_rois()
         if space is not None:
@@ -84,7 +100,15 @@ class CurveManager:
             x = pps.get_axis_values()
 
             if normalize:
-                max_abs = float(np.max(np.abs(signal)))
+                if self._normalize_option == "max":
+                    max_abs = float(np.max(np.abs(signal)))
+                elif isinstance(self._normalize_option, int):
+                    if 0 <= self._normalize_option < len(signal):
+                        max_abs = float(np.abs(signal[self._normalize_option]))
+                    else:
+                        raise ValueError(f"Invalid normalize option index: {self._normalize_option}")
+                else:
+                    raise ValueError("Invalid normalize_option")
                 if max_abs > 1e-12:
                     signal = signal / max_abs
 

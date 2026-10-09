@@ -171,6 +171,7 @@ class MainWindow(QMainWindow):
         )
 
         self.ui.actionNormalizeCurve.toggled.connect(self.curve_view_model.set_normalize)
+        self.ui.actionNormalizeOption.triggered.connect(self.curve_controller.open_normalize_option_dialog)
         self.ui.actionCurveFit.triggered.connect(lambda: self.curve_controller.open_fit_dialog(space="pixel", normalize=self.curve_view_model.normalize))
         self.ui.actionSpectrum.triggered.connect(lambda: self.curve_controller.open_spectrum_dialog(space="pixel"))
         self.ui.actionViewCurve.triggered.connect(lambda: self.curve_controller.view_standalone(space="pixel", normalize=self.curve_view_model.normalize))

@@ -94,8 +94,8 @@ class CurveViewModel(QObject):
     # Model event handlers
     # ------------------------------------------------------------------
     def _on_curve_event(self, event: CurveEvent) -> None:
-        if event.event == "computed":
-            pass
+        if event.event == "normalize_option_changed" and self._normalize:
+            self.refresh()
 
     def _on_roi_event(self, event: RoiEvent) -> None:
         self.refresh()

@@ -16,6 +16,8 @@ pyside6-uic ui\forms\mask_from_intensity_threshold_dialog.ui -o ui\generated\dia
 pyside6-uic ui\forms\mask_from_zero_pixels_dialog.ui -o ui\generated\dialog_mask_from_zero_pixels.py
 pyside6-uic ui\forms\mask_math_dialog.ui -o ui\generated\dialog_mask_math.py
 
+pyside6-uic ui\forms\normalize_option_dialog.ui -o ui\generated\dialog_normalize_option.py
+
 pyside6-uic ui\forms\edit_roi_dialog.ui -o ui\generated\dialog_edit_roi.py
 pyside6-uic ui\forms\curve_fit_dialog.ui -o ui\generated\dialog_curve_fit.py
 pyside6-uic ui\forms\spectrum_dialog.ui -o ui\generated\dialog_spectrum.py
